@@ -19,16 +19,18 @@ def chat(
     client = Client(host=host) if host else Client()
     messages: List[dict] = []
 
-    typer.echo("Chat started. Type 'exit' to quit.")
+    typer.secho("Chat started. Type 'exit' to quit.\n", fg=typer.colors.BRIGHT_GREEN)
+
     while True:
         try:
-            user_input = typer.prompt("You")
+            typer.secho("You:", fg=typer.colors.CYAN, bold=True)
+            user_input = input()
         except (EOFError, KeyboardInterrupt):
-            typer.echo("\nExiting.")
+            typer.secho("\nExiting.", fg=typer.colors.YELLOW)
             break
 
         if user_input.strip().lower() in {"exit", "quit", ":q"}:
-            typer.echo("Goodbye.")
+            typer.secho("Goodbye.", fg=typer.colors.YELLOW)
             break
 
         if not user_input.strip():
@@ -41,7 +43,7 @@ def chat(
                 model=model, messages=messages, stream=True
             )
             assistant_text = ""
-            print("Assistant: ", end="", flush=True)
+            typer.secho("\nAssistant:", fg=typer.colors.MAGENTA, bold=True)
 
             for chunk in response_stream:
                 if chunk.message and chunk.message.content:
@@ -49,7 +51,7 @@ def chat(
                     assistant_text += text
                     print(text, end="", flush=True)
 
-            print()  # newline after streaming finishes
+            print("\n")  # double newline after streaming finishes for spacing
             messages.append({"role": "assistant", "content": assistant_text})
         except Exception as e:
             typer.secho(f"Error: {e}", fg=typer.colors.RED)
