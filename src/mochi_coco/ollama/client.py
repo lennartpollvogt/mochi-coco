@@ -1,4 +1,4 @@
-from typing import Iterator, List, Dict, Optional, Any
+from typing import Iterator, List, Dict, Optional
 from dataclasses import dataclass
 
 from ollama import Client, list as ollama_list, ListResponse
@@ -12,7 +12,7 @@ class ChatMessage:
 
 @dataclass
 class ModelInfo:
-    name: str
+    name: str | None
     size_mb: float
     format: Optional[str] = None
     family: Optional[str] = None
