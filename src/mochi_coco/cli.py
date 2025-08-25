@@ -3,6 +3,7 @@ from typing import List, Optional
 import typer
 from .ollama import OllamaClient
 from .ui import ModelSelector
+from .chat import ChatSession
 
 app = typer.Typer()
 
@@ -27,10 +28,12 @@ def chat(
         typer.secho("No model selected. Exiting.", fg=typer.colors.YELLOW)
         return
 
-    # Start chat
-    messages: List[dict] = []
-    typer.secho(f"\n💬 Chat started with {selected_model}. Type '/exit' or '/quit' to quit.\n",
+    # Start chat session
+    session = ChatSession(model=selected_model)
+    typer.secho(f"\n💬 Chat started with {selected_model}",
                 fg=typer.colors.BRIGHT_GREEN)
+    typer.secho(f"Session ID: {session.session_id}", fg=typer.colors.CYAN)
+    typer.secho("Type 'exit' to quit.\n", fg=typer.colors.BRIGHT_GREEN)
 
     while True:
         try:
@@ -47,18 +50,18 @@ def chat(
         if not user_input.strip():
             continue
 
-        messages.append({"role": "user", "content": user_input})
+        session.add_message("user", user_input)
 
         try:
             assistant_text = ""
-            typer.secho("\nAssistant:", fg=typer.colors.MAGENTA, bold=True)
+            typer.secho("\nA:", fg=typer.colors.MAGENTA, bold=True)
 
-            for text_chunk in client.chat_stream(selected_model, messages):
+            for text_chunk in client.chat_stream(selected_model, session.get_messages_for_api()):
                 assistant_text += text_chunk
                 print(text_chunk, end="", flush=True)
 
             print("\n")  # double newline after streaming finishes for spacing
-            messages.append({"role": "assistant", "content": assistant_text})
+            session.add_message("assistant", assistant_text)
         except Exception as e:
             typer.secho(f"Error: {e}", fg=typer.colors.RED)
 
