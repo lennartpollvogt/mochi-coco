@@ -2,7 +2,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
 
 
@@ -10,7 +10,7 @@ from dataclasses import dataclass, asdict
 class Message:
     role: str
     content: str
-    timestamp: str = None
+    timestamp: str | None = None
 
     def __post_init__(self):
         if self.timestamp is None:
