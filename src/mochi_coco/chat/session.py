@@ -24,6 +24,7 @@ class SessionMetadata:
     created_at: str
     updated_at: str
     message_count: int = 0
+    context_window: Optional[int] = None
 
 
 class ChatSession:
@@ -54,12 +55,14 @@ class ChatSession:
         """Get the path to the session JSON file."""
         return self.sessions_dir / f"{self.session_id}.json"
 
-    def add_message(self, role: str, content: str) -> None:
+    def add_message(self, role: str, content: str, context_window: Optional[int] = None) -> None:
         """Add a message to the session."""
         message = Message(role=role, content=content)
         self.messages.append(message)
         self.metadata.message_count = len(self.messages)
         self.metadata.updated_at = datetime.now().isoformat()
+        if context_window is not None:
+            self.metadata.context_window = context_window
         self.save_session()
 
     def get_messages_for_api(self) -> List[Dict[str, str]]:

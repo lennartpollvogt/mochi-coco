@@ -47,18 +47,24 @@ class OllamaClient:
         except Exception as e:
             raise Exception(f"Failed to list models: {e}")
 
-    def chat_stream(self, model: str, messages: List[Dict[str, str]]) -> Iterator[str]:
-        """Stream chat responses from the model."""
+    def chat_stream(self, model: str, messages: List[Dict[str, str]]) -> Iterator[tuple[str, Optional[int]]]:
+        """
+        Stream chat responses from the model.
+        Yields tuples of (content, context_window) where context_window is None until the final chunk.
+        """
         try:
             response_stream = self.client.chat(
                 model=model,
                 messages=messages,
-                stream=True,
-                think=True,
+                stream=True
             )
 
             for chunk in response_stream:
                 if chunk.message and chunk.message.content:
-                    yield chunk.message.content
+                    # For streaming chunks, context_window is None
+                    yield chunk.message.content, None
+                elif hasattr(chunk, 'done') and chunk.done and hasattr(chunk, 'prompt_eval_count'):
+                    # Final chunk with metadata - yield empty content with context window
+                    yield "", chunk.prompt_eval_count
         except Exception as e:
             raise Exception(f"Chat failed: {e}")

@@ -76,14 +76,18 @@ def chat(
 
         try:
             assistant_text = ""
+            context_window = None
             typer.secho("\nA:", fg=typer.colors.MAGENTA, bold=True)
 
-            for text_chunk in client.chat_stream(selected_model, session.get_messages_for_api()):
-                assistant_text += text_chunk
-                print(text_chunk, end="", flush=True)
+            for text_chunk, chunk_context_window in client.chat_stream(selected_model, session.get_messages_for_api()):
+                if text_chunk:  # Only print non-empty content
+                    assistant_text += text_chunk
+                    print(text_chunk, end="", flush=True)
+                if chunk_context_window is not None:
+                    context_window = chunk_context_window
 
             print("\n")  # double newline after streaming finishes for spacing
-            session.add_message("assistant", assistant_text)
+            session.add_message("assistant", assistant_text, context_window)
         except Exception as e:
             typer.secho(f"Error: {e}", fg=typer.colors.RED)
 
