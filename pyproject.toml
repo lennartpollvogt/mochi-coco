@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
     "ollama>=0.5.3",
     "ollama-instructor>=1.1.0",
+    "rich>=13.0.0",
     "ruff>=0.12.10",
     "typer>=0.16.1",
 ]
