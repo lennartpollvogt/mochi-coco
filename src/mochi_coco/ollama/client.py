@@ -53,7 +53,8 @@ class OllamaClient:
             response_stream = self.client.chat(
                 model=model,
                 messages=messages,
-                stream=True
+                stream=True,
+                think=True,
             )
 
             for chunk in response_stream:
