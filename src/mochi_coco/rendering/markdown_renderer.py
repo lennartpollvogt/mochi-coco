@@ -126,8 +126,32 @@ class MarkdownRenderer:
 
         return accumulated_text, context_window
 
+    def render_static_text(self, text: str) -> None:
+        """
+        Render static text with optional markdown formatting.
 
+        Args:
+            text: The complete text to render
+        """
+        if self.mode == RenderingMode.PLAIN:
+            # Plain mode: just print normally
+            print(text)
+            return
 
+        # Markdown mode: process and render as markdown
+        if text.strip():
+            try:
+                # Preprocess to handle thinking blocks
+                processed_text = self._preprocess_thinking_blocks(text)
+                markdown = Markdown(processed_text)
+                self.console.print(markdown)
+            except Exception as e:
+                # Fallback to plain text
+                print(text)
+                print(f"Warning: Markdown rendering failed: {e}", file=sys.stderr)
+        else:
+            # Empty text, just print as-is
+            print(text)
 
     def set_mode(self, mode: RenderingMode) -> None:
         """

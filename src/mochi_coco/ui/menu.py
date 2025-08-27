@@ -2,11 +2,13 @@ from typing import List, Optional
 import typer
 from ..ollama.client import OllamaClient, ModelInfo
 from ..chat.session import ChatSession
+from ..rendering import MarkdownRenderer
 
 
 class ModelSelector:
-    def __init__(self, client: OllamaClient):
+    def __init__(self, client: OllamaClient, renderer: Optional[MarkdownRenderer] = None):
         self.client = client
+        self.renderer = renderer
 
     def display_models_table(self, models: List[ModelInfo]) -> None:
         """Display available models in a nice table format."""
@@ -205,10 +207,18 @@ class ModelSelector:
         for message in session.messages:
             if message.role == "user":
                 typer.secho("You:", fg=typer.colors.CYAN, bold=True)
-                typer.echo(message.content)
+                if self.renderer:
+                    self.renderer.render_static_text(message.content)
+                else:
+                    typer.echo(message.content)
             elif message.role == "assistant":
                 typer.secho("\nA:", fg=typer.colors.MAGENTA, bold=True)
-                typer.echo(message.content)
-            typer.echo()
+                if self.renderer:
+                    self.renderer.render_static_text(message.content)
+                else:
+                    typer.echo(message.content)
+
+            # Add consistent spacing after each message for readability
+            print()
 
         typer.echo("=" * 80)

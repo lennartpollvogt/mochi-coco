@@ -152,10 +152,85 @@ def greet(name):
     print("\n✅ Thinking block tests complete!")
 
 
+def test_static_text_rendering():
+    """Test that static text rendering works correctly for chat history display."""
+
+    print("\n" + "="*60)
+    print("TESTING STATIC TEXT RENDERING")
+    print("="*60)
+
+    print("\n1. Testing static text in PLAIN mode:")
+    print("-"*40)
+
+    renderer = MarkdownRenderer(mode=RenderingMode.PLAIN)
+
+    # Test plain text rendering
+    static_text = "This is plain text without formatting.\nIt should display as-is."
+    renderer.render_static_text(static_text)
+
+    print("-"*40)
+    print("Above should be plain text")
+
+    print("\n2. Testing static text in MARKDOWN mode:")
+    print("-"*40)
+
+    renderer.set_mode(RenderingMode.MARKDOWN)
+
+    # Test markdown text rendering
+    markdown_text = """# Previous Message
+
+This was a **previous assistant** response with:
+
+- Bullet points
+- *Italic text*
+
+```python
+def example():
+    return "formatted code"
+```
+
+Regular text continues here."""
+
+    renderer.render_static_text(markdown_text)
+
+    print("-"*40)
+    print("Above should be formatted markdown")
+
+    print("\n3. Testing static text with thinking blocks (hidden):")
+    print("-"*40)
+
+    renderer.set_show_thinking(False)
+
+    thinking_text = """<think>
+This is internal thinking that should be removed
+from the displayed output.
+</think>
+
+This is the actual response that should be displayed with **markdown** formatting."""
+
+    renderer.render_static_text(thinking_text)
+
+    print("-"*40)
+    print("Above should show only the actual response, formatted")
+
+    print("\n4. Testing static text with thinking blocks (shown):")
+    print("-"*40)
+
+    renderer.set_show_thinking(True)
+
+    renderer.render_static_text(thinking_text)
+
+    print("-"*40)
+    print("Above should show thinking block as blockquote, then formatted response")
+
+    print("\n✅ Static text rendering tests complete!")
+
+
 if __name__ == "__main__":
     try:
         test_markdown_replacement()
         test_thinking_blocks()
+        test_static_text_rendering()
     except KeyboardInterrupt:
         print("\n\nTest interrupted.")
         sys.exit(0)

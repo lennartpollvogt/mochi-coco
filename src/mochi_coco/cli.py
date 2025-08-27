@@ -20,10 +20,18 @@ def chat(
     """
     # Initialize Ollama client
     client = OllamaClient(host=host)
-    model_selector = ModelSelector(client)
+
+    # Initialize renderer with default settings (will be updated based on user preferences)
+    renderer = MarkdownRenderer(mode=RenderingMode.PLAIN, show_thinking=False)
+    model_selector = ModelSelector(client, renderer)
 
     # Session selection or new chat
     session, selected_model, markdown_enabled, show_thinking = model_selector.select_session_or_new()
+
+    # Update renderer settings based on user preferences
+    rendering_mode = RenderingMode.MARKDOWN if markdown_enabled else RenderingMode.PLAIN
+    renderer.set_mode(rendering_mode)
+    renderer.set_show_thinking(show_thinking)
 
     if session is None and selected_model is None:
         typer.secho("Exiting.", fg=typer.colors.YELLOW)
@@ -44,10 +52,6 @@ def chat(
         selected_model = session.metadata.model
         typer.secho(f"\n💬 Continuing chat with {selected_model}",
                     fg=typer.colors.BRIGHT_GREEN)
-
-    # Initialize renderer
-    rendering_mode = RenderingMode.MARKDOWN if markdown_enabled else RenderingMode.PLAIN
-    renderer = MarkdownRenderer(mode=rendering_mode, show_thinking=show_thinking)
 
     typer.secho("Type 'exit' to quit, '/models' to change model, '/markdown' to toggle formatting, or '/thinking' to toggle thinking blocks.\n", fg=typer.colors.BRIGHT_GREEN)
     if markdown_enabled:

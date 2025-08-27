@@ -1,8 +1,9 @@
 # Feature Plans
 
 - [x] stream the response normal and then render markdown only after the final chunk
-- add model name to each message object
-- add id to each message object
+- [ ] Render user input in markdown, after user presses enter
+- [ ] add model name to each message object
+- [ ] add id to each message object
 
 
 # Feature Drafts
