@@ -2,10 +2,8 @@
 """Integration test for chat history rendering with markdown support."""
 
 import sys
-import io
-from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 # Add the src directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))

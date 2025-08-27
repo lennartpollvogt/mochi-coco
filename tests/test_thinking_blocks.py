@@ -27,7 +27,7 @@ def test_thinking_block_preprocessing():
     print(f"Input: {repr(test1_input)}")
     print(f"Expected: {repr(test1_expected)}")
     print(f"Got: {repr(test1_result)}")
-    print(f"✅ PASS" if test1_result == test1_expected else "❌ FAIL")
+    print("✅ PASS" if test1_result == test1_expected else "❌ FAIL")
 
     # Test case 2: <thinking> block
     test2_input = "<thinking>\nThis is a longer thinking process.\nMultiple lines here.\n</thinking>\n\nActual response here."
@@ -38,7 +38,7 @@ def test_thinking_block_preprocessing():
     print(f"Input: {repr(test2_input)}")
     print(f"Expected: {repr(test2_expected)}")
     print(f"Got: {repr(test2_result)}")
-    print(f"✅ PASS" if test2_result == test2_expected else "❌ FAIL")
+    print("✅ PASS" if test2_result == test2_expected else "❌ FAIL")
 
     # Test case 3: Multiple blocks
     test3_input = """<think>First thought</think>
@@ -60,7 +60,7 @@ Second response with **markdown**."""
     print(f"Input: {repr(test3_input)}")
     print(f"Expected: {repr(test3_expected)}")
     print(f"Got: {repr(test3_result)}")
-    print(f"✅ PASS" if test3_result == test3_expected else "❌ FAIL")
+    print("✅ PASS" if test3_result == test3_expected else "❌ FAIL")
 
     # Test case 4: Case insensitive
     test4_input = "<THINK>Upper case thinking</THINK>\n\nResponse here."
@@ -71,7 +71,7 @@ Second response with **markdown**."""
     print(f"Input: {repr(test4_input)}")
     print(f"Expected: {repr(test4_expected)}")
     print(f"Got: {repr(test4_result)}")
-    print(f"✅ PASS" if test4_result == test4_expected else "❌ FAIL")
+    print("✅ PASS" if test4_result == test4_expected else "❌ FAIL")
 
     # Test case 5: No thinking blocks (should be unchanged)
     test5_input = "Just a normal response with **markdown**."
@@ -82,7 +82,7 @@ Second response with **markdown**."""
     print(f"Input: {repr(test5_input)}")
     print(f"Expected: {repr(test5_expected)}")
     print(f"Got: {repr(test5_result)}")
-    print(f"✅ PASS" if test5_result == test5_expected else "❌ FAIL")
+    print("✅ PASS" if test5_result == test5_expected else "❌ FAIL")
 
     # Test with show_thinking=True
     print("\n" + "=" * 50)
@@ -100,7 +100,7 @@ Second response with **markdown**."""
     print(f"Input: {repr(test6_input)}")
     print(f"Expected: {repr(test6_expected)}")
     print(f"Got: {repr(test6_result)}")
-    print(f"✅ PASS" if test6_result == test6_expected else "❌ FAIL")
+    print("✅ PASS" if test6_result == test6_expected else "❌ FAIL")
 
     # Test case 7: <thinking> block (showing)
     test7_input = "<thinking>\nMultiple lines\nof thinking\n</thinking>\n\nResponse here."
@@ -111,7 +111,7 @@ Second response with **markdown**."""
     print(f"Input: {repr(test7_input)}")
     print(f"Expected: {repr(test7_expected)}")
     print(f"Got: {repr(test7_result)}")
-    print(f"✅ PASS" if test7_result == test7_expected else "❌ FAIL")
+    print("✅ PASS" if test7_result == test7_expected else "❌ FAIL")
 
 
 
