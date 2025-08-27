@@ -1,6 +1,6 @@
 # Feature Plans
 
-- stream the response normal and then render markdown only after the final chunk
+- [x] stream the response normal and then render markdown only after the final chunk
 - add model name to each message object
 - add id to each message object
 

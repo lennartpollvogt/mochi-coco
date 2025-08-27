@@ -17,20 +17,6 @@ def test_markdown_replacement():
     print("\n" + "="*60)
     print("TESTING MARKDOWN REPLACEMENT")
     print("="*60)
-
-    # Simple markdown content
-    content = """# Test Header
-
-This is **bold** and *italic* text.
-
-```python
-print("Hello World!")
-```
-
-- Item 1
-- Item 2
-"""
-
     print("\n1. Testing MARKDOWN mode (should replace plain with formatted):")
     print("-"*40)
 
