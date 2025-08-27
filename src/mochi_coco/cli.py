@@ -4,6 +4,7 @@ import typer
 from .ollama import OllamaClient
 from .ui import ModelSelector
 from .chat import ChatSession
+from .rendering import MarkdownRenderer, RenderingMode
 
 app = typer.Typer()
 
@@ -22,7 +23,7 @@ def chat(
     model_selector = ModelSelector(client)
 
     # Session selection or new chat
-    session, selected_model = model_selector.select_session_or_new()
+    session, selected_model, markdown_enabled = model_selector.select_session_or_new()
 
     if session is None and selected_model is None:
         typer.secho("Exiting.", fg=typer.colors.YELLOW)
@@ -44,7 +45,13 @@ def chat(
         typer.secho(f"\n💬 Continuing chat with {selected_model}",
                     fg=typer.colors.BRIGHT_GREEN)
 
-    typer.secho("Type 'exit' to quit or '/models' to change model.\n", fg=typer.colors.BRIGHT_GREEN)
+    # Initialize renderer
+    rendering_mode = RenderingMode.MARKDOWN if markdown_enabled else RenderingMode.PLAIN
+    renderer = MarkdownRenderer(mode=rendering_mode)
+
+    typer.secho("Type 'exit' to quit, '/models' to change model, or '/markdown' to toggle formatting.\n", fg=typer.colors.BRIGHT_GREEN)
+    if markdown_enabled:
+        typer.secho("Markdown rendering is enabled.", fg=typer.colors.CYAN)
 
     while True:
         try:
@@ -69,24 +76,30 @@ def chat(
                 typer.secho(f"\n✅ Switched to model: {new_model}\n", fg=typer.colors.GREEN, bold=True)
             continue
 
+        # Handle markdown toggle command
+        if user_input.strip() == "/markdown":
+            # Toggle rendering mode
+            current_mode = renderer.mode
+            new_mode = RenderingMode.PLAIN if current_mode == RenderingMode.MARKDOWN else RenderingMode.MARKDOWN
+            renderer.set_mode(new_mode)
+
+            status = "enabled" if new_mode == RenderingMode.MARKDOWN else "disabled"
+            typer.secho(f"\n✅ Markdown rendering {status}\n", fg=typer.colors.GREEN, bold=True)
+            continue
+
         if not user_input.strip():
             continue
 
         session.add_message("user", user_input)
 
         try:
-            assistant_text = ""
-            context_window = None
             typer.secho("\nA:", fg=typer.colors.MAGENTA, bold=True)
 
-            for text_chunk, chunk_context_window in client.chat_stream(selected_model, session.get_messages_for_api()):
-                if text_chunk:  # Only print non-empty content
-                    assistant_text += text_chunk
-                    print(text_chunk, end="", flush=True)
-                if chunk_context_window is not None:
-                    context_window = chunk_context_window
+            # Use renderer for streaming response
+            text_stream = client.chat_stream(selected_model, session.get_messages_for_api())
+            assistant_text, context_window = renderer.render_streaming_response(text_stream)
 
-            print("\n")  # double newline after streaming finishes for spacing
+            print()  # Extra newline for spacing
             session.add_message("assistant", assistant_text, context_window)
         except Exception as e:
             typer.secho(f"Error: {e}", fg=typer.colors.RED)

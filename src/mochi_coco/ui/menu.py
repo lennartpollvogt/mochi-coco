@@ -99,10 +99,19 @@ class ModelSelector:
 
         typer.echo("=" * 100)
 
-    def select_session_or_new(self) -> tuple[Optional[ChatSession], Optional[str]]:
+    def prompt_markdown_preference(self) -> bool:
+        """Prompt user for markdown rendering preference."""
+        typer.secho("\n📝 Markdown Rendering", fg=typer.colors.BRIGHT_CYAN, bold=True)
+        typer.secho("Enable markdown formatting for responses?", fg=typer.colors.YELLOW)
+        typer.secho("This will format code blocks, headers, tables, etc.", fg=typer.colors.WHITE)
+
+        choice = typer.prompt("Enable markdown? (Y/n)", default="Y", show_default=False)
+        return choice.lower() in {"y", "yes", ""}
+
+    def select_session_or_new(self) -> tuple[Optional[ChatSession], Optional[str], bool]:
         """
         Allow user to select an existing session or start new.
-        Returns (session, model_name) tuple. If session is None, model_name contains selected model for new chat.
+        Returns (session, model_name, markdown_enabled) tuple. If session is None, model_name contains selected model for new chat.
         """
         typer.secho("🚀 Welcome to Mochi-Coco Chat!", fg=typer.colors.BRIGHT_MAGENTA, bold=True)
 
@@ -116,18 +125,26 @@ class ModelSelector:
         else:
             typer.secho("\nNo previous sessions found. Starting new chat...", fg=typer.colors.CYAN)
             selected_model = self.select_model()
-            return None, selected_model
+            if selected_model:
+                markdown_enabled = self.prompt_markdown_preference()
+            else:
+                markdown_enabled = False
+            return None, selected_model, markdown_enabled
 
         while True:
             try:
                 choice = input("Enter your choice: ").strip()
 
                 if choice.lower() in {'q', 'quit', 'exit'}:
-                    return None, None
+                    return None, None, False
 
                 if choice.lower() == 'new':
                     selected_model = self.select_model()
-                    return None, selected_model
+                    if selected_model:
+                        markdown_enabled = self.prompt_markdown_preference()
+                    else:
+                        markdown_enabled = False
+                    return None, selected_model, markdown_enabled
 
                 try:
                     index = int(choice) - 1
@@ -146,11 +163,12 @@ class ModelSelector:
                                 selected_session.metadata.model = new_model
                                 selected_session.save_session()
                             else:
-                                return None, None
+                                return None, None, False
 
                         typer.secho(f"\n✅ Loaded session: {selected_session.session_id} with {selected_session.metadata.model}",
                                    fg=typer.colors.GREEN, bold=True)
-                        return selected_session, None
+                        markdown_enabled = self.prompt_markdown_preference()
+                        return selected_session, None, markdown_enabled
                     else:
                         typer.secho(f"Please enter a number between 1 and {len(sessions)}, 'new', or 'q'",
                                    fg=typer.colors.RED)
@@ -159,7 +177,7 @@ class ModelSelector:
 
             except (EOFError, KeyboardInterrupt):
                 typer.secho("\nExiting.", fg=typer.colors.YELLOW)
-                return None, None
+                return None, None, False
 
     def display_chat_history(self, session: ChatSession) -> None:
         """Display the chat history of a session."""

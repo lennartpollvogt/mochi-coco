@@ -7,7 +7,7 @@ feature: markdown-rendering
 
 ## Overview
 
-Add optional markdown rendering support for LLM responses in the terminal using the Rich library. This feature provides beautiful formatting for code blocks, tables, headers, and other markdown elements while maintaining the streaming chat experience.
+Add optional markdown rendering support for LLM responses in the terminal using the Rich library. This feature provides beautiful formatting for code blocks, tables, headers, and other markdown elements. The response streams as plain text first, then is replaced with formatted markdown after completion.
 
 ## User Experience
 
@@ -22,9 +22,9 @@ The user journey will be enhanced with markdown preference selection:
 ### Chat Experience
 
 #### With Markdown Enabled:
-- **Phase 1**: Stream response as dim gray text (immediate feedback)
-- **Phase 2**: Replace with beautifully formatted markdown when complete
-- **Visual transition**: Smooth replacement using Rich Live context
+- **Streaming**: Response streams as plain text (exactly as current implementation)
+- **Post-streaming**: After final chunk, replace entire response with formatted markdown
+- **Clear benefit**: Users see immediate feedback, then get beautiful formatting
 
 #### With Markdown Disabled:
 - **Standard behavior**: Plain text streaming (current implementation)
@@ -62,22 +62,24 @@ Rich library automatically handles:
 
 #### Rendering Implementation
 ```python
-# Hybrid approach using Rich Live
+# Simple post-streaming markdown replacement
 def render_assistant_response(text_chunks, markdown_enabled):
+    accumulated = ""
+    
+    # Always stream as plain text first
+    for chunk in text_chunks:
+        accumulated += chunk
+        print(chunk, end='', flush=True)
+    
+    # After streaming complete, optionally replace with markdown
     if markdown_enabled:
-        with Live() as live:
-            accumulated = ""
-            # Phase 1: Stream as dim text
-            for chunk in text_chunks:
-                accumulated += chunk
-                live.update(Text(accumulated, style="dim"))
-            
-            # Phase 2: Switch to formatted markdown
-            live.update(Markdown(accumulated))
-    else:
-        # Current plain text streaming
-        for chunk in text_chunks:
-            print(chunk, end='', flush=True)
+        # Clear the plain text output
+        lines_printed = accumulated.count('\n') + 1
+        for _ in range(lines_printed):
+            sys.stdout.write('\033[1A\033[2K')  # Move up and clear line
+        
+        # Print formatted markdown
+        console.print(Markdown(accumulated))
 ```
 
 ### Session Persistence
@@ -89,18 +91,18 @@ def render_assistant_response(text_chunks, markdown_enabled):
 
 ### Phase 1: Core Infrastructure
 1. Add Rich dependency to `pyproject.toml`
-2. Create markdown rendering utility functions
-3. Update `OllamaClient` to support rendering callbacks
+2. Create utility functions for clearing terminal lines
+3. Create markdown rendering function using Rich
 
 ### Phase 2: UI Integration  
 1. Enhance `ModelSelector` with markdown preference prompt
 2. Update CLI flow to handle markdown preference
-3. Implement hybrid rendering logic
+3. Implement post-streaming replacement logic
 
 ### Phase 3: Testing & Polish
 1. Test with various markdown content types
-2. Verify terminal compatibility (Windows/macOS/Linux)
-3. Handle edge cases (very long responses, terminal resizing)
+2. Verify line clearing works correctly on different terminals
+3. Handle edge cases (very long responses, wrapped lines)
 
 ## Error Handling
 
@@ -127,8 +129,8 @@ def render_assistant_response(text_chunks, markdown_enabled):
 - Runtime toggle: `/markdown on/off` during chat
 
 ### Performance Optimizations
-- Streaming markdown parser for very large responses
-- Progressive rendering for better performance
+- Efficient line counting for accurate clearing
+- Optimized rendering for very large responses
 
 ## Testing Strategy
 
@@ -149,7 +151,8 @@ def render_assistant_response(text_chunks, markdown_enabled):
 - **Beautiful output**: Professional formatting for technical content
 - **Better readability**: Code blocks with syntax highlighting
 - **Flexible choice**: Can disable if preferred
-- **Preserved streaming**: Maintains real-time chat feel
+- **Immediate feedback**: See response as it streams
+- **Best of both worlds**: Real-time streaming + beautiful final output
 
 ### For Developers  
 - **Rich ecosystem**: Leverages mature, well-tested library
