@@ -10,6 +10,7 @@ from dataclasses import dataclass, asdict
 class Message:
     role: str
     content: str
+    model: str | None = None
     timestamp: str | None = None
 
     def __post_init__(self):
@@ -55,9 +56,15 @@ class ChatSession:
         """Get the path to the session JSON file."""
         return self.sessions_dir / f"{self.session_id}.json"
 
-    def add_message(self, role: str, content: str, context_window: Optional[int] = None) -> None:
+    def add_message(self, role: str, content: str, context_window: Optional[int] = None, model: Optional[str] = None) -> None:
         """Add a message to the session."""
-        message = Message(role=role, content=content)
+        # Only track model for assistant messages
+        if role == "assistant":
+            message_model = model or self.model
+        else:
+            message_model = None
+
+        message = Message(role=role, content=content, model=message_model)
         self.messages.append(message)
         self.metadata.message_count = len(self.messages)
         self.metadata.updated_at = datetime.now().isoformat()

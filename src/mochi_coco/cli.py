@@ -116,14 +116,14 @@ def chat(
         session.add_message("user", user_input)
 
         try:
-            typer.secho("\nA:", fg=typer.colors.MAGENTA, bold=True)
+            typer.secho("\nAssistant:", fg=typer.colors.MAGENTA, bold=True)
 
             # Use renderer for streaming response
             text_stream = client.chat_stream(selected_model, session.get_messages_for_api())
             assistant_text, context_window = renderer.render_streaming_response(text_stream)
 
             print()  # Extra newline for spacing
-            session.add_message("assistant", assistant_text, context_window)
+            session.add_message("assistant", assistant_text, context_window, model=selected_model)
         except Exception as e:
             typer.secho(f"Error: {e}", fg=typer.colors.RED)
 

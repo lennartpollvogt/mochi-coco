@@ -1,8 +1,8 @@
 # Feature Plans
 
 - [x] stream the response normal and then render markdown only after the final chunk
-- [ ] Render user input in markdown, after user presses enter
-- [ ] add model name to each message object
+- [x] Render user input in markdown, after user presses enter
+- [x] add model name to each message object
 - [ ] add id to each message object
 
 
