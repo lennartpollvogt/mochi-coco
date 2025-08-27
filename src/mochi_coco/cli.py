@@ -109,6 +109,10 @@ def chat(
         if not user_input.strip():
             continue
 
+        # Display user message with markdown rendering
+        typer.secho("\nYou:", fg=typer.colors.CYAN, bold=True)
+        renderer.render_static_text(user_input)
+
         session.add_message("user", user_input)
 
         try:

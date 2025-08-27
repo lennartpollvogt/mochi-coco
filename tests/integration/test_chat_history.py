@@ -182,6 +182,64 @@ Hope this helps!"""
     print("\n✅ Mode switching test complete!")
 
 
+def test_user_message_rendering():
+    """Test that user messages are rendered with markdown during chat flow."""
+
+    print("\n" + "="*70)
+    print("INTEGRATION TEST: USER MESSAGE RENDERING")
+    print("="*70)
+
+    print("\n1. Testing user message in PLAIN mode:")
+    print("-" * 40)
+
+    plain_renderer = MarkdownRenderer(mode=RenderingMode.PLAIN)
+
+    user_message_with_markdown = """# My Question
+
+Can you help me with this **Python** code:
+
+```python
+def greet(name):
+    return f"Hello, {name}!"
+```
+
+I want to understand how it works."""
+
+    print("User message (should be plain text):")
+    plain_renderer.render_static_text(user_message_with_markdown)
+
+    print("\n2. Testing user message in MARKDOWN mode:")
+    print("-" * 40)
+
+    markdown_renderer = MarkdownRenderer(mode=RenderingMode.MARKDOWN)
+
+    print("User message (should be formatted):")
+    markdown_renderer.render_static_text(user_message_with_markdown)
+
+    print("\n3. Testing user message with thinking blocks (should be removed):")
+    print("-" * 40)
+
+    user_with_thinking = """<thinking>
+Let me think about how to ask this question properly.
+</thinking>
+
+# My Real Question
+
+How do I implement **error handling** in Python?
+
+```python
+try:
+    result = risky_operation()
+except Exception as e:
+    print(f"Error: {e}")
+```"""
+
+    print("User message with thinking blocks:")
+    markdown_renderer.render_static_text(user_with_thinking)
+
+    print("\n✅ User message rendering test complete!")
+
+
 def test_edge_cases():
     """Test edge cases in chat history rendering."""
 
@@ -231,6 +289,7 @@ if __name__ == "__main__":
         test_chat_history_integration()
         test_empty_session_display()
         test_renderer_mode_switching()
+        test_user_message_rendering()
         test_edge_cases()
 
         print("\n" + "="*70)
