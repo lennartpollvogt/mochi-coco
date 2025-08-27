@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.text import Text
 from rich.live import Live
+import re
 
 
 class RenderingMode(Enum):
@@ -26,6 +27,22 @@ class MarkdownRenderer:
         self.mode = mode
         self.console = Console()
         self._accumulated_text = ""
+
+    def _preprocess_thinking_blocks(self, text: str) -> str:
+        """
+        Preprocess text to handle thinking blocks that might interfere with markdown rendering.
+        Removes <think>...</think> and <thinking>...</thinking> blocks.
+        """
+        # Remove thinking blocks (both <think> and <thinking> variants)
+        # Use re.DOTALL to match across newlines
+        text = re.sub(r'<think>\s*.*?\s*</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<thinking>\s*.*?\s*</thinking>', '', text, flags=re.DOTALL | re.IGNORECASE)
+
+        # Clean up any extra whitespace that might be left
+        text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)  # Multiple empty lines -> double newline
+        text = text.strip()
+
+        return text
 
     def render_streaming_response(
         self,
@@ -72,7 +89,9 @@ class MarkdownRenderer:
             # After streaming is complete, replace with markdown
             if accumulated_text.strip():
                 try:
-                    live.update(Markdown(accumulated_text))
+                    # Preprocess to handle thinking blocks
+                    processed_text = self._preprocess_thinking_blocks(accumulated_text)
+                    live.update(Markdown(processed_text))
                     live.refresh()
                 except Exception as e:
                     # Fallback to plain text
