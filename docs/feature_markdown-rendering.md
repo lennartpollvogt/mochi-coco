@@ -1,6 +1,7 @@
 ---
 project: mochi-coco
 feature: markdown-rendering
+status: done
 ---
 
 # Markdown Rendering Feature
@@ -14,7 +15,7 @@ Add optional markdown rendering support for LLM responses in the terminal using 
 ### Session Setup Flow
 The user journey will be enhanced with markdown preference selection:
 
-1. **Session Selection**: Choose existing session or 'new' 
+1. **Session Selection**: Choose existing session or 'new'
 2. **Model Selection**: Choose LLM model (if new session)
 3. **Markdown Preference**: "Enable markdown rendering? (Y/n)" prompt
 4. **Chat Start**: Begin conversation with chosen settings
@@ -36,7 +37,7 @@ Rich library automatically handles:
 - **Headers**: `# ## ###` with different colors/sizes
 - **Text Formatting**: `**bold**` and `*italic*` styling
 - **Code Blocks**: ````python` with syntax highlighting
-- **Inline Code**: `` `code` `` with background styling  
+- **Inline Code**: `` `code` `` with background styling
 - **Lists**: `- item` and `1. item` with proper indentation
 - **Tables**: Proper borders and alignment
 - **Links**: `[text](url)` highlighted and underlined
@@ -50,7 +51,7 @@ Rich library automatically handles:
 #### New Dependencies
 - `rich>=13.0.0` - Terminal markdown rendering and Live context
 
-#### UI Module Enhancement  
+#### UI Module Enhancement
 - `ModelSelector.select_session_or_new()` returns markdown preference
 - New prompt: "Enable markdown rendering?" with default=True
 - Return signature: `tuple[ChatSession, str, bool]` (session, model, markdown_enabled)
@@ -62,24 +63,27 @@ Rich library automatically handles:
 
 #### Rendering Implementation
 ```python
-# Simple post-streaming markdown replacement
-def render_assistant_response(text_chunks, markdown_enabled):
-    accumulated = ""
-    
-    # Always stream as plain text first
-    for chunk in text_chunks:
-        accumulated += chunk
-        print(chunk, end='', flush=True)
-    
-    # After streaming complete, optionally replace with markdown
+# Rich Live context approach for seamless replacement
+def render_streaming_response(text_chunks, markdown_enabled):
     if markdown_enabled:
-        # Clear the plain text output
-        lines_printed = accumulated.count('\n') + 1
-        for _ in range(lines_printed):
-            sys.stdout.write('\033[1A\033[2K')  # Move up and clear line
-        
-        # Print formatted markdown
-        console.print(Markdown(accumulated))
+        # Use Rich Live for seamless replacement
+        with Live(console=console, refresh_per_second=60, auto_refresh=False) as live:
+            accumulated = ""
+            
+            # Phase 1: Stream as plain text
+            for chunk, context_window in text_chunks:
+                if chunk:
+                    accumulated += chunk
+                    live.update(Text(accumulated))  # Show plain text
+                    live.refresh()
+            
+            # Phase 2: Replace with markdown
+            live.update(Markdown(accumulated))  # Replace with formatted
+            live.refresh()
+    else:
+        # Plain text mode (unchanged)
+        for chunk, context_window in text_chunks:
+            print(chunk, end='', flush=True)
 ```
 
 ### Session Persistence
@@ -91,30 +95,30 @@ def render_assistant_response(text_chunks, markdown_enabled):
 
 ### Phase 1: Core Infrastructure
 1. Add Rich dependency to `pyproject.toml`
-2. Create utility functions for clearing terminal lines
-3. Create markdown rendering function using Rich
+2. Create MarkdownRenderer class using Rich Live context
+3. Implement rendering modes (PLAIN/MARKDOWN) with seamless replacement
 
 ### Phase 2: UI Integration  
 1. Enhance `ModelSelector` with markdown preference prompt
 2. Update CLI flow to handle markdown preference
-3. Implement post-streaming replacement logic
+3. Integrate MarkdownRenderer with streaming response handling
 
 ### Phase 3: Testing & Polish
 1. Test with various markdown content types
-2. Verify line clearing works correctly on different terminals
-3. Handle edge cases (very long responses, wrapped lines)
+2. Verify Rich Live replacement works correctly on different terminals
+3. Handle edge cases (very long responses, rendering failures)
 
 ## Error Handling
 
 ### Fallback Strategy
-- If markdown rendering fails → gracefully fall back to plain text
-- Log warning but don't break chat experience
+- If markdown rendering fails → gracefully show plain text in Live context
+- Display warning but don't break chat experience
 - User sees response content regardless of formatting issues
 
 ### Terminal Compatibility
-- Rich automatically detects terminal capabilities
-- Degrades gracefully on terminals without color support
-- Handles different terminal widths appropriately
+- Rich Live context handles all terminal complexity automatically
+- Degrades gracefully on terminals without advanced features
+- Cross-platform compatibility (Windows/macOS/Linux)
 
 ## Future Enhancements
 
@@ -129,21 +133,21 @@ def render_assistant_response(text_chunks, markdown_enabled):
 - Runtime toggle: `/markdown on/off` during chat
 
 ### Performance Optimizations
-- Efficient line counting for accurate clearing
-- Optimized rendering for very large responses
+- Rich Live context optimizes screen updates automatically
+- Efficient refresh control for smooth transitions
 
 ## Testing Strategy
 
 ### Manual Testing
 - Test all markdown elements (headers, code, tables, etc.)
-- Verify streaming experience feels natural
+- Verify Rich Live replacement works correctly on different terminals
 - Test on different terminal sizes and types
 
 ### Edge Cases
 - Very long code blocks
 - Complex tables
 - Mixed content (markdown + plain text)
-- Terminal resizing during rendering
+- Rich Live rendering failures
 
 ## Benefits
 
@@ -154,9 +158,8 @@ def render_assistant_response(text_chunks, markdown_enabled):
 - **Immediate feedback**: See response as it streams
 - **Best of both worlds**: Real-time streaming + beautiful final output
 
-### For Developers  
+### For Developers
 - **Rich ecosystem**: Leverages mature, well-tested library
 - **Minimal code**: Rich handles complexity automatically
 - **Extensible**: Easy to add themes and customizations
 - **Maintainable**: Clean separation of rendering logic
-
