@@ -15,10 +15,11 @@ Add optional markdown rendering support for LLM responses in the terminal using 
 ### Session Setup Flow
 The user journey will be enhanced with markdown preference selection:
 
-1. **Session Selection**: Choose existing session or 'new'
+1. **Session Selection**: Choose existing session or 'new' 
 2. **Model Selection**: Choose LLM model (if new session)
 3. **Markdown Preference**: "Enable markdown rendering? (Y/n)" prompt
-4. **Chat Start**: Begin conversation with chosen settings
+4. **Thinking Block Preference**: "Show thinking blocks? (y/N)" prompt (only if markdown enabled)
+5. **Chat Start**: Begin conversation with chosen settings
 
 ### Chat Experience
 
@@ -43,6 +44,7 @@ Rich library automatically handles:
 - **Links**: `[text](url)` highlighted and underlined
 - **Blockquotes**: `> text` with special indentation
 - **Horizontal Rules**: `---` with line styling
+- **Thinking Blocks**: `<think>` or `<thinking>` tags handled specially (shown as blockquotes or hidden)
 
 ## Technical Implementation
 
@@ -51,10 +53,12 @@ Rich library automatically handles:
 #### New Dependencies
 - `rich>=13.0.0` - Terminal markdown rendering and Live context
 
-#### UI Module Enhancement
-- `ModelSelector.select_session_or_new()` returns markdown preference
-- New prompt: "Enable markdown rendering?" with default=True
-- Return signature: `tuple[ChatSession, str, bool]` (session, model, markdown_enabled)
+#### UI Module Enhancement  
+- `ModelSelector.select_session_or_new()` returns markdown and thinking preferences
+- New prompts: 
+  - "Enable markdown rendering?" with default=True
+  - "Show thinking blocks?" with default=False (only if markdown enabled)
+- Return signature: `tuple[ChatSession, str, bool, bool]` (session, model, markdown_enabled, show_thinking)
 
 #### CLI Module Enhancement
 - Accept markdown preference parameter
@@ -64,7 +68,7 @@ Rich library automatically handles:
 #### Rendering Implementation
 ```python
 # Rich Live context approach for seamless replacement
-def render_streaming_response(text_chunks, markdown_enabled):
+def render_streaming_response(text_chunks, markdown_enabled, show_thinking):
     if markdown_enabled:
         # Use Rich Live for seamless replacement
         with Live(console=console, refresh_per_second=60, auto_refresh=False) as live:
@@ -78,7 +82,9 @@ def render_streaming_response(text_chunks, markdown_enabled):
                     live.refresh()
             
             # Phase 2: Replace with markdown
-            live.update(Markdown(accumulated))  # Replace with formatted
+            # Preprocess thinking blocks based on preference
+            processed_text = preprocess_thinking_blocks(accumulated, show_thinking)
+            live.update(Markdown(processed_text))  # Replace with formatted
             live.refresh()
     else:
         # Plain text mode (unchanged)
@@ -130,7 +136,9 @@ def render_streaming_response(text_chunks, markdown_enabled):
 ### Advanced Features
 - Save markdown preference in user config
 - Command-line flag: `mochi-coco --markdown` / `--no-markdown`
-- Runtime toggle: `/markdown on/off` during chat
+- Runtime toggles: 
+  - `/markdown` - Toggle markdown rendering
+  - `/thinking` - Toggle thinking block display (markdown mode only)
 
 ### Performance Optimizations
 - Rich Live context optimizes screen updates automatically
@@ -148,6 +156,8 @@ def render_streaming_response(text_chunks, markdown_enabled):
 - Complex tables
 - Mixed content (markdown + plain text)
 - Rich Live rendering failures
+- Thinking blocks with nested markdown content
+- Multiple thinking blocks in one response
 
 ## Benefits
 

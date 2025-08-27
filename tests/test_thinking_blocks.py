@@ -15,10 +15,10 @@ def test_thinking_block_preprocessing():
 
     renderer = MarkdownRenderer(mode=RenderingMode.MARKDOWN)
 
-    print("Testing thinking block preprocessing...")
+    print("Testing thinking block preprocessing (hide mode)...")
     print("=" * 50)
 
-    # Test case 1: Simple <think> block
+    # Test case 1: Simple <think> block (hiding)
     test1_input = "<think>\nOkay, the user said \"Hi\". I need to respond appropriately.\n</think>\n\nHello! How can I assist you today? 😊"
     test1_expected = "Hello! How can I assist you today? 😊"
     test1_result = renderer._preprocess_thinking_blocks(test1_input)
@@ -84,15 +84,45 @@ Second response with **markdown**."""
     print(f"Got: {repr(test5_result)}")
     print(f"✅ PASS" if test5_result == test5_expected else "❌ FAIL")
 
-
-def test_full_rendering_with_thinking():
-    """Test the full rendering process with thinking blocks."""
-
+    # Test with show_thinking=True
     print("\n" + "=" * 50)
-    print("Testing full rendering with thinking blocks")
+    print("Testing thinking block preprocessing (show mode)...")
     print("=" * 50)
 
-    renderer = MarkdownRenderer(mode=RenderingMode.MARKDOWN)
+    renderer_show = MarkdownRenderer(mode=RenderingMode.MARKDOWN, show_thinking=True)
+
+    # Test case 6: Simple <think> block (showing)
+    test6_input = "<think>\nThis is my thinking process.\n</think>\n\nActual response."
+    test6_expected = "> 💭 **Thinking:**\n>\n> This is my thinking process.\n\nActual response."
+    test6_result = renderer_show._preprocess_thinking_blocks(test6_input)
+
+    print("\n6. Simple <think> block (showing):")
+    print(f"Input: {repr(test6_input)}")
+    print(f"Expected: {repr(test6_expected)}")
+    print(f"Got: {repr(test6_result)}")
+    print(f"✅ PASS" if test6_result == test6_expected else "❌ FAIL")
+
+    # Test case 7: <thinking> block (showing)
+    test7_input = "<thinking>\nMultiple lines\nof thinking\n</thinking>\n\nResponse here."
+    test7_expected = "> 💭 **Thinking:**\n>\n> Multiple lines\n> of thinking\n\nResponse here."
+    test7_result = renderer_show._preprocess_thinking_blocks(test7_input)
+
+    print("\n7. <thinking> block (showing):")
+    print(f"Input: {repr(test7_input)}")
+    print(f"Expected: {repr(test7_expected)}")
+    print(f"Got: {repr(test7_result)}")
+    print(f"✅ PASS" if test7_result == test7_expected else "❌ FAIL")
+
+
+
+def test_full_rendering_with_thinking():
+    """Test the full rendering process with thinking blocks hidden."""
+
+    print("\n" + "=" * 50)
+    print("Testing full rendering with thinking blocks HIDDEN")
+    print("=" * 50)
+
+    renderer = MarkdownRenderer(mode=RenderingMode.MARKDOWN, show_thinking=False)
 
     # Simulate the exact case from the user's example
     content = "<think>\nOkay, the user said \"Hi\". I need to respond appropriately. Let me check the guidelines. The response should be friendly and open-ended. Maybe ask how I can assist them. Keep it simple and welcoming. Avoid any technical jargon. Make sure to use proper grammar and punctuation. Alright, let's go with a friendly greeting and offer help.\n</think>\n\nHello! How can I assist you today? 😊"
@@ -101,7 +131,7 @@ def test_full_rendering_with_thinking():
         yield (content, None)
         yield ("", 100)
 
-    print("\nRendering content with thinking block...")
+    print("\nRendering content with thinking block hidden...")
     print("-" * 30)
 
     text, context = renderer.render_streaming_response(stream_thinking_content())
@@ -111,10 +141,37 @@ def test_full_rendering_with_thinking():
     print("(No thinking block content should be visible)")
 
 
+def test_full_rendering_with_thinking_shown():
+    """Test the full rendering process with thinking blocks shown."""
+
+    print("\n" + "=" * 50)
+    print("Testing full rendering with thinking blocks SHOWN")
+    print("=" * 50)
+
+    renderer = MarkdownRenderer(mode=RenderingMode.MARKDOWN, show_thinking=True)
+
+    # Simulate content with thinking block
+    content = "<think>\nThis is my thinking process.\nIt has multiple lines.\n</think>\n\nHere's the actual response with **markdown**."
+
+    def stream_thinking_content():
+        yield (content, None)
+        yield ("", 100)
+
+    print("\nRendering content with thinking block displayed as blockquote...")
+    print("-" * 30)
+
+    text, context = renderer.render_streaming_response(stream_thinking_content())
+
+    print("-" * 30)
+    print("Above should show thinking block as a formatted blockquote")
+    print("followed by the actual response with markdown formatting")
+
+
 if __name__ == "__main__":
     try:
         test_thinking_block_preprocessing()
         test_full_rendering_with_thinking()
+        test_full_rendering_with_thinking_shown()
         print("\n🎉 All tests completed!")
     except Exception as e:
         print(f"\nError: {e}")

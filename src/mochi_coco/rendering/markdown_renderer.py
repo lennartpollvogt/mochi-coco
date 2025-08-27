@@ -17,26 +17,51 @@ class RenderingMode(Enum):
 class MarkdownRenderer:
     """Handles rendering of assistant responses with optional markdown formatting."""
 
-    def __init__(self, mode: RenderingMode = RenderingMode.PLAIN):
+    def __init__(self, mode: RenderingMode = RenderingMode.PLAIN, show_thinking: bool = False):
         """
         Initialize the renderer.
 
         Args:
             mode: The rendering mode to use (plain text or markdown)
+            show_thinking: Whether to show thinking blocks in markdown mode
         """
         self.mode = mode
+        self.show_thinking = show_thinking
         self.console = Console()
         self._accumulated_text = ""
 
     def _preprocess_thinking_blocks(self, text: str) -> str:
         """
         Preprocess text to handle thinking blocks that might interfere with markdown rendering.
-        Removes <think>...</think> and <thinking>...</thinking> blocks.
+        Either removes or formats <think>...</think> and <thinking>...</thinking> blocks.
         """
-        # Remove thinking blocks (both <think> and <thinking> variants)
-        # Use re.DOTALL to match across newlines
-        text = re.sub(r'<think>\s*.*?\s*</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r'<thinking>\s*.*?\s*</thinking>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        if self.show_thinking:
+            # Format thinking blocks as blockquotes using regex with proper capture groups
+            def format_thinking_block(match):
+                # Extract the content inside the thinking block
+                thinking_content = match.group(1).strip()
+
+                # Convert each line to a blockquote line
+                lines = thinking_content.split('\n')
+                blockquote_lines = ['> 💭 **Thinking:**']
+                blockquote_lines.append('>')  # Empty line after header
+
+                for line in lines:
+                    if line.strip():
+                        blockquote_lines.append('> ' + line.strip())
+                    else:
+                        blockquote_lines.append('>')  # Empty blockquote line
+
+                return '\n'.join(blockquote_lines) + '\n'
+
+            # Process both <think> and <thinking> variants
+            text = re.sub(r'<think>(.*?)</think>', format_thinking_block, text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<thinking>(.*?)</thinking>', format_thinking_block, text, flags=re.DOTALL | re.IGNORECASE)
+        else:
+            # Remove thinking blocks (both <think> and <thinking> variants)
+            # Use re.DOTALL to match across newlines
+            text = re.sub(r'<think>\s*.*?\s*</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<thinking>\s*.*?\s*</thinking>', '', text, flags=re.DOTALL | re.IGNORECASE)
 
         # Clean up any extra whitespace that might be left
         text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)  # Multiple empty lines -> double newline
@@ -112,6 +137,15 @@ class MarkdownRenderer:
             mode: The new rendering mode
         """
         self.mode = mode
+
+    def set_show_thinking(self, show: bool) -> None:
+        """
+        Change whether thinking blocks are shown.
+
+        Args:
+            show: Whether to show thinking blocks
+        """
+        self.show_thinking = show
 
     def is_markdown_enabled(self) -> bool:
         """Check if markdown rendering is enabled."""

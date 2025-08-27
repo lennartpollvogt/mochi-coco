@@ -23,7 +23,7 @@ def chat(
     model_selector = ModelSelector(client)
 
     # Session selection or new chat
-    session, selected_model, markdown_enabled = model_selector.select_session_or_new()
+    session, selected_model, markdown_enabled, show_thinking = model_selector.select_session_or_new()
 
     if session is None and selected_model is None:
         typer.secho("Exiting.", fg=typer.colors.YELLOW)
@@ -47,11 +47,13 @@ def chat(
 
     # Initialize renderer
     rendering_mode = RenderingMode.MARKDOWN if markdown_enabled else RenderingMode.PLAIN
-    renderer = MarkdownRenderer(mode=rendering_mode)
+    renderer = MarkdownRenderer(mode=rendering_mode, show_thinking=show_thinking)
 
-    typer.secho("Type 'exit' to quit, '/models' to change model, or '/markdown' to toggle formatting.\n", fg=typer.colors.BRIGHT_GREEN)
+    typer.secho("Type 'exit' to quit, '/models' to change model, '/markdown' to toggle formatting, or '/thinking' to toggle thinking blocks.\n", fg=typer.colors.BRIGHT_GREEN)
     if markdown_enabled:
         typer.secho("Markdown rendering is enabled.", fg=typer.colors.CYAN)
+        if show_thinking:
+            typer.secho("Thinking blocks will be displayed.", fg=typer.colors.CYAN)
 
     while True:
         try:
@@ -85,6 +87,19 @@ def chat(
 
             status = "enabled" if new_mode == RenderingMode.MARKDOWN else "disabled"
             typer.secho(f"\n✅ Markdown rendering {status}\n", fg=typer.colors.GREEN, bold=True)
+            continue
+
+        # Handle thinking toggle command
+        if user_input.strip() == "/thinking":
+            if renderer.mode == RenderingMode.PLAIN:
+                typer.secho("\n⚠️ Thinking blocks can only be toggled in markdown mode.", fg=typer.colors.YELLOW)
+                typer.secho("Enable markdown first with '/markdown' command.\n", fg=typer.colors.YELLOW)
+            else:
+                # Toggle thinking blocks
+                current_show = renderer.show_thinking
+                renderer.set_show_thinking(not current_show)
+                status = "shown" if not current_show else "hidden"
+                typer.secho(f"\n✅ Thinking blocks will be {status}\n", fg=typer.colors.GREEN, bold=True)
             continue
 
         if not user_input.strip():
