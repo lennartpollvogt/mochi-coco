@@ -4,15 +4,14 @@
 - [x] Render user input in markdown, after user presses enter
 - [x] add model name to each message object
 - [ ] add id to each message object (`message_id`)
-- [ ] customize the markdown rendering (headers, code blocks)
-- [ ] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
+- [x] customize the markdown rendering (headers)
+- [ ] customize the markdown rendering (code blocks)
+- [x] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
 - [ ] add context window limit to chat session metadata (optional: display context window VS limit after every LLM response)
 
 # Open Questions
 
 - how to make multiline input?
-- how is HTML rendered in the terminal wich rich's markdown renderder?
-
 
 # Feature Drafts
 

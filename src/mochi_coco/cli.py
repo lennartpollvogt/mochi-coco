@@ -59,6 +59,16 @@ def chat(
         if show_thinking:
             typer.secho("Thinking blocks will be displayed.", fg=typer.colors.CYAN)
 
+    def re_render_chat_history(session: ChatSession, model_selector) -> None:
+        """Re-render the current chat history with current renderer settings."""
+        # Add visual separation
+        print("\n" + "=" * 80)
+        print("REFRESHING CHAT HISTORY")
+        print("=" * 80)
+
+        # Re-display chat history with current renderer settings
+        model_selector.display_chat_history(session)
+
     while True:
         try:
             typer.secho("You:", fg=typer.colors.CYAN, bold=True)
@@ -90,7 +100,10 @@ def chat(
             renderer.set_mode(new_mode)
 
             status = "enabled" if new_mode == RenderingMode.MARKDOWN else "disabled"
-            typer.secho(f"\n✅ Markdown rendering {status}\n", fg=typer.colors.GREEN, bold=True)
+            typer.secho(f"\n✅ Markdown rendering {status}", fg=typer.colors.GREEN, bold=True)
+
+            # Re-render chat history with new mode
+            re_render_chat_history(session, model_selector)
             continue
 
         # Handle thinking toggle command
@@ -103,7 +116,10 @@ def chat(
                 current_show = renderer.show_thinking
                 renderer.set_show_thinking(not current_show)
                 status = "shown" if not current_show else "hidden"
-                typer.secho(f"\n✅ Thinking blocks will be {status}\n", fg=typer.colors.GREEN, bold=True)
+                typer.secho(f"\n✅ Thinking blocks will be {status}", fg=typer.colors.GREEN, bold=True)
+
+                # Re-render chat history with new thinking setting
+                re_render_chat_history(session, model_selector)
             continue
 
         if not user_input.strip():
