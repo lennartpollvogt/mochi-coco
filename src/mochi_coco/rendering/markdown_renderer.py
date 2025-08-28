@@ -2,10 +2,11 @@ import sys
 from enum import Enum
 from typing import Optional, Iterator, Tuple
 from rich.console import Console
-from rich.markdown import Markdown
+from .custom_markdown import CustomMarkdown
 from rich.text import Text
 from rich.live import Live
 import re
+from .themes import DEFAULT_THEME
 
 
 class RenderingMode(Enum):
@@ -27,7 +28,7 @@ class MarkdownRenderer:
         """
         self.mode = mode
         self.show_thinking = show_thinking
-        self.console = Console()
+        self.console = Console(theme=DEFAULT_THEME)
         self._accumulated_text = ""
 
     def _preprocess_thinking_blocks(self, text: str) -> str:
@@ -116,7 +117,7 @@ class MarkdownRenderer:
                 try:
                     # Preprocess to handle thinking blocks
                     processed_text = self._preprocess_thinking_blocks(accumulated_text)
-                    live.update(Markdown(processed_text))
+                    live.update(CustomMarkdown(processed_text))
                     live.refresh()
                 except Exception as e:
                     # Fallback to plain text
@@ -143,7 +144,7 @@ class MarkdownRenderer:
             try:
                 # Preprocess to handle thinking blocks
                 processed_text = self._preprocess_thinking_blocks(text)
-                markdown = Markdown(processed_text)
+                markdown = CustomMarkdown(processed_text)
                 self.console.print(markdown)
             except Exception as e:
                 # Fallback to plain text

@@ -191,7 +191,7 @@ def test_backward_compatibility():
         assert session.messages[2].model is None  # User message
         assert session.messages[3].model == "llama3"  # Assistant message
 
-        print(f"✅ New message models properly tracked")
+        print("✅ New message models properly tracked")
         print(f"✅ Message 3 (user) model: {session.messages[2].model}")
         print(f"✅ Message 4 (assistant) model: {session.messages[3].model}")
 
