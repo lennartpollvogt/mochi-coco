@@ -10,10 +10,13 @@ from dataclasses import dataclass, asdict
 class Message:
     role: str
     content: str
+    message_id: str | None = None
     model: str | None = None
     timestamp: str | None = None
 
     def __post_init__(self):
+        if self.message_id is None:
+            self.message_id = str(uuid.uuid4()).replace("-", "")[:10]
         if self.timestamp is None:
             self.timestamp = datetime.now().isoformat()
 
@@ -56,7 +59,7 @@ class ChatSession:
         """Get the path to the session JSON file."""
         return self.sessions_dir / f"{self.session_id}.json"
 
-    def add_message(self, role: str, content: str, context_window: Optional[int] = None, model: Optional[str] = None) -> None:
+    def add_message(self, role: str, content: str, context_window: Optional[int] = None, model: Optional[str] = None, message_id: Optional[str] = None) -> None:
         """Add a message to the session."""
         # Only track model for assistant messages
         if role == "assistant":
@@ -64,13 +67,20 @@ class ChatSession:
         else:
             message_model = None
 
-        message = Message(role=role, content=content, model=message_model)
+        message = Message(role=role, content=content, model=message_model, message_id=message_id)
         self.messages.append(message)
         self.metadata.message_count = len(self.messages)
         self.metadata.updated_at = datetime.now().isoformat()
         if context_window is not None:
             self.metadata.context_window = context_window
         self.save_session()
+
+    def get_message_by_id(self, message_id: str) -> Optional[Message]:
+        """Get a message by its ID."""
+        for message in self.messages:
+            if message.message_id == message_id:
+                return message
+        return None
 
     def get_messages_for_api(self) -> List[Dict[str, str]]:
         """Get messages in format suitable for API calls."""
