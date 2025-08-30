@@ -126,7 +126,6 @@ def chat(
             continue
 
         # Add user message to session
-
         session.add_user_message(content=user_input)
 
         try:
