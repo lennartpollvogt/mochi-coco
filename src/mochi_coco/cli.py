@@ -1,10 +1,11 @@
 from typing import Optional, Mapping, Any, List
-
 import typer
+
 from .ollama import OllamaClient
 from .ui import ModelSelector
 from .chat import ChatSession
 from .rendering import MarkdownRenderer, RenderingMode
+from .user_prompt import get_user_input
 
 app = typer.Typer()
 
@@ -72,12 +73,12 @@ def chat(
     while True:
         try:
             typer.secho("You:", fg=typer.colors.CYAN, bold=True)
-            user_input = input()
+            user_input = get_user_input()
         except (EOFError, KeyboardInterrupt):
             typer.secho("\nExiting.", fg=typer.colors.YELLOW)
             break
 
-        if user_input.strip().lower() in {"exit", "quit", ":q"}:
+        if user_input.strip().lower() in {"/exit", "/quit", "/q"}:
             typer.secho("Goodbye.", fg=typer.colors.YELLOW)
             break
 

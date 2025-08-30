@@ -6,10 +6,10 @@
 - [x] add id to each message object (`message_id`)
 - [x] customize the markdown rendering (headers)
 - [ ] open session menu to choose chats with `/chats`
-- [ ] add prompt_eval_count to user message
 - [x] add eval_count to assistant message
 - [ ] customize the markdown rendering (code blocks)
 - [x] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
+- [x] multiline input for user
 - [ ] add context window limit to chat session metadata (optional: display context window VS limit after every LLM response)
 - [ ] add possiblity to adjust context window within LLM requests.
   - should we check for user RAM?
