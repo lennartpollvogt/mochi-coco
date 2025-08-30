@@ -96,7 +96,6 @@ def chat(
         # Handle chat session switching command
         if user_input.strip() == "/chats":
             typer.secho("\n🔄 Switching chat sessions...\n", fg=typer.colors.BLUE, bold=True)
-
             new_session, new_model, new_markdown_enabled, new_show_thinking = model_selector.select_session_or_new()
 
             if new_session is None and new_model is None:
@@ -115,12 +114,16 @@ def chat(
                 selected_model = session.metadata.model
                 model_selector.display_chat_history(session)
                 typer.secho(f"\n💬 Switched to session {session.session_id} with {selected_model}", fg=typer.colors.BRIGHT_GREEN)
-            else:
-                # Created new session
+            elif new_model:
+                # Created new session with valid model
                 session = ChatSession(model=new_model)
                 selected_model = new_model
                 typer.secho(f"\n💬 New chat started with {selected_model}", fg=typer.colors.BRIGHT_GREEN)
                 typer.secho(f"Session ID: {session.session_id}", fg=typer.colors.CYAN)
+            else:
+                # This shouldn't happen, but handle gracefully
+                typer.secho("Error: No session or model selected. Returning to current session.", fg=typer.colors.RED)
+                continue
 
             # Show updated preferences
             if new_markdown_enabled:
