@@ -63,8 +63,7 @@ class ModelSelector:
 
                 if 0 <= index < len(models):
                     selected_model = models[index].name
-                    typer.secho(f"\n✅ Selected model: {selected_model}",
-                               fg=typer.colors.GREEN, bold=True)
+                    typer.secho(f"\n✅ Selected model: {selected_model}", fg=typer.colors.GREEN, bold=True)
                     return selected_model
                 else:
                     typer.secho(f"Please enter a number between 1 and {len(models)}",
