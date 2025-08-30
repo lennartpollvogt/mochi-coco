@@ -1,0 +1,73 @@
+from typing import Iterator, List, Optional, Sequence, Mapping, Any
+from dataclasses import dataclass
+
+from ollama import Client, list as ollama_list, ListResponse, ChatResponse, Message
+
+@dataclass
+class ChatMessage:
+    role: str
+    content: str
+
+
+@dataclass
+class ModelInfo:
+    name: str | None
+    size_mb: float
+    format: Optional[str] = None
+    family: Optional[str] = None
+    parameter_size: Optional[str] = None
+    quantization_level: Optional[str] = None
+    # supported_context_size = Optional[int] = None
+
+class OllamaClient:
+    def __init__(self, host: Optional[str] = None):
+        self.client = Client(host=host) if host else Client()
+
+    def list_models(self) -> List[ModelInfo]:
+        """List all available models."""
+        try:
+            response: ListResponse = ollama_list()
+            models = []
+
+            for model in response.models:
+                size_mb = model.size / 1024 / 1024 if model.size else 0
+
+                model_info = ModelInfo(
+                    name=model.model,
+                    size_mb=size_mb,
+                    format=model.details.format if model.details else None,
+                    family=model.details.family if model.details else None,
+                    parameter_size=model.details.parameter_size if model.details else None,
+                    quantization_level=model.details.quantization_level if model.details else None,
+                )
+                models.append(model_info)
+
+            return models
+        except Exception as e:
+            raise Exception(f"Failed to list models: {e}")
+
+    def chat_stream(self, model: str, messages: Sequence[Mapping[str, Any] | Message]) -> Iterator[ChatResponse]:
+        """
+        Stream chat responses from the model.
+        Yields tuples of (content, context_window) where context_window is None until the final chunk.
+        """
+        try:
+            response_stream: Iterator[ChatResponse] = self.client.chat(
+                model=model,
+                messages=messages,
+                stream=True
+            )
+
+            for chunk in response_stream:
+                if chunk.message and chunk.message.content:
+                    # For streaming chunks, context_window is None
+                    #yield ChatResponse(message=chunk.message)
+                    yield chunk
+                    #yield chunk.message.content, None
+                elif hasattr(chunk, 'done') and chunk.done and hasattr(chunk, 'eval_count'):
+                    # Final chunk with metadata - yield empty content with context window
+                   #yield ChatResponse(message=chunk.message, eval_count=chunk.eval_count, prompt_eval_count=chunk.prompt_eval_count)
+                    yield chunk
+                    #yield "", chunk.prompt_eval_count
+        except Exception as e:
+            raise Exception(f"Chat failed: {e}")
