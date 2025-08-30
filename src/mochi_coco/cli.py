@@ -54,7 +54,7 @@ def chat(
         typer.secho(f"\n💬 Continuing chat with {selected_model}",
                     fg=typer.colors.BRIGHT_GREEN)
 
-    typer.secho("Type 'exit' to quit, '/models' to change model, '/markdown' to toggle formatting, or '/thinking' to toggle thinking blocks.\n", fg=typer.colors.BRIGHT_GREEN)
+    typer.secho("Type 'exit' to quit, '/models' to change model, '/chats' to switch sessions, '/markdown' to toggle formatting, or '/thinking' to toggle thinking blocks.\n", fg=typer.colors.BRIGHT_GREEN)
     if markdown_enabled:
         typer.secho("Markdown rendering is enabled.", fg=typer.colors.CYAN)
         if show_thinking:
@@ -91,6 +91,43 @@ def chat(
                 session.metadata.model = new_model
                 session.save_session()
                 typer.secho(f"\n✅ Switched to model: {new_model}\n", fg=typer.colors.GREEN, bold=True)
+            continue
+
+        # Handle chat session switching command
+        if user_input.strip() == "/chats":
+            typer.secho("\n🔄 Switching chat sessions...\n", fg=typer.colors.BLUE, bold=True)
+
+            new_session, new_model, new_markdown_enabled, new_show_thinking = model_selector.select_session_or_new()
+
+            if new_session is None and new_model is None:
+                # User cancelled - continue with current session
+                typer.secho("Returning to current session.\n", fg=typer.colors.YELLOW)
+                continue
+
+            # Update renderer settings with new preferences
+            new_rendering_mode = RenderingMode.MARKDOWN if new_markdown_enabled else RenderingMode.PLAIN
+            renderer.set_mode(new_rendering_mode)
+            renderer.set_show_thinking(new_show_thinking)
+
+            if new_session:
+                # Switched to existing session
+                session = new_session
+                selected_model = session.metadata.model
+                model_selector.display_chat_history(session)
+                typer.secho(f"\n💬 Switched to session {session.session_id} with {selected_model}", fg=typer.colors.BRIGHT_GREEN)
+            else:
+                # Created new session
+                session = ChatSession(model=new_model)
+                selected_model = new_model
+                typer.secho(f"\n💬 New chat started with {selected_model}", fg=typer.colors.BRIGHT_GREEN)
+                typer.secho(f"Session ID: {session.session_id}", fg=typer.colors.CYAN)
+
+            # Show updated preferences
+            if new_markdown_enabled:
+                typer.secho("Markdown rendering is enabled.", fg=typer.colors.CYAN)
+                if new_show_thinking:
+                    typer.secho("Thinking blocks will be displayed.", fg=typer.colors.CYAN)
+
             continue
 
         # Handle markdown toggle command

@@ -5,7 +5,7 @@
 - [x] add model name to each message object
 - [x] add id to each message object (`message_id`)
 - [x] customize the markdown rendering (headers)
-- [ ] open session menu to choose chats with `/chats`
+- [x] within chat session open session menu to choose chats with `/chats`
 - [x] add eval_count to assistant message
 - [ ] customize the markdown rendering (code blocks)
 - [x] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
@@ -18,9 +18,13 @@
 - [ ] change specific user prompt and start from this message again
   - needs to delete all following message within the session
 
+# Issues
+
+- [ ] stream stops after a while and the complete output get displayed when LLM has finished (but should continuously stream)
+- [ ] in sessions menu the count of messages is doubled
+
 # Open Questions
 
-- how to make multiline input?
 - how could adding a text file to the user input be done?
 - how could adding an image to the user input be done?
 
