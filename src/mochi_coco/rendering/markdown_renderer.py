@@ -7,6 +7,7 @@ from rich.text import Text
 from rich.live import Live
 import re
 from .themes import DEFAULT_THEME
+from ollama import ChatResponse
 
 
 class RenderingMode(Enum):
@@ -72,8 +73,8 @@ class MarkdownRenderer:
 
     def render_streaming_response(
         self,
-        text_chunks: Iterator[Tuple[str, Optional[int]]]
-    ) -> Tuple[str, Optional[int]]:
+        text_chunks: Iterator[ChatResponse]
+    ) -> ChatResponse:
         """
         Render a streaming response with optional markdown formatting.
 
@@ -84,33 +85,35 @@ class MarkdownRenderer:
             Tuple of (complete_text, context_window)
         """
         accumulated_text = ""
-        context_window = None
+        final_chunk: ChatResponse | None = None
 
         if self.mode == RenderingMode.PLAIN:
             # Plain mode: just stream normally
-            for text_chunk, chunk_context_window in text_chunks:
-                if text_chunk:
-                    accumulated_text += text_chunk
-                    print(text_chunk, end='', flush=True)
+            for chunk in text_chunks:
+                if chunk:
+                    accumulated_text += chunk.message['content']
+                    print(chunk.message['content'], end='', flush=True)
 
-                if chunk_context_window is not None:
-                    context_window = chunk_context_window
+                if chunk.done:
+                    chunk.message.content = accumulated_text
+                    final_chunk = chunk
 
             print()  # Final newline
-            return accumulated_text, context_window
+            if final_chunk:
+                return final_chunk
 
         # Markdown mode: use Live for replacement
         with Live(console=self.console, refresh_per_second=60, auto_refresh=False) as live:
             # Stream and collect text
-            for text_chunk, chunk_context_window in text_chunks:
-                if text_chunk:
-                    accumulated_text += text_chunk
+            for chunk in text_chunks:
+                if chunk:
+                    accumulated_text += chunk.message['content']
                     # Show plain text during streaming
                     live.update(Text(accumulated_text))
                     live.refresh()
-
-                if chunk_context_window is not None:
-                    context_window = chunk_context_window
+                if chunk.done:
+                    chunk.message.content = accumulated_text
+                    final_chunk = chunk
 
             # After streaming is complete, replace with markdown
             if accumulated_text.strip():
@@ -124,8 +127,8 @@ class MarkdownRenderer:
                     live.update(Text(accumulated_text))
                     live.refresh()
                     print(f"Warning: Markdown rendering failed: {e}", file=sys.stderr)
-
-        return accumulated_text, context_window
+            if final_chunk:
+                return final_chunk
 
     def render_static_text(self, text: str) -> None:
         """

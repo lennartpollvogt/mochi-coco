@@ -2,23 +2,37 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Optional, Any
 from dataclasses import dataclass, asdict
 
+from ollama import ChatResponse
+
+@dataclass
+class UserMessage:
+    """
+    A message sent by the user.
+    """
+    role = "user"
+    content: str = ""
 
 @dataclass
 class Message:
     role: str
     content: str
-    message_id: str | None = None
-    model: str | None = None
-    timestamp: str | None = None
+    model: Optional[str] = None
+    message_id: Optional[str] = None
+    timestamp: Optional[str] = None
+    eval_count: Optional[int] = None
+    prompt_eval_count: Optional[int] = None
 
     def __post_init__(self):
         if self.message_id is None:
             self.message_id = str(uuid.uuid4()).replace("-", "")[:10]
         if self.timestamp is None:
             self.timestamp = datetime.now().isoformat()
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
 
 
 @dataclass
@@ -59,32 +73,44 @@ class ChatSession:
         """Get the path to the session JSON file."""
         return self.sessions_dir / f"{self.session_id}.json"
 
-    def add_message(self, role: str, content: str, context_window: Optional[int] = None, model: Optional[str] = None, message_id: Optional[str] = None) -> None:
-        """Add a message to the session."""
-        # Only track model for assistant messages
-        if role == "assistant":
-            message_model = model or self.model
-        else:
-            message_model = None
+    def add_user_message(self, content: str, message_id: Optional[str] = None) -> None:
+        """Add a user message to the session."""
 
-        message = Message(role=role, content=content, model=message_model, message_id=message_id)
+        message = Message(
+            role="user",
+            content=content,
+            message_id=message_id,
+        )
         self.messages.append(message)
         self.metadata.message_count = len(self.messages)
         self.metadata.updated_at = datetime.now().isoformat()
-        if context_window is not None:
-            self.metadata.context_window = context_window
         self.save_session()
 
-    def get_message_by_id(self, message_id: str) -> Optional[Message]:
-        """Get a message by its ID."""
-        for message in self.messages:
-            if message.message_id == message_id:
-                return message
-        return None
+    def add_message(self, chunk: ChatResponse, message_id: Optional[str] = None) -> None:
+        """Add a message to the session."""
+        message = Message(
+            role=chunk.message.role,
+            content=chunk.message['content'],
+            model=chunk.model,
+            eval_count=chunk.eval_count,
+            prompt_eval_count=chunk.prompt_eval_count,
+            message_id=message_id
+        )
+        self.messages.append(message)
+        self.metadata.message_count = len(self.messages)
+        self.metadata.updated_at = datetime.now().isoformat()
+        self.save_session()
 
-    def get_messages_for_api(self) -> List[Dict[str, str]]:
+    def get_messages_for_api(self) -> List[Message]:
         """Get messages in format suitable for API calls."""
-        return [{"role": msg.role, "content": msg.content} for msg in self.messages]
+        messages = []
+        for message in self.messages:
+            messages.append({
+                "role": message.role,
+                "content": message.content
+            })
+
+        return messages
 
     def save_session(self) -> None:
         """Save the current session to a JSON file."""

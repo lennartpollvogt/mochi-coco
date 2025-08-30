@@ -1,8 +1,7 @@
-from typing import Iterator, List, Dict, Optional
+from typing import Iterator, List, Optional, Sequence, Mapping, Any
 from dataclasses import dataclass
 
-from ollama import Client, list as ollama_list, ListResponse
-
+from ollama import Client, list as ollama_list, ListResponse, ChatResponse, Message
 
 @dataclass
 class ChatMessage:
@@ -18,7 +17,7 @@ class ModelInfo:
     family: Optional[str] = None
     parameter_size: Optional[str] = None
     quantization_level: Optional[str] = None
-
+    # supported_context_size = Optional[int] = None
 
 class OllamaClient:
     def __init__(self, host: Optional[str] = None):
@@ -47,13 +46,13 @@ class OllamaClient:
         except Exception as e:
             raise Exception(f"Failed to list models: {e}")
 
-    def chat_stream(self, model: str, messages: List[Dict[str, str]]) -> Iterator[tuple[str, Optional[int]]]:
+    def chat_stream(self, model: str, messages: Sequence[Mapping[str, Any] | Message]) -> Iterator[ChatResponse]:
         """
         Stream chat responses from the model.
         Yields tuples of (content, context_window) where context_window is None until the final chunk.
         """
         try:
-            response_stream = self.client.chat(
+            response_stream: Iterator[ChatResponse] = self.client.chat(
                 model=model,
                 messages=messages,
                 stream=True
@@ -62,9 +61,13 @@ class OllamaClient:
             for chunk in response_stream:
                 if chunk.message and chunk.message.content:
                     # For streaming chunks, context_window is None
-                    yield chunk.message.content, None
-                elif hasattr(chunk, 'done') and chunk.done and hasattr(chunk, 'prompt_eval_count'):
+                    #yield ChatResponse(message=chunk.message)
+                    yield chunk
+                    #yield chunk.message.content, None
+                elif hasattr(chunk, 'done') and chunk.done and hasattr(chunk, 'eval_count'):
                     # Final chunk with metadata - yield empty content with context window
-                    yield "", chunk.prompt_eval_count
+                   #yield ChatResponse(message=chunk.message, eval_count=chunk.eval_count, prompt_eval_count=chunk.prompt_eval_count)
+                    yield chunk
+                    #yield "", chunk.prompt_eval_count
         except Exception as e:
             raise Exception(f"Chat failed: {e}")

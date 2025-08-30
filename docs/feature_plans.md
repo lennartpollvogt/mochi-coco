@@ -3,8 +3,10 @@
 - [x] stream the response normal and then render markdown only after the final chunk
 - [x] Render user input in markdown, after user presses enter
 - [x] add model name to each message object
-- [ ] add id to each message object (`message_id`)
+- [x] add id to each message object (`message_id`)
 - [x] customize the markdown rendering (headers)
+- [ ] add prompt_eval_count to user message
+- [ ] add eval_count to assistant message
 - [ ] customize the markdown rendering (code blocks)
 - [x] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
 - [ ] add context window limit to chat session metadata (optional: display context window VS limit after every LLM response)
@@ -12,6 +14,8 @@
 # Open Questions
 
 - how to make multiline input?
+- how could adding a text file to the user input be done?
+- how could adding an image to the user input be done?
 
 # Feature Drafts
 
