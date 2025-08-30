@@ -12,8 +12,19 @@ class UserMessage:
     """
     A message sent by the user.
     """
-    role = "user"
+    role: str = "user"
     content: str = ""
+    message_id: Optional[str] = None
+    timestamp: Optional[str] = None
+
+    def __post_init__(self):
+        if self.message_id is None:
+            self.message_id = str(uuid.uuid4()).replace("-", "")[:10]
+        if self.timestamp is None:
+            self.timestamp = datetime.now().isoformat()
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
 
 @dataclass
 class Message:
@@ -52,7 +63,7 @@ class ChatSession:
         self.sessions_dir = Path(sessions_dir) if sessions_dir else Path.cwd() / "chat_sessions"
         self.sessions_dir.mkdir(exist_ok=True)
 
-        self.messages: List[Message] = []
+        self.messages: List[Message | UserMessage] = []
         self.metadata = SessionMetadata(
             session_id=self.session_id,
             model=model,
@@ -76,8 +87,8 @@ class ChatSession:
     def add_user_message(self, content: str, message_id: Optional[str] = None) -> None:
         """Add a user message to the session."""
 
-        message = Message(
-            role="user",
+        message = UserMessage(
+            #role="user",
             content=content,
             message_id=message_id,
         )

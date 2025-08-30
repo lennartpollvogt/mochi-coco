@@ -1,6 +1,6 @@
 import sys
 from enum import Enum
-from typing import Optional, Iterator, Tuple
+from typing import Iterator
 from rich.console import Console
 from .custom_markdown import CustomMarkdown
 from rich.text import Text
