@@ -5,11 +5,18 @@
 - [x] add model name to each message object
 - [x] add id to each message object (`message_id`)
 - [x] customize the markdown rendering (headers)
+- [ ] open session menu to choose chats with `/chats`
 - [ ] add prompt_eval_count to user message
-- [ ] add eval_count to assistant message
+- [x] add eval_count to assistant message
 - [ ] customize the markdown rendering (code blocks)
 - [x] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
 - [ ] add context window limit to chat session metadata (optional: display context window VS limit after every LLM response)
+- [ ] add possiblity to adjust context window within LLM requests.
+  - should we check for user RAM?
+  - What is the default context window size?
+- [ ] workflow: use @chat to select a chat -> let a LLM summarize prompt specific information from this chat -> let return the summary -> use summary within user prompt -> send user prompt to Ollama
+- [ ] change specific user prompt and start from this message again
+  - needs to delete all following message within the session
 
 # Open Questions
 

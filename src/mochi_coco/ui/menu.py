@@ -201,14 +201,8 @@ class ModelSelector:
             typer.secho("No previous messages in this session.", fg=typer.colors.CYAN)
             return
 
-        # Check if we should show model information (only for assistant messages)
-        models_used = set(msg.model for msg in session.messages if msg.role == "assistant" and msg.model is not None)
-        show_model_info = len(models_used) > 1 or (models_used and session.model not in models_used)
-
         typer.secho(f"\n📜 Chat History (Session: {session.session_id}):", fg=typer.colors.BRIGHT_BLUE, bold=True)
-        if show_model_info and models_used:
-            models_list = ", ".join(sorted(models_used))
-            typer.secho(f"Models used: {models_list}", fg=typer.colors.YELLOW)
+        typer.secho(f"Models used: {session.model}", fg=typer.colors.YELLOW)
         typer.echo("=" * 80)
 
         for message in session.messages:
@@ -219,9 +213,7 @@ class ModelSelector:
                 else:
                     typer.echo(message.content)
             elif message.role == "assistant":
-                assistant_label = "\nA:"
-                if show_model_info and message.model:
-                    assistant_label += f" ({message.model})"
+                assistant_label = "\nAssistant:"
                 typer.secho(assistant_label, fg=typer.colors.MAGENTA, bold=True)
                 if self.renderer:
                     self.renderer.render_static_text(message.content)
