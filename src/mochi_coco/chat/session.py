@@ -2,7 +2,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Mapping
 from dataclasses import dataclass, asdict
 
 from ollama import ChatResponse
@@ -111,7 +111,7 @@ class ChatSession:
         self.metadata.updated_at = datetime.now().isoformat()
         self.save_session()
 
-    def get_messages_for_api(self) -> List[SessionMessage]:
+    def get_messages_for_api(self) -> List[Mapping[str, Any]]:
         """Get messages in format suitable for API calls."""
         messages = []
         for message in self.messages:

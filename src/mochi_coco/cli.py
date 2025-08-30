@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Mapping, Any, List
 
 import typer
 from .ollama import OllamaClient
@@ -132,7 +132,7 @@ def chat(
             typer.secho("\nAssistant:", fg=typer.colors.MAGENTA, bold=True)
 
             # Use renderer for streaming response
-            messages = session.get_messages_for_api()
+            messages: List[Mapping[str, Any]] = session.get_messages_for_api()
             text_stream = client.chat_stream(selected_model, messages)
             final_chunk = renderer.render_streaming_response(text_stream)
 
