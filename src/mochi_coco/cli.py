@@ -137,10 +137,12 @@ def chat(
             final_chunk = renderer.render_streaming_response(text_stream)
 
             print()  # Extra newline for spacing
-            session.add_message(chunk=final_chunk)
+            if final_chunk:
+                session.add_message(chunk=final_chunk)
+            else:
+                raise Exception("No response received. Final chunk: {final_chunk}")
         except Exception as e:
             typer.secho(f"Error: {e}", fg=typer.colors.RED)
-
 
 
 def main():

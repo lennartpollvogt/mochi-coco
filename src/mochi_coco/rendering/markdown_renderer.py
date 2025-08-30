@@ -74,7 +74,7 @@ class MarkdownRenderer:
     def render_streaming_response(
         self,
         text_chunks: Iterator[ChatResponse]
-    ) -> ChatResponse:
+    ) -> ChatResponse | None:
         """
         Render a streaming response with optional markdown formatting.
 

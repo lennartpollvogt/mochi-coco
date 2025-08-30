@@ -27,7 +27,7 @@ class UserMessage:
         return getattr(self, key)
 
 @dataclass
-class Message:
+class SessionMessage:
     role: str
     content: str
     model: Optional[str] = None
@@ -53,7 +53,6 @@ class SessionMetadata:
     created_at: str
     updated_at: str
     message_count: int = 0
-    context_window: Optional[int] = None
 
 
 class ChatSession:
@@ -63,7 +62,7 @@ class ChatSession:
         self.sessions_dir = Path(sessions_dir) if sessions_dir else Path.cwd() / "chat_sessions"
         self.sessions_dir.mkdir(exist_ok=True)
 
-        self.messages: List[Message | UserMessage] = []
+        self.messages: List[SessionMessage | UserMessage] = []
         self.metadata = SessionMetadata(
             session_id=self.session_id,
             model=model,
@@ -99,7 +98,7 @@ class ChatSession:
 
     def add_message(self, chunk: ChatResponse, message_id: Optional[str] = None) -> None:
         """Add a message to the session."""
-        message = Message(
+        message = SessionMessage(
             role=chunk.message.role,
             content=chunk.message['content'],
             model=chunk.model,
@@ -112,7 +111,7 @@ class ChatSession:
         self.metadata.updated_at = datetime.now().isoformat()
         self.save_session()
 
-    def get_messages_for_api(self) -> List[Message]:
+    def get_messages_for_api(self) -> List[SessionMessage]:
         """Get messages in format suitable for API calls."""
         messages = []
         for message in self.messages:
@@ -148,7 +147,7 @@ class ChatSession:
 
             # Load messages
             messages_data = session_data.get("messages", [])
-            self.messages = [Message(**msg_dict) for msg_dict in messages_data]
+            self.messages = [SessionMessage(**msg_dict) for msg_dict in messages_data]
 
             return True
         except (json.JSONDecodeError, KeyError, TypeError) as e:
