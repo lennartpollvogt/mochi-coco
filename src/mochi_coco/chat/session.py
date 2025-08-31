@@ -162,7 +162,7 @@ class ChatSession:
         first_user_msg = next((msg.content for msg in self.messages if msg.role == "user"), "")
         preview = first_user_msg[:50] + "..." if len(first_user_msg) > 50 else first_user_msg
 
-        return f"{self.session_id}: {preview} ({self.metadata.message_count} messages)"
+        return f"{self.session_id}: {preview}"
 
     @classmethod
     def list_sessions(cls, sessions_dir: Optional[str] = None) -> List["ChatSession"]:
