@@ -1,3 +1,3 @@
-from .client import OllamaClient, ChatMessage
+from .client import OllamaClient, ChatMessage, ModelInfo
 
-__all__ = ["OllamaClient", "ChatMessage"]
+__all__ = ["OllamaClient", "ChatMessage", "ModelInfo"]

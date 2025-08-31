@@ -10,6 +10,7 @@
 - [ ] customize the markdown rendering (code blocks)
 - [x] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
 - [x] multiline input for user
+- [ ] delete command for chat session menu
 - [ ] add context window limit to chat session metadata (optional: display context window VS limit after every LLM response)
 - [ ] add possiblity to adjust context window within LLM requests.
   - should we check for user RAM?

@@ -9,9 +9,9 @@ from ..rendering import RenderingMode
 from ..utils import re_render_chat_history
 
 if TYPE_CHECKING:
-    from ..chat.session import ChatSession
-    from ..ui.menu import ModelSelector
-    from ..services.renderer_manager import RendererManager
+    from ..chat import ChatSession
+    from ..ui import ModelSelector
+    from ..services import RendererManager
 
 
 class CommandResult:

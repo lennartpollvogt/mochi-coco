@@ -1,14 +1,87 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import typer
-from ..ollama.client import OllamaClient, ModelInfo
-from ..chat.session import ChatSession
+import re
+from ..ollama import OllamaClient, ModelInfo
+from ..chat import ChatSession
 from ..rendering import MarkdownRenderer
+
+
+class MenuCommandResult:
+    """Result of menu command execution."""
+    def __init__(self, should_continue: bool = True, refresh_needed: bool = False):
+        self.should_continue = should_continue
+        self.refresh_needed = refresh_needed
+
+
+class SessionMenuHandler:
+    """Handles session menu commands and operations."""
+
+    def __init__(self):
+        pass
+
+    def parse_command(self, user_input: str) -> Tuple[Optional[str], Optional[int]]:
+        """
+        Parse menu commands like '/delete 2'.
+
+        Returns:
+            Tuple of (command, argument) where argument is session number for applicable commands
+        """
+        user_input = user_input.strip()
+
+        if not user_input.startswith('/'):
+            return None, None
+
+        # Handle /delete <number> command
+        delete_match = re.match(r'/delete\s+(\d+)', user_input, re.IGNORECASE)
+        if delete_match:
+            return 'delete', int(delete_match.group(1))
+
+        return None, None
+
+    def handle_delete_command(self, sessions: List[ChatSession], session_number: int) -> MenuCommandResult:
+        """
+        Handle deletion of a session.
+
+        Args:
+            sessions: List of available sessions
+            session_number: 1-based session number to delete
+
+        Returns:
+            MenuCommandResult indicating if operation succeeded and if refresh is needed
+        """
+        if not (1 <= session_number <= len(sessions)):
+            typer.secho(f"Invalid session number. Please choose between 1 and {len(sessions)}.",
+                       fg=typer.colors.RED)
+            return MenuCommandResult(should_continue=True, refresh_needed=False)
+
+        session_to_delete = sessions[session_number - 1]
+
+        # Confirm deletion
+        typer.secho(f"\n⚠️  Are you sure you want to delete session {session_to_delete.session_id}?",
+                   fg=typer.colors.YELLOW, bold=True)
+        typer.secho(f"Preview: {session_to_delete.get_session_summary()}", fg=typer.colors.WHITE)
+
+        confirm = typer.prompt("Type 'yes' to confirm deletion", default="no")
+
+        if confirm.lower() in ['yes', 'y']:
+            if session_to_delete.delete_session():
+                typer.secho(f"✅ Session {session_to_delete.session_id} deleted successfully!",
+                           fg=typer.colors.GREEN, bold=True)
+                return MenuCommandResult(should_continue=True, refresh_needed=True)
+            else:
+                typer.secho(f"❌ Failed to delete session {session_to_delete.session_id}",
+                           fg=typer.colors.RED)
+        else:
+            typer.secho("Deletion cancelled.", fg=typer.colors.CYAN)
+
+        return MenuCommandResult(should_continue=True, refresh_needed=False)
 
 
 class ModelSelector:
     def __init__(self, client: OllamaClient, renderer: Optional[MarkdownRenderer] = None):
         self.client = client
         self.renderer = renderer
+        self.session_menu_handler = SessionMenuHandler()
 
     def display_models_table(self, models: List[ModelInfo]) -> None:
         """Display available models in a nice table format."""
@@ -130,74 +203,92 @@ class ModelSelector:
         """
         typer.secho("🚀 Welcome to Mochi-Coco Chat!", fg=typer.colors.BRIGHT_MAGENTA, bold=True)
 
-        # Load existing sessions
-        sessions = ChatSession.list_sessions()
+        while True:  # Outer loop to handle session list refresh
+            # Load existing sessions
+            sessions = ChatSession.list_sessions()
 
-        if sessions:
+            if not sessions:
+                typer.secho("\nNo previous sessions found. Starting new chat...", fg=typer.colors.CYAN)
+                selected_model = self.select_model()
+                if selected_model:
+                    markdown_enabled = self.prompt_markdown_preference()
+                    show_thinking = self.prompt_thinking_display() if markdown_enabled else False
+                else:
+                    markdown_enabled = False
+                    show_thinking = False
+                return None, selected_model, markdown_enabled, show_thinking
+
+            # Display sessions and menu options
             self.display_sessions_table(sessions)
-            typer.secho(f"\nSelect a session (1-{len(sessions)}), type 'new' for new chat, or 'q' to quit:",
-                       fg=typer.colors.YELLOW, bold=True)
-        else:
-            typer.secho("\nNo previous sessions found. Starting new chat...", fg=typer.colors.CYAN)
-            selected_model = self.select_model()
-            if selected_model:
-                markdown_enabled = self.prompt_markdown_preference()
-                show_thinking = self.prompt_thinking_display() if markdown_enabled else False
-            else:
-                markdown_enabled = False
-                show_thinking = False
-            return None, selected_model, markdown_enabled, show_thinking
+            self._display_menu_help(len(sessions))
 
-        while True:
-            try:
-                choice = input("Enter your choice: ").strip()
+            while True:  # Inner loop for user input
+                try:
+                    choice = input("Enter your choice: ").strip()
 
-                if choice.lower() in {'q', 'quit', 'exit'}:
+                    if choice.lower() in {'q', 'quit', 'exit'}:
+                        return None, None, False, False
+
+                    if choice.lower() == 'new':
+                        selected_model = self.select_model()
+                        if selected_model:
+                            markdown_enabled = self.prompt_markdown_preference()
+                            show_thinking = self.prompt_thinking_display() if markdown_enabled else False
+                        else:
+                            markdown_enabled = False
+                            show_thinking = False
+                        return None, selected_model, markdown_enabled, show_thinking
+
+                    # Check for menu commands
+                    command, argument = self.session_menu_handler.parse_command(choice)
+                    if command == 'delete' and argument is not None:
+                        result = self.session_menu_handler.handle_delete_command(sessions, argument)
+                        if result.refresh_needed:
+                            break  # Break inner loop to refresh session list
+                        continue  # Continue inner loop for more input
+
+                    # Handle regular session selection
+                    try:
+                        index = int(choice) - 1
+                        if 0 <= index < len(sessions):
+                            selected_session = sessions[index]
+
+                            # Check if the session's model is still available
+                            available_models = [m.name for m in self.client.list_models()]
+                            if selected_session.metadata.model not in available_models:
+                                typer.secho(f"\n⚠️ Model '{selected_session.metadata.model}' is no longer available.",
+                                           fg=typer.colors.RED)
+                                typer.secho("Please select a new model:", fg=typer.colors.YELLOW)
+                                new_model = self.select_model()
+                                if new_model:
+                                    selected_session.model = new_model
+                                    selected_session.metadata.model = new_model
+                                    selected_session.save_session()
+                                else:
+                                    return None, None, False, False
+
+                            typer.secho(f"\n✅ Loaded session: {selected_session.session_id} with {selected_session.metadata.model}",
+                                       fg=typer.colors.GREEN, bold=True)
+                            markdown_enabled = self.prompt_markdown_preference()
+                            show_thinking = self.prompt_thinking_display() if markdown_enabled else False
+                            return selected_session, None, markdown_enabled, show_thinking
+                        else:
+                            typer.secho(f"Please enter a number between 1 and {len(sessions)}, 'new', '/delete <number>', or 'q'",
+                                       fg=typer.colors.RED)
+                    except ValueError:
+                        typer.secho("Please enter a valid number, 'new', '/delete <number>', or 'q'", fg=typer.colors.RED)
+
+                except (EOFError, KeyboardInterrupt):
+                    typer.secho("\nExiting.", fg=typer.colors.YELLOW)
                     return None, None, False, False
 
-                if choice.lower() == 'new':
-                    selected_model = self.select_model()
-                    if selected_model:
-                        markdown_enabled = self.prompt_markdown_preference()
-                        show_thinking = self.prompt_thinking_display() if markdown_enabled else False
-                    else:
-                        markdown_enabled = False
-                        show_thinking = False
-                    return None, selected_model, markdown_enabled, show_thinking
-
-                try:
-                    index = int(choice) - 1
-                    if 0 <= index < len(sessions):
-                        selected_session = sessions[index]
-
-                        # Check if the session's model is still available
-                        available_models = [m.name for m in self.client.list_models()]
-                        if selected_session.metadata.model not in available_models:
-                            typer.secho(f"\n⚠️ Model '{selected_session.metadata.model}' is no longer available.",
-                                       fg=typer.colors.RED)
-                            typer.secho("Please select a new model:", fg=typer.colors.YELLOW)
-                            new_model = self.select_model()
-                            if new_model:
-                                selected_session.model = new_model
-                                selected_session.metadata.model = new_model
-                                selected_session.save_session()
-                            else:
-                                return None, None, False, False
-
-                        typer.secho(f"\n✅ Loaded session: {selected_session.session_id} with {selected_session.metadata.model}",
-                                   fg=typer.colors.GREEN, bold=True)
-                        markdown_enabled = self.prompt_markdown_preference()
-                        show_thinking = self.prompt_thinking_display() if markdown_enabled else False
-                        return selected_session, None, markdown_enabled, show_thinking
-                    else:
-                        typer.secho(f"Please enter a number between 1 and {len(sessions)}, 'new', or 'q'",
-                                   fg=typer.colors.RED)
-                except ValueError:
-                    typer.secho("Please enter a valid number, 'new', or 'q'", fg=typer.colors.RED)
-
-            except (EOFError, KeyboardInterrupt):
-                typer.secho("\nExiting.", fg=typer.colors.YELLOW)
-                return None, None, False, False
+    def _display_menu_help(self, session_count: int) -> None:
+        """Display help text for menu options."""
+        typer.secho("\nOptions:", fg=typer.colors.YELLOW, bold=True)
+        typer.secho(f"• Select session (1-{session_count})", fg=typer.colors.WHITE)
+        typer.secho("• Type 'new' for new chat", fg=typer.colors.WHITE)
+        typer.secho("• Type '/delete <number>' to delete a session", fg=typer.colors.WHITE)
+        typer.secho("• Type 'q' to quit", fg=typer.colors.WHITE)
 
     def display_chat_history(self, session: ChatSession) -> None:
         """Display the chat history of a session."""

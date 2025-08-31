@@ -6,8 +6,8 @@ from typing import Optional, Tuple, TYPE_CHECKING
 import typer
 
 if TYPE_CHECKING:
-    from ..chat.session import ChatSession
-    from ..ui.menu import ModelSelector
+    from ..chat import ChatSession
+    from ..ui import ModelSelector
 
 
 
