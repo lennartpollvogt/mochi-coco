@@ -20,7 +20,7 @@ class ModelSelector:
         typer.echo("=" * 80)
 
         # Table header
-        header = f"{'#':<3} {'Model Name':<30} {'Size (MB)':<12} {'Family':<15}"
+        header = f"{'#':<3} {'Model Name':<30} {'Size (MB)':<12} {'Family':<13} {'Max. Cxt Length':<15}"
         typer.secho(header, fg=typer.colors.CYAN, bold=True)
         typer.echo("-" * 80)
 
@@ -28,8 +28,13 @@ class ModelSelector:
         for i, model in enumerate(models, 1):
             size_str = f"{model.size_mb:.1f}" if model.size_mb else "N/A"
             family_str = model.family or "N/A"
+            model_details = self.client.show_model_details(model.name) if model.name else False
+            if model_details:
+                max_context_window = model_details.model_dump()['modelinfo'][f'{family_str}.context_length']
+            else:
+                max_context_window = "N/A"
 
-            row = f"{i:<3} {model.name:<30} {size_str:<12} {family_str:<15}"
+            row = f"{i:<3} {model.name:<30} {size_str:<12} {family_str:<13} {max_context_window:<15}"
             typer.echo(row)
 
         typer.echo("=" * 80)

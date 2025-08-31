@@ -15,8 +15,9 @@
   - should we check for user RAM?
   - What is the default context window size?
 - [ ] workflow: use @chat to select a chat -> let a LLM summarize prompt specific information from this chat -> let return the summary -> use summary within user prompt -> send user prompt to Ollama
-- [ ] change specific user prompt and start from this message again
+- [ ] Give user possibility to change a specific user prompt and start from this message again
   - needs to delete all following message within the session
+  - possibility to abort the change - as long as not sent the adjusted prompt - with ctrl+c and continue from the last message
 
 # Issues
 

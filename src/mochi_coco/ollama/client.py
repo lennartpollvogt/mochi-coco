@@ -1,7 +1,7 @@
 from typing import Iterator, List, Optional, Sequence, Mapping, Any
 from dataclasses import dataclass
 
-from ollama import Client, list as ollama_list, ListResponse, ChatResponse, Message
+from ollama import Client, list as ollama_list, ListResponse, ChatResponse, Message, ShowResponse
 
 @dataclass
 class ChatMessage:
@@ -45,6 +45,16 @@ class OllamaClient:
             return models
         except Exception as e:
             raise Exception(f"Failed to list models: {e}")
+
+    def show_model_details(self, model_name: str) -> ShowResponse:
+        """Get model details with method 'show'."""
+        try:
+            model_details = self.client.show(
+                model=model_name
+            )
+            return model_details
+        except Exception as e:
+            raise Exception(f"Failed to show model details: {e}")
 
     def chat_stream(self, model: str, messages: Sequence[Mapping[str, Any] | Message]) -> Iterator[ChatResponse]:
         """
