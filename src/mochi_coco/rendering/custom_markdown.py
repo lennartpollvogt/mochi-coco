@@ -16,7 +16,7 @@ class CustomHeading(TextElement):
     """A custom heading with configurable styling."""
 
     @classmethod
-    def create(cls, markdown: 'CustomMarkdown', token: Token) -> 'CustomHeading':
+    def create(cls, markdown: 'Markdown', token: Token) -> 'CustomHeading':
         return cls(token.tag)
 
     def on_enter(self, context: MarkdownContext) -> None:
