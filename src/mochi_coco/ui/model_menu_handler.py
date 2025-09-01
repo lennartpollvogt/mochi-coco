@@ -8,6 +8,13 @@ from .menu_display import MenuDisplay
 from .user_interaction import UserInteraction
 
 
+class ModelSelectionContext:
+    """Constants for different contexts where model selection can occur."""
+    FROM_CHAT = "from_chat"              # /models command during chat
+    FROM_SESSION_MENU = "from_session_menu"  # Creating new session when sessions exist
+    NO_SESSIONS = "no_sessions"          # No sessions exist, must select model
+
+
 class ModelMenuHandler:
     """Handles model-specific operations and interactions."""
 
@@ -22,9 +29,12 @@ class ModelMenuHandler:
         self.client = client
         self.menu_display = menu_display
 
-    def select_model(self) -> Optional[str]:
+    def select_model(self, context: str = ModelSelectionContext.FROM_CHAT) -> Optional[str]:
         """
         Display model selection menu and return the selected model name.
+
+        Args:
+            context: Context where model selection is occurring
 
         Returns:
             Selected model name or None if cancelled/failed
@@ -45,7 +55,7 @@ class ModelMenuHandler:
         self.menu_display.display_models_table(models, self.client)
 
         # Handle user selection
-        return self._handle_model_selection_loop(models)
+        return self._handle_model_selection_loop(models, context)
 
     def _load_available_models(self) -> Optional[List[ModelInfo]]:
         """
@@ -78,12 +88,13 @@ class ModelMenuHandler:
         valid_models = [model for model in models if model.name]
         return len(valid_models) > 0
 
-    def _handle_model_selection_loop(self, models: List[ModelInfo]) -> Optional[str]:
+    def _handle_model_selection_loop(self, models: List[ModelInfo], context: str) -> Optional[str]:
         """
         Handle the model selection input loop.
 
         Args:
             models: List of available models
+            context: Context where model selection is occurring
 
         Returns:
             Selected model name or None if cancelled
@@ -92,10 +103,12 @@ class ModelMenuHandler:
             try:
                 self.menu_display.display_model_selection_prompt(len(models))
                 choice = UserInteraction.get_user_input("Enter your choice:")
-                # Handle quit commands
+                # Handle quit commands with context awareness
                 if choice.lower() in {'q', 'quit', 'exit'}:
-                    UserInteraction.display_success('Model selection cancelled')
-                    return None
+                    quit_result = self._handle_quit_command(context)
+                    if quit_result == "RETRY":
+                        continue  # Continue the loop for no-sessions context
+                    return quit_result
 
                 # Handle empty input
                 if not choice:
@@ -110,8 +123,12 @@ class ModelMenuHandler:
                     continue
 
             except KeyboardInterrupt:
-                UserInteraction.display_info("Use 'q' to quit model selection.")
-                continue
+                if context == ModelSelectionContext.NO_SESSIONS:
+                    UserInteraction.display_info("Press Ctrl+C again to force quit, or select a model to continue.")
+                    continue
+                else:
+                    UserInteraction.display_info("Use 'q' to quit model selection.")
+                    continue
 
     def _process_model_choice(self, models: List[ModelInfo], choice: str) -> Optional[str]:
         """
@@ -173,6 +190,29 @@ class ModelMenuHandler:
         except Exception:
             return []
 
+    def _handle_quit_command(self, context: str) -> Optional[str]:
+        """
+        Handle quit commands based on context.
+
+        Args:
+            context: The context where quit was requested
+
+        Returns:
+            None to indicate cancellation
+        """
+        if context == ModelSelectionContext.FROM_CHAT:
+            UserInteraction.display_success('Model selection cancelled')
+            return None
+        elif context == ModelSelectionContext.FROM_SESSION_MENU:
+            UserInteraction.display_info('Returning to session menu...')
+            return None
+        elif context == ModelSelectionContext.NO_SESSIONS:
+            UserInteraction.display_info('Model selection is required when no sessions exist. Press Ctrl+C to force quit.')
+            return "RETRY"  # Special return to indicate retry needed
+        else:
+            UserInteraction.display_success('Model selection cancelled')
+            return None
+
     def handle_unavailable_model(self, unavailable_model: str) -> Optional[str]:
         """
         Handle the case when a session's model is no longer available.
@@ -186,4 +226,4 @@ class ModelMenuHandler:
         UserInteraction.display_warning(f"Model '{unavailable_model}' is no longer available.")
         UserInteraction.display_info("Please select a new model:")
 
-        return self.select_model()
+        return self.select_model(context=ModelSelectionContext.FROM_SESSION_MENU)

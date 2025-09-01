@@ -6,7 +6,7 @@ from ..chat.session import ChatSession
 from ..rendering import MarkdownRenderer
 from .menu_display import MenuDisplay
 from .user_interaction import UserInteraction
-from .model_menu_handler import ModelMenuHandler
+from .model_menu_handler import ModelMenuHandler, ModelSelectionContext
 
 
 class MenuCommandResult:
@@ -85,9 +85,9 @@ class ModelSelector:
         self.menu_display = MenuDisplay(renderer)
         self.model_menu_handler = ModelMenuHandler(client, self.menu_display)
 
-    def select_model(self) -> Optional[str]:
+    def select_model(self, context: str = ModelSelectionContext.FROM_CHAT) -> Optional[str]:
         """Display model selection menu and return the selected model name."""
-        return self.model_menu_handler.select_model()
+        return self.model_menu_handler.select_model(context)
 
     def select_session_or_new(self) -> tuple[Optional[ChatSession], Optional[str], bool, bool]:
         """
@@ -110,13 +110,22 @@ class ModelSelector:
     def _handle_no_sessions_scenario(self) -> tuple[Optional[ChatSession], Optional[str], bool, bool]:
         """Handle the case when no sessions exist."""
         self.menu_display.display_no_sessions_message()
-        selected_model = self.model_menu_handler.select_model()
 
-        if selected_model:
-            markdown_enabled, show_thinking = self._collect_user_preferences()
-            return None, selected_model, markdown_enabled, show_thinking
-        else:
-            return None, None, False, False
+        # Keep trying until user selects a model or force-quits
+        while True:
+            try:
+                selected_model = self.model_menu_handler.select_model(
+                    context=ModelSelectionContext.NO_SESSIONS
+                )
+
+                if selected_model and selected_model != "RETRY":
+                    markdown_enabled, show_thinking = self._collect_user_preferences()
+                    return None, selected_model, markdown_enabled, show_thinking
+                # If selected_model is "RETRY", continue the loop
+
+            except (EOFError, KeyboardInterrupt):
+                typer.secho("\nExiting application.", fg=typer.colors.YELLOW)
+                return None, None, False, False
 
     def _handle_session_selection_menu(self, sessions: List[ChatSession]) -> Optional[tuple[Optional[ChatSession], Optional[str], bool, bool]]:
         """
@@ -151,7 +160,12 @@ class ModelSelector:
 
         # Handle new chat creation
         if choice.lower() == 'new':
-            return self._handle_new_chat_creation()
+            result = self._handle_new_chat_creation()
+            if result is None:
+                # Model selection was cancelled, returning to session menu
+                typer.secho("", fg=typer.colors.WHITE)  # Add blank line for spacing
+                return "REFRESH_NEEDED"  # Signal refresh needed to redisplay session list
+            return result
 
         # Handle menu commands (like delete)
         command, argument = self.session_menu_handler.parse_command(choice)
@@ -164,15 +178,18 @@ class ModelSelector:
         # Handle session selection by number
         return self._handle_session_number_selection(sessions, choice)
 
-    def _handle_new_chat_creation(self) -> tuple[Optional[ChatSession], Optional[str], bool, bool]:
-        """Handle creation of a new chat session."""
-        selected_model = self.model_menu_handler.select_model()
+    def _handle_new_chat_creation(self) -> Optional[tuple[Optional[ChatSession], Optional[str], bool, bool]]:
+        """Handle creation of a new chat session with proper retry logic."""
+        selected_model = self.model_menu_handler.select_model(
+            context=ModelSelectionContext.FROM_SESSION_MENU
+        )
 
         if selected_model:
             markdown_enabled, show_thinking = self._collect_user_preferences()
             return None, selected_model, markdown_enabled, show_thinking
         else:
-            return None, None, False, False
+            # Model selection was cancelled - return None to continue session menu loop
+            return None
 
     def _handle_session_number_selection(self, sessions: List[ChatSession], choice: str) -> Optional[tuple[Optional[ChatSession], Optional[str], bool, bool]]:
         """Handle selection of a session by number."""

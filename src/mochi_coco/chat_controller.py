@@ -66,7 +66,9 @@ class ChatController:
         if session is None or selected_model is None:
             return False
 
-        # Store session state
+        # Store session state (type assertions are safe here due to the None check above)
+        assert session is not None
+        assert selected_model is not None
         self.session = session
         self.selected_model = selected_model
 
@@ -90,6 +92,9 @@ class ChatController:
 
             # Process commands
             if user_input.strip().startswith('/'):
+                # Type assertions are safe here because _initialize_session ensures these are not None
+                assert self.session is not None
+                assert self.selected_model is not None
                 result = self.command_processor.process_command(user_input, self.session, self.selected_model)
 
                 if result.should_exit:
@@ -118,18 +123,22 @@ class ChatController:
             user_input: The user's message
         """
         # Add user message to session
+        assert self.session is not None
         self.session.add_user_message(content=user_input)
 
         try:
             typer.secho("\nAssistant:", fg=typer.colors.MAGENTA, bold=True)
 
             # Use renderer for streaming response
+            assert self.session is not None
+            assert self.selected_model is not None
             messages: List[Mapping[str, Any]] = self.session.get_messages_for_api()
             text_stream = self.client.chat_stream(self.selected_model, messages)
             final_chunk = self.renderer.render_streaming_response(text_stream)
 
             print()  # Extra newline for spacing
             if final_chunk:
+                assert self.session is not None
                 self.session.add_message(chunk=final_chunk)
             else:
                 raise Exception("No response received. Final chunk: {final_chunk}")

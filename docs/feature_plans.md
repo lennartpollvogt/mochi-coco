@@ -11,7 +11,7 @@
 - [x] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
 - [x] multiline input for user
 - [x] delete command for chat session menu
-- [ ] when user wants to creat new chat and quits models seleciton, they should return to the chat sessions menu
+- [x] when user wants to creat new chat and quits models seleciton, they should return to the chat sessions menu
 - [ ] workflow: use @chat to select a chat -> let a LLM summarize prompt specific information from this chat -> let return the summary -> use summary within user prompt -> send user prompt to Ollama
 - [ ] add message number to chat message (only in ui)
 - [ ] Give user possibility to change a specific user prompt and start from this message again (see `manual_testing/edit_message.md`)
@@ -24,7 +24,6 @@
 # Issues
 
 - [ ] stream stops after a while and the complete output get displayed when LLM has finished (but should continuously stream)
-- [ ] in sessions menu the count of messages is doubled
 
 # Open Questions
 

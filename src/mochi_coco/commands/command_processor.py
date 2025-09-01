@@ -72,7 +72,8 @@ class CommandProcessor:
 
     def _handle_models_command(self, session: "ChatSession") -> CommandResult:
         """Handle the /models command."""
-        new_model = self.model_selector.select_model()
+        from ..ui.model_menu_handler import ModelSelectionContext
+        new_model = self.model_selector.select_model(context=ModelSelectionContext.FROM_CHAT)
         if new_model:
             session.model = new_model
             session.metadata.model = new_model
