@@ -1,7 +1,7 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Literal
 import typer
 import re
-from ..ollama.client import OllamaClient, ModelInfo
+from ..ollama.client import OllamaClient
 from ..chat.session import ChatSession
 from ..rendering import MarkdownRenderer
 from .menu_display import MenuDisplay
@@ -140,7 +140,7 @@ class ModelSelector:
                 typer.secho("\nExiting.", fg=typer.colors.YELLOW)
                 return None, None, False, False
 
-    def _process_user_choice(self, sessions: List[ChatSession], choice: str) -> Union[tuple[Optional[ChatSession], Optional[str], bool, bool], str, None]:
+    def _process_user_choice(self, sessions: List[ChatSession], choice: str) -> Union[tuple[Optional[ChatSession], Optional[str], bool, bool], Literal["REFRESH_NEEDED"], None]:
         """
         Process a single user choice.
         Returns result tuple, None to continue input loop, or "REFRESH_NEEDED" to refresh sessions.
