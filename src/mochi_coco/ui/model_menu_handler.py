@@ -89,21 +89,28 @@ class ModelMenuHandler:
             Selected model name or None if cancelled
         """
         while True:
-            self.menu_display.display_model_selection_prompt(len(models))
-            choice = UserInteraction.get_user_input("Enter your choice:")
+            try:
+                self.menu_display.display_model_selection_prompt(len(models))
+                choice = UserInteraction.get_user_input("Enter your choice:")
+                # Handle quit commands
+                if choice.lower() in {'q', 'quit', 'exit'}:
+                    return None
 
-            # Handle quit commands
-            if choice.lower() in {'q', 'quit', 'exit'}:
-                return None
+                # Handle empty input
+                if not choice:
+                    continue
 
-            # Handle empty input
-            if not choice:
+                # Handle model selection
+                selected_model = self._process_model_choice(models, choice)
+                if selected_model is not None:
+                    return selected_model
+                else:
+                    UserInteraction.display_error("Invalid model choice.")
+                    continue
+
+            except KeyboardInterrupt:
+                UserInteraction.display_info("Use 'q' to quit model selection.")
                 continue
-
-            # Handle model selection
-            selected_model = self._process_model_choice(models, choice)
-            if selected_model is not None:
-                return selected_model
 
     def _process_model_choice(self, models: List[ModelInfo], choice: str) -> Optional[str]:
         """
@@ -126,14 +133,14 @@ class ModelMenuHandler:
                     return selected_model
                 else:
                     UserInteraction.display_error("Selected model has no name")
-                    return ""  # Continue loop
+                    return None  # Continue loop
             else:
                 UserInteraction.display_error(f"Please enter a number between 1 and {len(models)}")
-                return ""  # Continue loop
+                return None  # Continue loop
 
         except ValueError:
             UserInteraction.display_error("Please enter a valid number")
-            return ""  # Continue loop
+            return None # Continue loop
 
     def check_model_availability(self, model_name: str) -> bool:
         """
