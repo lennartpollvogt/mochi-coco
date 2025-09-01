@@ -94,6 +94,7 @@ class ModelMenuHandler:
                 choice = UserInteraction.get_user_input("Enter your choice:")
                 # Handle quit commands
                 if choice.lower() in {'q', 'quit', 'exit'}:
+                    UserInteraction.display_success('Model selection cancelled')
                     return None
 
                 # Handle empty input
