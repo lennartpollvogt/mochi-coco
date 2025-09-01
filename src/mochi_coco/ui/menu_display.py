@@ -49,6 +49,14 @@ class MenuDisplay:
             typer.echo(row)
 
         typer.echo("=" * 80)
+        typer.secho(
+            "ATTENTION: The maximum context length is the supported length of the model but not the actual during the chat session.",
+            fg=typer.colors.BRIGHT_MAGENTA, bold=True
+        )
+        typer.secho(
+            "Open Ollama application to set default context length!",
+            fg=typer.colors.BRIGHT_MAGENTA, bold=True
+        )
 
     def display_sessions_table(self, sessions: List[ChatSession]) -> None:
         """Display available sessions in a nice table format."""

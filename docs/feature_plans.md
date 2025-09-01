@@ -6,19 +6,19 @@
 - [x] add id to each message object (`message_id`)
 - [x] customize the markdown rendering (headers)
 - [x] within chat session open session menu to choose chats with `/chats`
-- [x] add eval_count to assistant message
+- [x] add eval_count and prompt_eval_count to assistant message
 - [ ] customize the markdown rendering (code blocks)
 - [x] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
 - [x] multiline input for user
-- [ ] delete command for chat session menu
-- [ ] add context window limit to chat session metadata (optional: display context window VS limit after every LLM response)
-- [ ] add possiblity to adjust context window within LLM requests.
-  - should we check for user RAM?
-  - What is the default context window size?
+- [x] delete command for chat session menu
 - [ ] workflow: use @chat to select a chat -> let a LLM summarize prompt specific information from this chat -> let return the summary -> use summary within user prompt -> send user prompt to Ollama
-- [ ] Give user possibility to change a specific user prompt and start from this message again
-  - needs to delete all following message within the session
-  - possibility to abort the change - as long as not sent the adjusted prompt - with ctrl+c and continue from the last message
+- [ ] add message number to chat message (only in ui)
+- [ ] Give user possibility to change a specific user prompt and start from this message again (see `manual_testing/edit_message.md`)
+- [ ] Add tool usage
+  - user can place a folder `tools` in the root directory of the terminal
+  - this folder has to have a `__init__.py` file with the `__all__` variable defined to expose the tools
+  - the tools themselves are in files within this folder
+  - the user can, before starting a chat session and during a chat session, choose the tools which are available for the LLM (during chat session with command `/tools`).
 
 # Issues
 
