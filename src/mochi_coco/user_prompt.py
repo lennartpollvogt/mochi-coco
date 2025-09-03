@@ -43,3 +43,37 @@ def get_user_input(message: str = "") -> str:
         return user_input.strip()
     except EOFError:
         return ""
+
+
+def get_user_input_with_prefill(message: str = "", prefill_text: str = "") -> str:
+    """
+    Get user input with multiline support and pre-filled content using prompt_toolkit.
+
+    Args:
+        message (str): The message to display as a prompt.
+        prefill_text (str): Text to pre-fill the input field with.
+    """
+
+    # Custom style for the prompt
+    style = Style.from_dict({
+        'prompt': '#00aa00 bold',
+        'text': '#ffffff',
+    })
+
+    kb = create_key_bindings()
+
+    try:
+        user_input = prompt(
+            message=message,
+            multiline=True,
+            prompt_continuation="",  # Continuation prompt for multiline
+            style=style,
+            mouse_support=False,
+            wrap_lines=True,
+            # Submit with Enter when not in multiline mode, or Ctrl+Enter in multiline
+            key_bindings=kb,  # Use default key bindings
+            default=prefill_text,  # Pre-fill with existing content
+        )
+        return user_input.strip()
+    except EOFError:
+        return ""

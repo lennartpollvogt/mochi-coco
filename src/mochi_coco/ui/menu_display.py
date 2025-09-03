@@ -146,3 +146,45 @@ class MenuDisplay:
         """Display confirmation of session loading."""
         typer.secho(f"\n✅ Loaded session: {session_id} with {model}",
                    fg=typer.colors.GREEN, bold=True)
+
+    def display_edit_messages_table(self, session: ChatSession) -> None:
+        """Display messages for editing with user messages numbered."""
+        if not session.messages:
+            typer.secho("No messages to edit in this session.", fg=typer.colors.RED)
+            return
+
+        typer.secho("\nSelect a message to edit:", fg=typer.colors.BRIGHT_GREEN, bold=True)
+        typer.echo("=" * 100)
+
+        # Table header
+        header = f"{'#':<3} {'Role':<12} {'Preview':<85}"
+        typer.secho(header, fg=typer.colors.CYAN, bold=True)
+        typer.echo("-" * 100)
+
+        # Track user message counter for numbering
+        user_msg_counter = 0
+
+        # Table rows
+        for i, message in enumerate(session.messages):
+            role = message.role
+            preview = message.content[:82] + "..." if len(message.content) > 82 else message.content
+            # Replace newlines with spaces for clean display
+            preview = preview.replace('\n', ' ').replace('\r', ' ')
+
+            if role == "user":
+                user_msg_counter += 1
+                number = str(user_msg_counter)
+            else:
+                number = "-"
+
+            row = f"{number:<3} {role:<12} {preview:<85}"
+
+            # Highlight user messages that can be selected
+            if role == "user":
+                typer.secho(row, fg=typer.colors.WHITE)
+            else:
+                typer.secho(row, fg=typer.colors.BRIGHT_BLACK)
+
+        typer.echo("=" * 100)
+        typer.secho(f"Select a user message (1-{user_msg_counter}) or 'q' to cancel:",
+                   fg=typer.colors.YELLOW, bold=True)

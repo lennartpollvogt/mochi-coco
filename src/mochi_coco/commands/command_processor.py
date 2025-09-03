@@ -67,6 +67,10 @@ class CommandProcessor:
         if command == "/thinking":
             return self._handle_thinking_command(session)
 
+        # Edit command
+        if command == "/edit":
+            return self._handle_edit_command(session)
+
         # Not a recognized command
         return CommandResult(should_continue=False)
 
@@ -146,4 +150,111 @@ class CommandProcessor:
 
             # Re-render chat history with new thinking setting
             re_render_chat_history(session, self.model_selector)
+
         return CommandResult()
+
+    def _handle_edit_command(self, session: "ChatSession") -> CommandResult:
+        """Handle the /edit command."""
+        from ..ui.user_interaction import UserInteraction
+
+        # Check if there are any user messages to edit
+        user_messages = session.get_user_messages_with_indices()
+        if not user_messages:
+            typer.secho("\n⚠️ No user messages to edit in this session.", fg=typer.colors.YELLOW)
+            return CommandResult()
+
+        # Check if session has any messages at all
+        if not session.messages:
+            typer.secho("\n⚠️ No messages in this session.", fg=typer.colors.YELLOW)
+            return CommandResult()
+
+        # Display edit menu
+        typer.secho("\n✏️ Edit Message", fg=typer.colors.BLUE, bold=True)
+        self.model_selector.menu_display.display_edit_messages_table(session)
+
+        # Get user selection
+        user_interaction = UserInteraction()
+        selected_index = user_interaction.get_edit_selection(len(user_messages))
+
+        if selected_index is None:
+            # User cancelled
+            typer.secho("Edit cancelled.", fg=typer.colors.YELLOW)
+            return CommandResult()
+
+        # Get the message to edit
+        display_num, actual_index, message = user_messages[selected_index - 1]
+
+        typer.secho(f"\nEditing message #{display_num}:", fg=typer.colors.CYAN, bold=True)
+        typer.secho("Original message:", fg=typer.colors.YELLOW)
+        typer.echo(f"  {message.content}")
+        typer.echo()
+
+        # Get edited content
+        from ..user_prompt import get_user_input_with_prefill
+        typer.secho("Enter your edited message (or press Ctrl+C to cancel):", fg=typer.colors.CYAN)
+        try:
+            edited_content = get_user_input_with_prefill(prefill_text=message.content)
+            if not edited_content.strip():
+                typer.secho("Empty message. Edit cancelled.", fg=typer.colors.YELLOW)
+                return CommandResult()
+
+            # Check if content actually changed
+            if edited_content.strip() == message.content.strip():
+                typer.secho("No changes made. Edit cancelled.", fg=typer.colors.YELLOW)
+                return CommandResult()
+
+        except (EOFError, KeyboardInterrupt):
+            typer.secho("\nEdit cancelled.", fg=typer.colors.YELLOW)
+            return CommandResult()
+
+        # Apply the edit
+        session.edit_message_and_truncate(actual_index, edited_content)
+
+        # Show confirmation
+        typer.secho(f"\nMessage #{display_num} edited successfully!", fg=typer.colors.GREEN, bold=True)
+        typer.secho("All messages after this point have been removed.", fg=typer.colors.YELLOW)
+
+        # Re-render chat history to show the changes
+        # Re-render chat history to show the changes
+        from ..utils import re_render_chat_history
+        re_render_chat_history(session, self.model_selector)
+
+        # Automatically continue conversation by getting LLM response
+        self._get_llm_response_for_last_message(session)
+
+        return CommandResult()
+
+    def _get_llm_response_for_last_message(self, session: "ChatSession") -> None:
+        """Get LLM response for the last user message in the session."""
+        if not session.messages or session.messages[-1].role != "user":
+            typer.secho("No user message to respond to.", fg=typer.colors.YELLOW)
+            return
+
+        try:
+            typer.secho("\nContinuing conversation from edited message...", fg=typer.colors.CYAN)
+            typer.secho(f"Sending to {session.metadata.model}...\n", fg=typer.colors.BLUE)
+            typer.secho("Assistant:", fg=typer.colors.MAGENTA, bold=True)
+
+            # Get current model from session
+            current_model = session.metadata.model
+
+            # Get messages for API
+            messages = session.get_messages_for_api()
+
+            # Import client from model_selector
+            client = self.model_selector.client
+
+            # Use renderer for streaming response
+            text_stream = client.chat_stream(current_model, messages)
+            final_chunk = self.renderer_manager.renderer.render_streaming_response(text_stream)
+
+            print()  # Extra newline for spacing
+            if final_chunk:
+                session.add_message(chunk=final_chunk)
+                typer.secho("\n✅ Conversation continued successfully!", fg=typer.colors.GREEN)
+            else:
+                typer.secho("No response received from the model.", fg=typer.colors.RED)
+
+        except Exception as e:
+            typer.secho(f"Error getting LLM response: {e}", fg=typer.colors.RED)
+            typer.secho("You can continue chatting normally.", fg=typer.colors.YELLOW)

@@ -151,3 +151,38 @@ class UserInteraction:
     def display_info(message: str) -> None:
         """Display an informational message to the user."""
         typer.secho(message, fg=typer.colors.CYAN)
+
+    @staticmethod
+    def get_edit_selection(max_user_messages: int) -> Optional[int]:
+        """
+        Get user selection for which message to edit.
+
+        Args:
+            max_user_messages: Maximum number of user messages available to edit
+
+        Returns:
+            The selected message number (1-based) or None if cancelled
+        """
+        while True:
+            try:
+                choice = input().strip()
+
+                if choice.lower() in {'q', 'quit', 'exit'}:
+                    return None
+
+                try:
+                    number = int(choice)
+                    if 1 <= number <= max_user_messages:
+                        return number
+                    else:
+                        typer.secho(f"Please enter a number between 1 and {max_user_messages}", fg=typer.colors.RED)
+                        typer.secho(f"Select a user message (1-{max_user_messages}) or 'q' to cancel:",
+                                   fg=typer.colors.YELLOW, bold=True)
+                except ValueError:
+                    typer.secho("Please enter a valid number", fg=typer.colors.RED)
+                    typer.secho(f"Select a user message (1-{max_user_messages}) or 'q' to cancel:",
+                               fg=typer.colors.YELLOW, bold=True)
+
+            except (EOFError, KeyboardInterrupt):
+                typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+                return None

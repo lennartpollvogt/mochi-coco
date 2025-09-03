@@ -68,7 +68,7 @@ class SessionManager:
 
     def display_session_info(self, markdown_enabled: bool, show_thinking: bool) -> None:
         """Display session information and available commands."""
-        typer.secho("Type 'exit' to quit, '/models' to change model, '/chats' to switch sessions, '/markdown' to toggle formatting, or '/thinking' to toggle thinking blocks.\n",
+        typer.secho("Type 'exit' to quit, '/models' to change model, '/chats' to switch sessions, '/edit' to edit messages, '/markdown' to toggle formatting, or '/thinking' to toggle thinking blocks.\n",
                    fg=typer.colors.BRIGHT_GREEN)
 
         if markdown_enabled:

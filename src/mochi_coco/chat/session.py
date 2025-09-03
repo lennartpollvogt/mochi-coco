@@ -2,7 +2,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Any, Mapping
+from typing import List, Optional, Any, Mapping, Tuple
 from dataclasses import dataclass, asdict
 
 from ollama import ChatResponse
@@ -145,9 +145,23 @@ class ChatSession:
             metadata_dict = session_data.get("metadata", {})
             self.metadata = SessionMetadata(**metadata_dict)
 
-            # Load messages
+            # Load messages - handle both UserMessage and SessionMessage types
             messages_data = session_data.get("messages", [])
-            self.messages = [SessionMessage(**msg_dict) for msg_dict in messages_data]
+            self.messages = []
+            for msg_dict in messages_data:
+                if msg_dict.get("role") == "user":
+                    # For user messages, only use fields that UserMessage expects
+                    user_msg_data = {
+                        "role": msg_dict.get("role", "user"),
+                        "content": msg_dict.get("content", ""),
+                        "message_id": msg_dict.get("message_id"),
+                        "timestamp": msg_dict.get("timestamp")
+                    }
+                    # Remove None values
+                    user_msg_data = {k: v for k, v in user_msg_data.items() if v is not None}
+                    self.messages.append(UserMessage(**user_msg_data))
+                else:
+                    self.messages.append(SessionMessage(**msg_dict))
 
             return True
         except (json.JSONDecodeError, KeyError, TypeError) as e:
@@ -196,3 +210,50 @@ class ChatSession:
         except Exception as e:
             print(f"Error deleting session {self.session_id}: {e}")
             return False
+
+    def get_user_messages_with_indices(self) -> List[Tuple[int, int, UserMessage]]:
+        """
+        Get user messages with their display numbers and actual indices.
+
+        Returns:
+            List of tuples: (display_number, actual_index, message)
+            where display_number is 1-based for UI, actual_index is 0-based for list operations
+        """
+        user_messages = []
+        display_counter = 0
+
+        for actual_index, message in enumerate(self.messages):
+            if message.role == "user":
+                display_counter += 1
+                user_messages.append((display_counter, actual_index, message))
+
+        return user_messages
+
+    def edit_message_and_truncate(self, message_index: int, new_content: str) -> None:
+        """
+        Edit message at the given index and remove all subsequent messages.
+
+        Args:
+            message_index: The actual index (0-based) of the message to edit
+            new_content: The new content for the message
+        """
+        if message_index < 0 or message_index >= len(self.messages):
+            raise IndexError(f"Message index {message_index} is out of range")
+
+        message = self.messages[message_index]
+        if message.role != "user":
+            raise ValueError(f"Can only edit user messages, but message at index {message_index} is {message.role}")
+
+        # Update the message content
+        message.content = new_content.strip()
+        message.timestamp = datetime.now().isoformat()
+
+        # Remove all messages after this index
+        self.messages = self.messages[:message_index + 1]
+
+        # Update metadata
+        self.metadata.message_count = len(self.messages)
+        self.metadata.updated_at = datetime.now().isoformat()
+
+        # Save the session
+        self.save_session()
