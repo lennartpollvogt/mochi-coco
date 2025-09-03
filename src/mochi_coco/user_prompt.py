@@ -13,7 +13,7 @@ def create_key_bindings():
 
     return kb
 
-def get_user_input() -> str:
+def get_user_input(message: str = "") -> str:
     """Get user input with multiline support using prompt_toolkit."""
 
     # Custom style for the prompt
@@ -26,7 +26,7 @@ def get_user_input() -> str:
 
     try:
         user_input = prompt(
-            message="",
+            message=message,
             multiline=True,
             prompt_continuation="",  # Continuation prompt for multiline
             style=style,
