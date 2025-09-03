@@ -14,7 +14,7 @@
 - [x] when user wants to creat new chat and quits models seleciton, they should return to the chat sessions menu
 - [ ] workflow: use @chat to select a chat -> let a LLM summarize prompt specific information from this chat -> let return the summary -> use summary within user prompt -> send user prompt to Ollama
 - [ ] add message number to chat message (only in ui)
-- [ ] Give user possibility to change a specific user prompt and start from this message again (see `manual_testing/edit_message.md`)
+- [ ] Give user possibility to change a specific user prompt and continue from this message again (see `manual_testing/edit_message.md`) while old messages will be deleted from the chat history
 - [ ] Add tool usage
   - user can place a folder `tools` in the root directory of the terminal
   - this folder has to have a `__init__.py` file with the `__all__` variable defined to expose the tools
@@ -46,7 +46,6 @@ The reference to a message object from the origin chat history is given by the `
     "created_at": "2025-08-26T08:19:16.554406",
     "updated_at": "2025-08-26T08:20:13.907823",
     "message_count": 2,
-    "context_window": 75
   },
   "messages": [
     {
@@ -68,8 +67,7 @@ The reference to a message object from the origin chat history is given by the `
         "model": "gpt-oss:20b",
         "created_at": "2025-08-26T08:20:16.554406",
         "updated_at": "2025-08-26T08:21:13.907823",
-        "message_count": 2,
-        "context_window": 75
+        "message_count": 2
       },
       "messages": [
         {
