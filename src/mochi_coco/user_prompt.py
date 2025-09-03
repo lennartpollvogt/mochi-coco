@@ -14,7 +14,12 @@ def create_key_bindings():
     return kb
 
 def get_user_input(message: str = "") -> str:
-    """Get user input with multiline support using prompt_toolkit."""
+    """
+    Get user input with multiline support using prompt_toolkit.
+
+    Args:
+        message (str): The message to display as a prompt.
+    """
 
     # Custom style for the prompt
     style = Style.from_dict({
