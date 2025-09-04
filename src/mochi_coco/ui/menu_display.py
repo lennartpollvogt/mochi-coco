@@ -188,3 +188,29 @@ class MenuDisplay:
         typer.echo("=" * 100)
         typer.secho(f"Select a user message (1-{user_msg_counter}) or 'q' to cancel:",
                    fg=typer.colors.YELLOW, bold=True)
+
+    def display_command_menu(self) -> None:
+        """Display the command menu options."""
+        typer.secho("\n⚙️  Command Menu", fg=typer.colors.BRIGHT_CYAN, bold=True)
+        typer.echo("=" * 50)
+
+        # Table header
+        header = f"{'#':<3} {'Command':<15} {'Description':<30}"
+        typer.secho(header, fg=typer.colors.CYAN, bold=True)
+        typer.echo("-" * 50)
+
+        # Menu options
+        options = [
+            ("1", "chats", "Switch to a different chat session"),
+            ("2", "models", "Change the current model"),
+            ("3", "markdown", "Toggle markdown rendering"),
+            ("4", "thinking", "Toggle thinking blocks display")
+        ]
+
+        for number, command, description in options:
+            row = f"{number:<3} {command:<15} {description:<30}"
+            typer.echo(row)
+
+        typer.echo("=" * 50)
+        typer.secho("Select an option (1-4) or 'q' to cancel:",
+                   fg=typer.colors.YELLOW, bold=True)

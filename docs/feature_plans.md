@@ -12,6 +12,13 @@
 - [x] multiline input for user
 - [x] delete command for chat session menu
 - [x] when user wants to creat new chat and quits models seleciton, they should return to the chat sessions menu
+- [x] change approach of commands during chat session to have one command (`/menu`) which opens a menu where the user can select from the available options.
+  - Available options:
+    - `chats`: Open chat session menu and select a chat session to continue with
+    - `models`: Choose LLM to continue with for the chat session
+    - `markdown`: Toggle markdown rendering during chat
+    - `thinking`: Toggle thinking rendering during chat
+  - This feature does not affect `/edit` command.
 - [ ] workflow: use @chat to select a chat -> let a LLM summarize prompt specific information from this chat -> let return the summary -> use summary within user prompt -> send user prompt to Ollama
 - [ ] add message number to chat message (only in ui)
 - [x] Give user possibility to change a specific user prompt and continue from this message again (see `manual_testing/edit_message.md`) while old messages will be deleted from the chat history

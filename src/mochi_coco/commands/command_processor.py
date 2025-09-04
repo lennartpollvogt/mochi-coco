@@ -51,21 +51,9 @@ class CommandProcessor:
             typer.secho("Goodbye.", fg=typer.colors.YELLOW)
             return CommandResult(should_continue=False, should_exit=True)
 
-        # Model change command
-        if command == "/models":
-            return self._handle_models_command(session)
-
-        # Chat session switching command
-        if command == "/chats":
-            return self._handle_chats_command()
-
-        # Markdown toggle command
-        if command == "/markdown":
-            return self._handle_markdown_command(session)
-
-        # Thinking toggle command
-        if command == "/thinking":
-            return self._handle_thinking_command(session)
+        # Menu command
+        if command == "/menu":
+            return self._handle_menu_command(session)
 
         # Edit command
         if command == "/edit":
@@ -258,3 +246,47 @@ class CommandProcessor:
         except Exception as e:
             typer.secho(f"Error getting LLM response: {e}", fg=typer.colors.RED)
             typer.secho("You can continue chatting normally.", fg=typer.colors.YELLOW)
+
+    def _handle_menu_command(self, session: "ChatSession") -> CommandResult:
+        """Handle the /menu command by displaying menu options and processing selection."""
+        from ..ui.user_interaction import UserInteraction
+
+        while True:
+            # Display the menu
+            self.model_selector.menu_display.display_command_menu()
+
+            # Get user selection
+            user_interaction = UserInteraction()
+            choice = user_interaction.get_user_input()
+
+            # Handle quit
+            if choice.lower() in {'q', 'quit', 'exit'}:
+                typer.secho("Returning to chat.", fg=typer.colors.YELLOW)
+                return CommandResult()
+
+            # Process menu selection
+            if choice == "1":
+                # Handle chats command
+                result = self._handle_chats_command()
+                if result.should_exit or (result.new_session or result.new_model):
+                    return result
+                # If user cancelled, continue menu loop
+                continue
+            elif choice == "2":
+                # Handle models command
+                result = self._handle_models_command(session)
+                if result.new_model:
+                    return result
+                # If user cancelled, continue menu loop
+                continue
+            elif choice == "3":
+                # Handle markdown command
+                result = self._handle_markdown_command(session)
+                return result  # Always return after markdown toggle
+            elif choice == "4":
+                # Handle thinking command
+                result = self._handle_thinking_command(session)
+                return result  # Always return after thinking toggle
+            else:
+                typer.secho("Please enter 1, 2, 3, 4, or 'q'", fg=typer.colors.RED)
+                continue
