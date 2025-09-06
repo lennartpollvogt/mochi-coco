@@ -93,7 +93,13 @@ class MenuDisplay:
 
     def display_welcome_message(self) -> None:
         """Display the welcome message for the chat application."""
-        typer.secho("🚀 Welcome to Mochi-Coco Chat!", fg=typer.colors.BRIGHT_MAGENTA, bold=True)
+        mochi = """
+        .-===-.
+        |[:::]|
+        `-----´
+        """
+        typer.secho("🚀 Welcome to Mochi-Coco!", fg=typer.colors.BRIGHT_MAGENTA, bold=True)
+        typer.secho(mochi, fg=typer.colors.BRIGHT_WHITE, bold=True)
 
     def display_chat_history(self, session: ChatSession) -> None:
         """Display the chat history of a session."""
