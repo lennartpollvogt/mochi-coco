@@ -336,6 +336,8 @@ class TestCompleteChatFlow:
             final_chunk.prompt_eval_count = 30
             yield final_chunk
 
+        # Clear the side_effect to allow return_value to work
+        mock_ollama_client_integration.chat_stream.side_effect = None
         mock_ollama_client_integration.chat_stream.return_value = markdown_stream()
 
         with patch('mochi_coco.chat_controller.get_user_input', side_effect=["Show me some code", "/exit"]):
@@ -415,6 +417,8 @@ class TestCompleteChatFlow:
                 final_chunk.prompt_eval_count = 35
                 yield final_chunk
 
+            # Clear the side_effect to allow return_value to work
+            mock_ollama_client_integration.chat_stream.side_effect = None
             mock_ollama_client_integration.chat_stream.return_value = thinking_stream()
 
             with patch('mochi_coco.chat_controller.get_user_input', side_effect=["What should I think about?", "/exit"]):
@@ -475,9 +479,18 @@ class TestCompleteChatFlow:
 
                 # Create a realistic final chunk with accumulated content
                 if final_chunk:
-                    final_chunk.message = MockMessage(f"Response {response_count}")
-                    final_chunk.message.role = "assistant"
-                    final_chunk.model = "test-model"
+                    # Create properly structured mock chunk
+                    mock_chunk = Mock()
+                    mock_chunk.message = Mock()
+                    mock_chunk.message.role = "assistant"
+                    mock_chunk.message.__getitem__ = lambda self, key: f"Response {response_count}" if key == 'content' else ""
+                    mock_chunk.message.content = f"Response {response_count}"
+                    mock_chunk.model = "test-model"
+                    mock_chunk.eval_count = 50 + response_count * 5
+                    mock_chunk.prompt_eval_count = 25 + response_count * 2
+                    mock_chunk.done = True
+
+                    return mock_chunk
 
                 return final_chunk
 
@@ -511,15 +524,15 @@ class TestCompleteChatFlow:
         assert session.metadata.model == "test-model"
 
         # Verify session was persisted correctly
-        # Use the actual session file path since the session creates its own directory
         session_file = session.session_file
         assert session_file.exists()
 
         # Load session from file and verify integrity
+        from mochi_coco.chat.session import ChatSession
         loaded_session = ChatSession(
             model="",
             session_id=session.session_id,
-            sessions_dir=temp_sessions_dir
+            sessions_dir=session.sessions_dir  # Use the same directory as the original session
         )
         assert loaded_session.load_session() is True
         assert len(loaded_session.messages) == 6
