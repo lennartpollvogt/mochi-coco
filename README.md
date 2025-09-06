@@ -64,6 +64,10 @@ mochi-coco --host http://localhost:11434
 ```markdown
 $ mochi-coco
 
+        .-===-.
+        |[:::]|
+        `-----´
+
 🚀 Welcome to Mochi-Coco Chat!
 
 Previous Sessions:
