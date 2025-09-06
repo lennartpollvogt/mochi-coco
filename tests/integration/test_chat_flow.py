@@ -252,6 +252,7 @@ class TestCompleteChatFlow:
                     controller.run()
 
         # Verify session continuation
+        assert controller.session is not None
         assert controller.session.session_id == session_id
         assert len(controller.session.messages) == 4  # Original 2 + new 2
         assert controller.session.messages[-2].content == "Continue chat"
@@ -532,7 +533,7 @@ class TestCompleteChatFlow:
         loaded_session = ChatSession(
             model="",
             session_id=session.session_id,
-            sessions_dir=session.sessions_dir  # Use the same directory as the original session
+            sessions_dir=str(session.sessions_dir)  # Use the same directory as the original session
         )
         assert loaded_session.load_session() is True
         assert len(loaded_session.messages) == 6
