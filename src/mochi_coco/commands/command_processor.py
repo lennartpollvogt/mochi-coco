@@ -64,15 +64,19 @@ class CommandProcessor:
 
     def _handle_models_command(self, session: "ChatSession") -> CommandResult:
         """Handle the /models command."""
-        from ..ui.model_menu_handler import ModelSelectionContext
-        new_model = self.model_selector.select_model(context=ModelSelectionContext.FROM_CHAT)
-        if new_model:
-            session.model = new_model
-            session.metadata.model = new_model
-            session.save_session()
-            typer.secho(f"\n✅ Switched to model: {new_model}\n", fg=typer.colors.GREEN, bold=True)
-            return CommandResult(new_model=new_model)
-        return CommandResult()
+        try:
+            from ..ui.model_menu_handler import ModelSelectionContext
+            new_model = self.model_selector.select_model(context=ModelSelectionContext.FROM_CHAT)
+            if new_model:
+                session.model = new_model
+                session.metadata.model = new_model
+                session.save_session()
+                typer.secho(f"\n✅ Switched to model: {new_model}\n", fg=typer.colors.GREEN, bold=True)
+                return CommandResult(new_model=new_model)
+            return CommandResult()
+        except Exception as e:
+            typer.secho(f"\n❌ Error selecting model: {e}", fg=typer.colors.RED)
+            return CommandResult()
 
     def _handle_chats_command(self) -> CommandResult:
         """Handle the /chats command."""
