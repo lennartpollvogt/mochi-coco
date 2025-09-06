@@ -443,3 +443,43 @@ This document contains comprehensive manual test cases for the mochi-coco chat a
 - Clear error messages
 - Guidance on how to proceed
 - Graceful recovery to stable state
+
+## Background Summarization
+
+### Test Case 41: Automatic Summary Generation
+**Prerequisites:** Active chat session with background summarization enabled
+**Steps:**
+1. Start a new chat session
+2. Have a conversation with at least 3-4 exchanges (user message + assistant response)
+3. Wait 3-5 seconds after the last assistant response
+4. Navigate to the `chat_sessions` folder
+5. Open the session JSON file for the current session
+6. Look for the `summary` field in the metadata section
+
+**Expected Results:**
+- Session JSON file contains a `metadata` object
+- `metadata.summary` field exists and is not null/empty
+- Summary is a concise 1-2 sentence description of the conversation
+- `metadata.updated_at` timestamp reflects when summary was generated
+- Summary updates automatically after each new assistant response
+- No interruption to the main chat experience during summary generation
+
+### Test Case 42: Summary Content Quality and Updates
+**Prerequisites:** Active chat session
+**Steps:**
+1. Start conversation about a specific topic (e.g., "Explain how photosynthesis works")
+2. Continue conversation with follow-up questions on the same topic
+3. Check summary in session JSON file after 2-3 exchanges
+4. Switch to a completely different topic (e.g., "Now tell me about cooking pasta")
+5. Continue conversation on new topic for 2-3 exchanges
+6. Check updated summary in session JSON file
+7. Compare the initial summary with the final summary
+
+**Expected Results:**
+- Initial summary accurately reflects the first topic discussed
+- Updated summary reflects both topics or focuses on the overall conversation themes
+- Summary remains concise (1-2 sentences) even as conversation grows
+- Summary content is coherent and meaningful
+- Each summary update overwrites the previous one (no accumulation)
+- Summary generation happens in background without affecting chat responsiveness
+- Timestamps in `updated_at` field change with each summary update

@@ -53,6 +53,7 @@ class SessionMetadata:
     created_at: str
     updated_at: str
     message_count: int = 0
+    summary: Optional[str] = None
 
 
 class ChatSession:
