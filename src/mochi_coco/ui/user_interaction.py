@@ -4,6 +4,7 @@ User interaction utilities for handling prompts, input validation, and preferenc
 
 from typing import List, Optional
 import typer
+from ..user_prompt import get_user_input_single_line
 
 
 class UserInteraction:
@@ -16,7 +17,13 @@ class UserInteraction:
         typer.secho("Enable markdown formatting for responses?", fg=typer.colors.YELLOW)
         typer.secho("This will format code blocks, headers, tables, etc.", fg=typer.colors.WHITE)
 
-        choice = typer.prompt("Enable markdown? (Y/n)", default="Y", show_default=False)
+        try:
+            choice = get_user_input_single_line("Enable markdown? (Y/n): ")
+            if not choice:  # Default to Y if empty
+                choice = "Y"
+        except (EOFError, KeyboardInterrupt):
+            typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+            return True  # Default to enabled
         return choice.lower() in {"y", "yes", ""}
 
     @staticmethod
@@ -26,7 +33,13 @@ class UserInteraction:
         typer.secho("Show model's thinking process in responses?", fg=typer.colors.YELLOW)
         typer.secho("This will display thinking blocks as formatted quotes.", fg=typer.colors.WHITE)
 
-        choice = typer.prompt("Show thinking blocks? (y/N)", default="N", show_default=False)
+        try:
+            choice = get_user_input_single_line("Show thinking blocks? (y/N): ")
+            if not choice:  # Default to N if empty
+                choice = "N"
+        except (EOFError, KeyboardInterrupt):
+            typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+            return False  # Default to disabled
         return choice.lower() in {"y", "yes"}
 
     @staticmethod
@@ -43,7 +56,7 @@ class UserInteraction:
         """
         while True:
             try:
-                choice = input(f"{prompt} ").strip()
+                choice = get_user_input_single_line(f"{prompt} ")
 
                 if valid_options is None:
                     return choice
@@ -73,7 +86,9 @@ class UserInteraction:
         default_value = "yes" if default else "no"
 
         try:
-            choice = typer.prompt(f"{message} ({default_text})", default=default_value, show_default=False)
+            choice = get_user_input_single_line(f"{message} ({default_text}): ")
+            if not choice:  # Use default if empty
+                choice = default_value
             return choice.lower() in {"y", "yes"}
         except (EOFError, KeyboardInterrupt):
             typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
@@ -97,7 +112,7 @@ class UserInteraction:
 
         while True:
             try:
-                choice = input(f"{full_prompt} ").strip()
+                choice = get_user_input_single_line(f"{full_prompt} ")
 
                 if allow_quit and choice.lower() in {'q', 'quit', 'exit'}:
                     return None
@@ -127,7 +142,7 @@ class UserInteraction:
             The user's input, empty string if cancelled
         """
         try:
-            return input(f"{prompt} ").strip()
+            return get_user_input_single_line(f"{prompt} ")
         except (EOFError, KeyboardInterrupt):
             typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
             return ""
@@ -165,7 +180,7 @@ class UserInteraction:
         """
         while True:
             try:
-                choice = input().strip()
+                choice = get_user_input_single_line("")
 
                 if choice.lower() in {'q', 'quit', 'exit'}:
                     return None

@@ -16,11 +16,52 @@ def create_key_bindings():
 def get_user_input(message: str = "") -> str:
     """
     Get user input with multiline support using prompt_toolkit.
+    This is for chat messages where multiline input is desired.
 
     Args:
         message (str): The message to display as a prompt.
     """
+    return get_user_input_multiline(message)
 
+
+def get_user_input_single_line(message: str = "") -> str:
+    """
+    Get single-line user input using prompt_toolkit.
+    This is for menu selections where only single-line input is needed.
+
+    Args:
+        message (str): The message to display as a prompt.
+    """
+    # Custom style for the prompt
+    style = Style.from_dict({
+        'prompt': '#00aa00 bold',
+        'text': '#ffffff',
+    })
+
+    kb = create_key_bindings()
+
+    try:
+        user_input = prompt(
+            message=message,
+            multiline=False,  # Single line only - submit with Enter
+            style=style,
+            mouse_support=False,
+            wrap_lines=True,
+            key_bindings=kb,
+        )
+        return user_input.strip()
+    except EOFError:
+        return ""
+
+
+def get_user_input_multiline(message: str = "") -> str:
+    """
+    Get user input with multiline support using prompt_toolkit.
+    This is for chat messages where multiline input is desired.
+
+    Args:
+        message (str): The message to display as a prompt.
+    """
     # Custom style for the prompt
     style = Style.from_dict({
         'prompt': '#00aa00 bold',
@@ -48,12 +89,12 @@ def get_user_input(message: str = "") -> str:
 def get_user_input_with_prefill(message: str = "", prefill_text: str = "") -> str:
     """
     Get user input with multiline support and pre-filled content using prompt_toolkit.
+    This is for editing existing chat messages.
 
     Args:
         message (str): The message to display as a prompt.
         prefill_text (str): Text to pre-fill the input field with.
     """
-
     # Custom style for the prompt
     style = Style.from_dict({
         'prompt': '#00aa00 bold',
