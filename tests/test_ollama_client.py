@@ -63,7 +63,7 @@ class TestOllamaClient:
         """Test client initialization with default host."""
         with patch('mochi_coco.ollama.client.Client') as mock_client_class:
             # Create OllamaClient instance within the patched context
-            client = OllamaClient()
+            OllamaClient()
 
             # Should create Client without host parameter
             mock_client_class.assert_called_once_with()
@@ -74,7 +74,7 @@ class TestOllamaClient:
 
         with patch('mochi_coco.ollama.client.Client') as mock_client_class:
             # Create OllamaClient instance with custom host within the patched context
-            client = OllamaClient(host=custom_host)
+            OllamaClient(host=custom_host)
 
             # Should create Client with host parameter
             mock_client_class.assert_called_once_with(host=custom_host)

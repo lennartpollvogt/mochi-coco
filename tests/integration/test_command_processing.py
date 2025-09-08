@@ -169,7 +169,7 @@ class TestCommandProcessingFlow:
                 mock_input.return_value = "Hello, how are you doing today?"  # Edited message
 
                 # Mock LLM response for continued conversation
-                mock_streaming_response = Mock()
+                #mock_streaming_response = Mock()
                 mock_final_chunk = Mock()
                 mock_final_chunk.message = Mock()
                 mock_final_chunk.message.__getitem__ = lambda self, key: "I'm doing great, thanks for asking!"
@@ -441,7 +441,7 @@ class TestCommandProcessingFlow:
             with patch('mochi_coco.commands.command_processor.re_render_chat_history') as mock_rerender:
                 with patch('typer.secho') as mock_secho:
                     # Actually call the menu command to trigger the thinking toggle
-                    result = command_processor.process_command("/menu", sample_session, "test-model")
+                    command_processor.process_command("/menu", sample_session, "test-model")
 
                     # Verify thinking toggle was attempted
                     mock_renderer_manager.can_toggle_thinking.assert_called_once()
@@ -478,7 +478,7 @@ class TestCommandProcessingFlow:
             MockUserInteraction.return_value = mock_interaction
 
             with patch('typer.secho') as mock_secho:
-                result = command_processor.process_command("/menu", sample_session, "test-model")
+                command_processor.process_command("/menu", sample_session, "test-model")
 
                 # Verify warning message was shown
                 warning_calls = [call for call in mock_secho.call_args_list

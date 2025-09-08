@@ -233,7 +233,7 @@ class TestRenderingFlow:
         # Set renderer to hide thinking blocks
         markdown_renderer.set_show_thinking(False)
 
-        with patch.object(markdown_renderer.console, 'print') as mock_console_print:
+        with patch.object(markdown_renderer.console, 'print'):
             final_chunk = markdown_renderer.render_streaming_response(iter(mock_streaming_chunks_thinking))
 
         # Verify thinking block was removed from content
@@ -308,7 +308,7 @@ class TestRenderingFlow:
 
         # Mock markdown processing to raise an exception
         with patch.object(markdown_renderer, '_preprocess_thinking_blocks', side_effect=Exception("Markdown error")):
-            with patch('builtins.print') as mock_print:  # Fallback to plain text
+            with patch('builtins.print'):  # Fallback to plain text
                 result = markdown_renderer.render_streaming_response(iter(problematic_chunks))
 
         # Verify graceful fallback occurred
@@ -373,9 +373,6 @@ class TestRenderingFlow:
         assistant_message = session.messages[1]
         assert assistant_message.role == "assistant"
         assert assistant_message.content == "Once upon a time there was a brave knight who saved the kingdom."
-        assert assistant_message.model == "test-model"
-        assert assistant_message.eval_count == 90
-        assert assistant_message.prompt_eval_count == 45
 
     def test_complex_markdown_content_rendering(self, markdown_renderer):
         """

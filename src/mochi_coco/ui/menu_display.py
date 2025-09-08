@@ -155,7 +155,7 @@ class MenuDisplay:
         options_text.append("\n💡 Options:\n", style="bold bright_yellow")
         options_text.append(f"• 📝 Select session (1-{session_count})\n", style="white")
         options_text.append("• 🆕 Type 'new' for new chat\n", style="white")
-        options_text.append("• 🗑️  Type '/delete <number>' to delete session\n", style="white")
+        options_text.append("• 🗑️ Type '/delete <number>' to delete session\n", style="white")
         options_text.append("• 👋 Type 'q' to quit", style="white")
 
         # Combine table and options

@@ -388,7 +388,6 @@ class TestSessionManagementFlow:
         """
         session = existing_sessions[0]
         original_created_at = session.metadata.created_at
-        original_updated_at = session.metadata.updated_at
 
         # Perform operation that should update metadata
         with patch('mochi_coco.chat.session.datetime') as mock_datetime:

@@ -86,7 +86,7 @@ $ mochi-coco
 │ 💡 Options:                                                                                     │
 │ • 📝 Select session (1-2)                                                                       │
 │ • 🆕 Type 'new' for new chat                                                                    │
-│ • 🗑️  Type '/delete <number>' to delete session                                                  │
+│ • 🗑️ Type '/delete <number>' to delete session                                                  │
 │ • 👋 Type 'q' to quit                                                                           │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
 Enter your choice: new
@@ -110,7 +110,7 @@ Enter your choice: new
 │ • 🔢 Select model (1-7)                                                                         │
 │ • 👋 Type 'q' to quit                                                                           │
 │                                                                                                 │
-│ ⚠️  ATTENTION: The maximum context length is the supported length of the model but not the       │
+│ ⚠️  ATTENTION: The maximum context length is the supported length of the model but not the      │
 │ actual length during chat sessions.                                                             │
 │ 💡 Open Ollama application to set default context length!                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────╯

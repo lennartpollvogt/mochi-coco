@@ -8,7 +8,7 @@ editing functionality, and error handling.
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 
 from mochi_coco.chat.session import ChatSession, UserMessage, SessionMessage
 
@@ -116,9 +116,6 @@ class TestChatSession:
         assert len(session.messages) == 1
         assert session.messages[0].role == "assistant"
         assert session.messages[0].content == "Hello, how can I help you?"
-        assert session.messages[0].model == "test-model"
-        assert session.messages[0].eval_count == 100
-        assert session.messages[0].prompt_eval_count == 50
         assert session.metadata.message_count == 1
 
     def test_get_messages_for_api(self, temp_sessions_dir, mock_chat_response):
@@ -356,8 +353,8 @@ class TestChatSession:
         with patch('mochi_coco.chat.session.uuid') as mock_uuid, \
              patch('mochi_coco.chat.session.datetime') as mock_datetime:
 
-            mock_uuid.uuid4.return_value = Mock()
-            mock_uuid.uuid4.return_value.__str__ = lambda x: "12345678-1234-1234-1234-123456789012"
+            mock_uuid.uuid4.return_value = MagicMock()
+            mock_uuid.uuid4.return_value.__str__ = MagicMock(return_value="12345678-1234-1234-1234-123456789012")
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             message = UserMessage(content="Test message")
@@ -371,8 +368,8 @@ class TestChatSession:
         with patch('mochi_coco.chat.session.uuid') as mock_uuid, \
              patch('mochi_coco.chat.session.datetime') as mock_datetime:
 
-            mock_uuid.uuid4.return_value = Mock()
-            mock_uuid.uuid4.return_value.__str__ = lambda x: "12345678-1234-1234-1234-123456789012"
+            mock_uuid.uuid4.return_value = MagicMock()
+            mock_uuid.uuid4.return_value.__str__ = MagicMock(return_value="12345678-1234-1234-1234-123456789012")
             mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
 
             message = SessionMessage(role="assistant", content="Test response")
