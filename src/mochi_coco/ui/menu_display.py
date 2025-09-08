@@ -207,58 +207,39 @@ class MenuDisplay:
         self.console.print(welcome_panel)
 
     def display_chat_history(self, session: ChatSession) -> None:
-        """Display the chat history of a session using Rich formatting."""
+        """Display the chat history of a session using compact headers like main chat."""
         if not session.messages:
-            info_panel = Panel(
-                "📝 No previous messages in this session.",
-                style=self.colors['info'],
-                box=ROUNDED
-            )
-            self.console.print(info_panel)
+            # Don't show anything if no messages - session info panel will handle this
             return
 
-        # Session info header
-        session_info = Text()
-        session_info.append("Session ID: ", style="bold")
-        session_info.append(session.session_id, style="cyan")
-        session_info.append(" | Model: ", style="bold")
-        session_info.append(session.model, style="magenta")
-
-        header_panel = Panel(
-            session_info,
-            title="📜 Chat History",
-            title_align="left",
-            style=self.colors['info'],
-            box=ROUNDED
-        )
-        self.console.print(header_panel)
-
-        # Display messages
+        # Display messages with compact headers (same style as main chat)
         for i, message in enumerate(session.messages):
             if message.role == "user":
-                user_panel = Panel(
-                    message.content,
-                    title="🧑 You",
-                    title_align="left",
+                # Compact user header
+                user_header = Panel(
+                    "🧑 You",
                     style="bright_cyan",
                     box=ROUNDED,
-                    padding=(0, 1)
+                    padding=(0, 1),
+                    expand=False
                 )
-                self.console.print(user_panel)
+                self.console.print(user_header)
+                self.console.print(message.content)
+
             elif message.role == "assistant":
-                assistant_panel = Panel(
-                    message.content,
-                    title="🤖 Assistant",
-                    title_align="left",
+                # Compact assistant header
+                assistant_header = Panel(
+                    "🤖 Assistant",
                     style="bright_magenta",
                     box=ROUNDED,
-                    padding=(0, 1)
+                    padding=(0, 1),
+                    expand=False
                 )
-                self.console.print(assistant_panel)
+                self.console.print(assistant_header)
+                self.console.print(message.content)
 
             # Add spacing between messages
-            if i < len(session.messages) - 1:
-                self.console.print()
+            self.console.print()
 
     def display_model_selection_header(self) -> None:
         """Display header for model selection."""

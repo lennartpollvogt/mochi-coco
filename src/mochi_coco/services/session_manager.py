@@ -61,9 +61,8 @@ class SessionManager:
             return session, selected_model
         else:
             # Handle existing session
-            self.model_selector.display_chat_history(session)
             selected_model = session.metadata.model
-            # Removed redundant message - info is shown in chat session panel
+            # Chat history will be displayed after session info panel in chat controller
             return session, selected_model
 
     def display_session_info(self, markdown_enabled: bool, show_thinking: bool) -> None:

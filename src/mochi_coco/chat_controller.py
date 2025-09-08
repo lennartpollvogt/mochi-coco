@@ -110,6 +110,11 @@ class ChatController:
             thinking=show_thinking
         )
 
+        # Display chat history for existing sessions (if there are messages)
+        if self.session.messages:
+            self.chat_interface.print_separator()
+            self.session_manager.model_selector.display_chat_history(self.session)
+
         self.chat_interface.print_separator()
 
     def _run_chat_loop(self) -> None:
