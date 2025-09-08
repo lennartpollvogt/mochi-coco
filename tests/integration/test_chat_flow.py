@@ -284,15 +284,15 @@ class TestCompleteChatFlow:
             with patch('mochi_coco.chat_controller.get_user_input', side_effect=["Hello", "/exit"]):
                 controller = ChatController()
 
-                # Capture error output
-                with patch('typer.secho') as mock_secho:
+                # Mock the chat interface to capture error messages
+                with patch.object(controller, 'chat_interface') as mock_chat_interface:
                     controller.run()
 
-                # Verify error was handled and displayed
-                error_calls = [call for call in mock_secho.call_args_list
-                             if 'Error:' in str(call)]
-                assert len(error_calls) > 0
-                assert "API connection failed" in str(error_calls[0])
+                    # Verify error was handled and displayed via chat interface
+                    mock_chat_interface.print_error_message.assert_called()
+                    error_call_args = mock_chat_interface.print_error_message.call_args_list
+                    error_displayed = any('API connection failed' in str(call) for call in error_call_args)
+                    assert error_displayed, f"Error message not found in chat interface calls: {error_call_args}"
 
         # Verify session still exists and has user message
         assert controller.session is not None

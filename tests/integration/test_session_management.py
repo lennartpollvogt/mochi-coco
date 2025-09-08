@@ -196,8 +196,10 @@ class TestSessionManagementFlow:
         assert result_session == existing_session
         assert result_model == existing_session.metadata.model
 
-        # Verify chat history was displayed
-        mock_model_selector.display_chat_history.assert_called_once_with(existing_session)
+        # Note: Chat history display moved to ChatController._display_session_info()
+        # SessionManager.setup_session() no longer displays chat history directly
+        # Verify chat history was NOT called from session setup
+        mock_model_selector.display_chat_history.assert_not_called()
 
     def test_session_switching_workflow(
         self,
