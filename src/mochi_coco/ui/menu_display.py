@@ -345,8 +345,8 @@ class MenuDisplay:
         self.console.print(prompt_panel)
 
     def display_command_menu(self) -> None:
-        """Display the command menu using Rich panels."""
-        # Create command options as individual panels
+        """Display the chat menu using Rich panels with integrated options."""
+        # Create command options
         commands = [
             ("1", "💬 Switch Sessions", "Change to different chat session"),
             ("2", "🤖 Change Model", "Select a different AI model"),
@@ -363,23 +363,25 @@ class MenuDisplay:
         for number, command, description in commands:
             table.add_row(number, command, description)
 
+        # Create options text
+        options_text = Text()
+        options_text.append("\n💡 Options:\n", style="bold bright_yellow")
+        options_text.append("• Select an option (1-4)\n", style="white")
+        options_text.append("• Type 'q' to cancel", style="white")
+
+        # Combine table and options
+        from rich.console import Group
+        combined_content = Group(table, options_text)
+
         # Wrap in panel
         menu_panel = Panel(
-            table,
-            title="⚙️  Command Menu",
+            combined_content,
+            title="⚙️  Chat Menu",
             title_align="left",
             style=self.colors['info'],
             box=ROUNDED
         )
         self.console.print(menu_panel)
-
-        # Add prompt
-        prompt_panel = Panel(
-            "Select an option (1-4) or 'q' to cancel",
-            style=self.colors['warning'],
-            box=ROUNDED
-        )
-        self.console.print(prompt_panel)
 
     def display_confirmation_prompt(self, message: str, style: str = "warning") -> None:
         """Display a confirmation prompt with Rich styling."""
