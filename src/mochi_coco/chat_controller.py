@@ -109,7 +109,7 @@ class ChatController:
             markdown=markdown_enabled,
             thinking=show_thinking
         )
-        self.chat_interface.print_command_help()
+
         self.chat_interface.print_separator()
 
     def _run_chat_loop(self) -> None:

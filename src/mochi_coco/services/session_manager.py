@@ -57,14 +57,13 @@ class SessionManager:
 
             from ..chat import ChatSession
             session = ChatSession(model=selected_model)
-            self.chat_interface.print_success_message(f"New chat started with {selected_model}")
-            self.chat_interface.print_info_message(f"Session ID: {session.session_id}")
+            # Removed redundant messages - info is shown in chat session panel
             return session, selected_model
         else:
             # Handle existing session
             self.model_selector.display_chat_history(session)
             selected_model = session.metadata.model
-            self.chat_interface.print_success_message(f"Continuing chat with {selected_model}")
+            # Removed redundant message - info is shown in chat session panel
             return session, selected_model
 
     def display_session_info(self, markdown_enabled: bool, show_thinking: bool) -> None:

@@ -124,7 +124,7 @@ class ChatInterface:
 
     def print_session_info(self, session_id: str, model: str, markdown: bool, thinking: bool) -> None:
         """
-        Print session information in a styled panel.
+        Print session information with integrated commands in a styled panel.
 
         Args:
             session_id: The session ID
@@ -132,14 +132,19 @@ class ChatInterface:
             markdown: Whether markdown is enabled
             thinking: Whether thinking blocks are enabled
         """
-        info_lines = [
-            f"Session ID: {session_id}",
-            f"Model: {model}",
-            f"Markdown: {'Enabled' if markdown else 'Disabled'}",
-            f"Thinking Blocks: {'Enabled' if thinking else 'Disabled'}"
-        ]
+        # Session info
+        info_text = Text()
+        info_text.append(f"Session ID: {session_id}\n", style="white")
+        info_text.append(f"Model: {model}\n", style="magenta")
+        info_text.append(f"Markdown: {'Enabled' if markdown else 'Disabled'}\n", style="cyan")
+        info_text.append(f"Thinking Blocks: {'Enabled' if thinking else 'Disabled'}\n", style="cyan")
 
-        info_text = "\n".join(info_lines)
+        # Add commands section
+        info_text.append("\n💡 Available Commands:\n", style="bold bright_green")
+        info_text.append("• /menu - Open the main menu\n", style="white")
+        info_text.append("• /edit - Edit a previous message\n", style="white")
+        info_text.append("• /exit or /quit - Exit the application", style="white")
+
         panel = Panel(
             info_text,
             style="bright_blue",
@@ -151,18 +156,10 @@ class ChatInterface:
         self.console.print(panel)
 
     def print_command_help(self) -> None:
-        """Print available commands in a styled panel."""
-        help_text = """Available commands:
-• /menu - Open the main menu
-• /edit - Edit a previous message
-• /exit or /quit - Exit the application"""
+        """Print available commands in a styled panel.
 
-        panel = Panel(
-            help_text,
-            style="bright_green",
-            box=self.box_style,
-            padding=(0, 1),
-            title="💡 Commands",
-            title_align="left"
-        )
-        self.console.print(panel)
+        Note: This method is now integrated into print_session_info()
+        and kept for backward compatibility only.
+        """
+        # Method functionality moved to print_session_info()
+        pass

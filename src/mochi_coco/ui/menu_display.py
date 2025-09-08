@@ -196,7 +196,7 @@ class MenuDisplay:
         welcome_text.append("!\n\n", style="bold bright_magenta")
         welcome_text.append(mochi_art, style="bright_white bold")
         welcome_text.append("\n\n🤖 ", style="bright_magenta")
-        welcome_text.append("AI Chat with Flavor", style="italic bright_blue")
+        welcome_text.append("AI Chat with Style", style="italic bright_blue")
 
         welcome_panel = Panel(
             Align.center(welcome_text),
@@ -288,32 +288,22 @@ class MenuDisplay:
         self.console.print(info_panel)
 
     def display_model_selected(self, model_name: str) -> None:
-        """Display confirmation of model selection."""
-        success_text = Text()
-        success_text.append("✅ Selected model: ", style="bold green")
-        success_text.append(model_name, style="bold magenta")
+        """Display confirmation of model selection.
 
-        success_panel = Panel(
-            success_text,
-            style=self.colors['success'],
-            box=ROUNDED
-        )
-        self.console.print(success_panel)
+        Note: This method is now a no-op to reduce redundant UI information.
+        Model selection is shown in the chat session panel instead.
+        """
+        # Removed redundant confirmation - model is shown in chat session panel
+        pass
 
     def display_session_loaded(self, session_id: str, model: str) -> None:
-        """Display confirmation of session loading."""
-        success_text = Text()
-        success_text.append("✅ Loaded session: ", style="bold green")
-        success_text.append(session_id, style="bold cyan")
-        success_text.append(" with ", style="bold green")
-        success_text.append(model, style="bold magenta")
+        """Display confirmation of session loading.
 
-        success_panel = Panel(
-            success_text,
-            style=self.colors['success'],
-            box=ROUNDED
-        )
-        self.console.print(success_panel)
+        Note: This method is now a no-op to reduce redundant UI information.
+        Session info is shown in the chat session panel instead.
+        """
+        # Removed redundant confirmation - session info is shown in chat session panel
+        pass
 
     def display_edit_messages_table(self, session: ChatSession) -> None:
         """Display messages for editing with Rich table formatting."""
