@@ -132,7 +132,8 @@ Show thinking blocks? (y/N): y
 │ Thinking Blocks: Enabled                                                                        │
 │                                                                                                 │
 │ 💡 Available Commands:                                                                          │
-│ • /menu - Open the main menu                                                                    ││ • /edit - Edit a previous message                                                               │
+│ • /menu - Open the main menu                                                                    │
+│ • /edit - Edit a previous message                                                               │
 │ • /exit or /quit - Exit the application                                                         │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
 
