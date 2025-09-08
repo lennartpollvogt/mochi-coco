@@ -102,7 +102,6 @@ class ModelMenuHandler:
         """
         while True:
             try:
-                self.menu_display.display_model_selection_prompt(len(models))
                 choice = self.user_interaction.get_user_input("Enter your choice:")
                 # Handle quit commands with context awareness
                 if choice.lower() in {'q', 'quit', 'exit'}:

@@ -139,7 +139,6 @@ class ModelSelector:
         Returns result tuple or None if refresh is needed.
         """
         self.menu_display.display_sessions_table(sessions)
-        self.menu_display.display_menu_help(len(sessions))
 
         while True:  # Loop for user input
             try:

@@ -40,7 +40,7 @@ class MenuDisplay:
         }
 
     def display_models_table(self, models: List[ModelInfo], client: OllamaClient) -> None:
-        """Display available models in a Rich table format."""
+        """Display available models in a Rich table format with integrated options and attention message."""
         if not models:
             error_panel = Panel(
                 "❌ No models found!",
@@ -83,9 +83,27 @@ class MenuDisplay:
                 max_context_window
             )
 
-        # Wrap table in panel
+        # Create model selection options
+        model_count = len(models)
+        options_text = Text()
+        options_text.append("\n💡 Options:\n", style="bold bright_yellow")
+        options_text.append(f"• 🔢 Select model (1-{model_count})\n", style="white")
+        options_text.append("• 👋 Type 'q' to quit\n", style="white")
+
+        # Add attention notice
+        options_text.append("\n⚠️  ATTENTION: ", style="bold bright_red")
+        options_text.append("The maximum context length is the supported length of the model ", style="yellow")
+        options_text.append("but not the actual length during chat sessions.\n", style="yellow")
+        options_text.append("💡 ", style="bright_blue")
+        options_text.append("Open Ollama application to set default context length!", style="bright_blue")
+
+        # Combine table, options, and attention message
+        from rich.console import Group
+        combined_content = Group(table, options_text)
+
+        # Wrap in panel
         models_panel = Panel(
-            table,
+            combined_content,
             title="🤖 Available Models",
             title_align="left",
             style=self.colors['primary'],
@@ -93,23 +111,8 @@ class MenuDisplay:
         )
         self.console.print(models_panel)
 
-        # Add attention notice
-        attention_text = Text()
-        attention_text.append("⚠️  ATTENTION: ", style="bold bright_red")
-        attention_text.append("The maximum context length is the supported length of the model ", style="yellow")
-        attention_text.append("but not the actual length during chat sessions.\n", style="yellow")
-        attention_text.append("💡 ", style="bright_blue")
-        attention_text.append("Open Ollama application to set default context length!", style="bright_blue")
-
-        attention_panel = Panel(
-            attention_text,
-            style=self.colors['warning'],
-            box=ROUNDED
-        )
-        self.console.print(attention_panel)
-
     def display_sessions_table(self, sessions: List[ChatSession]) -> None:
-        """Display available sessions in a Rich table format."""
+        """Display available sessions in a Rich table format with integrated menu options."""
         if not sessions:
             error_panel = Panel(
                 "❌ No previous sessions found!",
@@ -121,10 +124,10 @@ class MenuDisplay:
 
         # Create the sessions table
         table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
-        table.add_column("#", style=self.colors['secondary'], width=2)
+        table.add_column("#", style=self.colors['secondary'], width=3)
         table.add_column("Session ID", style="bold cyan", width=12)
-        table.add_column("Model", style=self.colors['primary'], width=17)
-        table.add_column("Preview", style="white", min_width=28)
+        table.add_column("Model", style=self.colors['primary'], width=20)
+        table.add_column("Preview", style="white", min_width=35)
         table.add_column("Messages", style=self.colors['success'], justify="center", width=8)
 
         # Add session rows
@@ -146,9 +149,22 @@ class MenuDisplay:
                 str(session.metadata.message_count)
             )
 
-        # Wrap table in panel
+        # Create menu options text
+        session_count = len(sessions)
+        options_text = Text()
+        options_text.append("\n💡 Options:\n", style="bold bright_yellow")
+        options_text.append(f"• 📝 Select session (1-{session_count})\n", style="white")
+        options_text.append("• 🆕 Type 'new' for new chat\n", style="white")
+        options_text.append("• 🗑️  Type '/delete <number>' to delete session\n", style="white")
+        options_text.append("• 👋 Type 'q' to quit", style="white")
+
+        # Combine table and options
+        from rich.console import Group
+        combined_content = Group(table, options_text)
+
+        # Wrap in panel
         sessions_panel = Panel(
-            table,
+            combined_content,
             title="💬 Previous Sessions",
             title_align="left",
             style=self.colors['primary'],
@@ -157,24 +173,13 @@ class MenuDisplay:
         self.console.print(sessions_panel)
 
     def display_menu_help(self, session_count: int) -> None:
-        """Display help text for menu options using Rich panels."""
-        options = [
-            f"📝 Select session (1-{session_count})",
-            "🆕 Type 'new' for new chat",
-            "🗑️  Type '/delete <number>' to delete session",
-            "👋 Type 'q' to quit"
-        ]
+        """Display help text for menu options using Rich panels.
 
-        help_text = "\n".join(f"• {option}" for option in options)
-
-        help_panel = Panel(
-            help_text,
-            title="💡 Options",
-            title_align="left",
-            style=self.colors['info'],
-            box=ROUNDED
-        )
-        self.console.print(help_panel)
+        Note: This method is now integrated into display_sessions_table()
+        and kept for backward compatibility only.
+        """
+        # Method functionality moved to display_sessions_table()
+        pass
 
     def display_welcome_message(self) -> None:
         """Display the welcome message using Rich styling."""
@@ -265,14 +270,13 @@ class MenuDisplay:
         self.console.print(header_panel)
 
     def display_model_selection_prompt(self, model_count: int) -> None:
-        """Display prompt for model selection using Rich styling."""
-        prompt_text = f"Select a model (1-{model_count}) or 'q' to quit"
-        prompt_panel = Panel(
-            prompt_text,
-            style=self.colors['warning'],
-            box=ROUNDED
-        )
-        self.console.print(prompt_panel)
+        """Display prompt for model selection using Rich styling.
+
+        Note: This method is now integrated into display_models_table()
+        and kept for backward compatibility only.
+        """
+        # Method functionality moved to display_models_table()
+        pass
 
     def display_no_sessions_message(self) -> None:
         """Display message when no previous sessions are found."""
