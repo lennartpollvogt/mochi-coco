@@ -3,47 +3,76 @@ User interaction utilities for handling prompts, input validation, and preferenc
 """
 
 from typing import List, Optional
-import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich.box import ROUNDED
 from ..user_prompt import get_user_input_single_line
 
 
 class UserInteraction:
-    """Handles all user prompts, input validation, and preference collection."""
+    """Handles all user prompts, input validation, and preference collection using Rich styling."""
 
-    @staticmethod
-    def prompt_markdown_preference() -> bool:
+    def __init__(self):
+        self.console = Console()
+
+        # Define consistent color scheme
+        self.colors = {
+            'primary': 'bright_magenta',
+            'secondary': 'bright_cyan',
+            'success': 'bright_green',
+            'warning': 'bright_yellow',
+            'error': 'bright_red',
+            'info': 'bright_blue'
+        }
+
+    def prompt_markdown_preference(self) -> bool:
         """Prompt user for markdown rendering preference."""
-        typer.secho("\n📝 Markdown Rendering", fg=typer.colors.BRIGHT_CYAN, bold=True)
-        typer.secho("Enable markdown formatting for responses?", fg=typer.colors.YELLOW)
-        typer.secho("This will format code blocks, headers, tables, etc.", fg=typer.colors.WHITE)
+        preference_text = Text()
+        preference_text.append("📝 Enable markdown formatting for responses?\n", style="bold bright_cyan")
+        preference_text.append("This will format code blocks, headers, tables, etc.", style="white")
+
+        preference_panel = Panel(
+            preference_text,
+            title="Markdown Rendering",
+            style=self.colors['info'],
+            box=ROUNDED
+        )
+        self.console.print(preference_panel)
 
         try:
             choice = get_user_input_single_line("Enable markdown? (Y/n): ")
             if not choice:  # Default to Y if empty
                 choice = "Y"
         except (EOFError, KeyboardInterrupt):
-            typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+            self._display_cancelled()
             return True  # Default to enabled
         return choice.lower() in {"y", "yes", ""}
 
-    @staticmethod
-    def prompt_thinking_display() -> bool:
+    def prompt_thinking_display(self) -> bool:
         """Prompt user for thinking block display preference."""
-        typer.secho("\n🤔 Thinking Block Display", fg=typer.colors.BRIGHT_CYAN, bold=True)
-        typer.secho("Show model's thinking process in responses?", fg=typer.colors.YELLOW)
-        typer.secho("This will display thinking blocks as formatted quotes.", fg=typer.colors.WHITE)
+        thinking_text = Text()
+        thinking_text.append("🤔 Show model's thinking process in responses?\n", style="bold bright_cyan")
+        thinking_text.append("This will display thinking blocks as formatted quotes.", style="white")
+
+        thinking_panel = Panel(
+            thinking_text,
+            title="Thinking Block Display",
+            style=self.colors['info'],
+            box=ROUNDED
+        )
+        self.console.print(thinking_panel)
 
         try:
             choice = get_user_input_single_line("Show thinking blocks? (y/N): ")
             if not choice:  # Default to N if empty
                 choice = "N"
         except (EOFError, KeyboardInterrupt):
-            typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+            self._display_cancelled()
             return False  # Default to disabled
         return choice.lower() in {"y", "yes"}
 
-    @staticmethod
-    def get_user_choice(prompt: str, valid_options: Optional[List[str]] = None) -> str:
+    def get_user_choice(self, prompt: str, valid_options: Optional[List[str]] = None) -> str:
         """
         Get user input with optional validation against valid options.
 
@@ -64,14 +93,13 @@ class UserInteraction:
                 if choice.lower() in [opt.lower() for opt in valid_options]:
                     return choice
 
-                typer.secho(f"Please enter one of: {', '.join(valid_options)}", fg=typer.colors.RED)
+                self.display_error(f"Please enter one of: {', '.join(valid_options)}")
 
             except (EOFError, KeyboardInterrupt):
-                typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+                self._display_cancelled()
                 return ""
 
-    @staticmethod
-    def confirm_action(message: str, default: bool = False) -> bool:
+    def confirm_action(self, message: str, default: bool = False) -> bool:
         """
         Ask user for confirmation of an action.
 
@@ -91,11 +119,10 @@ class UserInteraction:
                 choice = default_value
             return choice.lower() in {"y", "yes"}
         except (EOFError, KeyboardInterrupt):
-            typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+            self._display_cancelled()
             return False
 
-    @staticmethod
-    def get_numeric_choice(prompt: str, max_value: int, allow_quit: bool = True) -> Optional[int]:
+    def get_numeric_choice(self, prompt: str, max_value: int, allow_quit: bool = True) -> Optional[int]:
         """
         Get a numeric choice from the user within a specified range.
 
@@ -122,12 +149,12 @@ class UserInteraction:
                     if 1 <= number <= max_value:
                         return number
                     else:
-                        typer.secho(f"Please enter a number between 1 and {max_value}", fg=typer.colors.RED)
+                        self.display_error(f"Please enter a number between 1 and {max_value}")
                 except ValueError:
-                    typer.secho("Please enter a valid number", fg=typer.colors.RED)
+                    self.display_error("Please enter a valid number")
 
             except (EOFError, KeyboardInterrupt):
-                typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+                self._display_cancelled()
                 return None
 
     @staticmethod
@@ -144,31 +171,38 @@ class UserInteraction:
         try:
             return get_user_input_single_line(f"{prompt} ")
         except (EOFError, KeyboardInterrupt):
-            typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+            # Keep static method behavior for backward compatibility
+            console = Console()
+            panel = Panel("👋 Operation cancelled.", style="bright_yellow", box=ROUNDED)
+            console.print(panel)
             return ""
 
-    @staticmethod
-    def display_error(message: str) -> None:
+    def display_error(self, message: str) -> None:
         """Display an error message to the user."""
-        typer.secho(message, fg=typer.colors.RED)
+        error_panel = Panel(f"❌ {message}", style=self.colors['error'], box=ROUNDED)
+        self.console.print(error_panel)
 
-    @staticmethod
-    def display_warning(message: str) -> None:
+    def display_warning(self, message: str) -> None:
         """Display a warning message to the user."""
-        typer.secho(message, fg=typer.colors.YELLOW)
+        warning_panel = Panel(f"⚠️ {message}", style=self.colors['warning'], box=ROUNDED)
+        self.console.print(warning_panel)
 
-    @staticmethod
-    def display_success(message: str) -> None:
+    def display_success(self, message: str) -> None:
         """Display a success message to the user."""
-        typer.secho(message, fg=typer.colors.GREEN, bold=True)
+        success_panel = Panel(f"✅ {message}", style=self.colors['success'], box=ROUNDED)
+        self.console.print(success_panel)
 
-    @staticmethod
-    def display_info(message: str) -> None:
+    def display_info(self, message: str) -> None:
         """Display an informational message to the user."""
-        typer.secho(message, fg=typer.colors.CYAN)
+        info_panel = Panel(f"💡 {message}", style=self.colors['info'], box=ROUNDED)
+        self.console.print(info_panel)
 
-    @staticmethod
-    def get_edit_selection(max_user_messages: int) -> Optional[int]:
+    def _display_cancelled(self) -> None:
+        """Display a cancellation message."""
+        cancel_panel = Panel("👋 Operation cancelled.", style=self.colors['warning'], box=ROUNDED)
+        self.console.print(cancel_panel)
+
+    def get_edit_selection(self, max_user_messages: int) -> Optional[int]:
         """
         Get user selection for which message to edit.
 
@@ -190,14 +224,16 @@ class UserInteraction:
                     if 1 <= number <= max_user_messages:
                         return number
                     else:
-                        typer.secho(f"Please enter a number between 1 and {max_user_messages}", fg=typer.colors.RED)
-                        typer.secho(f"Select a user message (1-{max_user_messages}) or 'q' to cancel:",
-                                   fg=typer.colors.YELLOW, bold=True)
+                        self.display_error(f"Please enter a number between 1 and {max_user_messages}")
+                        prompt_panel = Panel(f"Select a user message (1-{max_user_messages}) or 'q' to cancel",
+                                           style=self.colors['warning'], box=ROUNDED)
+                        self.console.print(prompt_panel)
                 except ValueError:
-                    typer.secho("Please enter a valid number", fg=typer.colors.RED)
-                    typer.secho(f"Select a user message (1-{max_user_messages}) or 'q' to cancel:",
-                               fg=typer.colors.YELLOW, bold=True)
+                    self.display_error("Please enter a valid number")
+                    prompt_panel = Panel(f"Select a user message (1-{max_user_messages}) or 'q' to cancel",
+                                       style=self.colors['warning'], box=ROUNDED)
+                    self.console.print(prompt_panel)
 
             except (EOFError, KeyboardInterrupt):
-                typer.secho("\nOperation cancelled.", fg=typer.colors.YELLOW)
+                self._display_cancelled()
                 return None

@@ -20,7 +20,7 @@ class SessionMenuHandler:
     """Handles session menu commands and operations."""
 
     def __init__(self):
-        pass
+        self.user_interaction = UserInteraction()
 
     def parse_command(self, user_input: str) -> Tuple[Optional[str], Optional[int]]:
         """
@@ -53,7 +53,7 @@ class SessionMenuHandler:
             MenuCommandResult indicating if operation succeeded and if refresh is needed
         """
         if not (1 <= session_number <= len(sessions)):
-            UserInteraction.display_error(f"Invalid session number. Please choose between 1 and {len(sessions)}.")
+            self.user_interaction.display_error(f"Invalid session number. Please choose between 1 and {len(sessions)}.")
             return MenuCommandResult(should_continue=True, refresh_needed=False)
 
         session_to_delete = sessions[session_number - 1]
@@ -61,18 +61,23 @@ class SessionMenuHandler:
         # Confirm deletion
         typer.secho(f"\n⚠️  Are you sure you want to delete session {session_to_delete.session_id}?",
                    fg=typer.colors.YELLOW, bold=True)
-        typer.secho(f"Preview: {session_to_delete.get_session_summary()}", fg=typer.colors.WHITE)
+        # Display preview using Rich
+        from rich.console import Console
+        from rich.panel import Panel
+        console = Console()
+        preview_panel = Panel(session_to_delete.get_session_summary(), title="Session Preview", style="white")
+        console.print(preview_panel)
 
-        confirm = UserInteraction.confirm_action("Are you sure you want to delete this session?", default=False)
+        confirm = self.user_interaction.confirm_action("Are you sure you want to delete this session?", default=False)
 
         if confirm:
             if session_to_delete.delete_session():
-                UserInteraction.display_success(f"Session {session_to_delete.session_id} deleted successfully!")
+                self.user_interaction.display_success(f"Session {session_to_delete.session_id} deleted successfully!")
                 return MenuCommandResult(should_continue=True, refresh_needed=True)
             else:
-                UserInteraction.display_error(f"Failed to delete session {session_to_delete.session_id}")
+                self.user_interaction.display_error(f"Failed to delete session {session_to_delete.session_id}")
         else:
-            UserInteraction.display_info("Deletion cancelled.")
+            self.user_interaction.display_info("Deletion cancelled.")
 
         return MenuCommandResult(should_continue=True, refresh_needed=False)
 
@@ -84,6 +89,7 @@ class ModelSelector:
         self.session_menu_handler = SessionMenuHandler()
         self.menu_display = MenuDisplay(renderer)
         self.model_menu_handler = ModelMenuHandler(client, self.menu_display)
+        self.user_interaction = UserInteraction()
 
     def select_model(self, context: str = ModelSelectionContext.FROM_CHAT) -> Optional[str]:
         """Display model selection menu and return the selected model name."""
@@ -137,7 +143,7 @@ class ModelSelector:
 
         while True:  # Loop for user input
             try:
-                choice = UserInteraction.get_user_input("Enter your choice:")
+                choice = self.user_interaction.get_user_input("Enter your choice:")
 
                 result = self._process_user_choice(sessions, choice)
                 if result == "REFRESH_NEEDED":
@@ -198,10 +204,10 @@ class ModelSelector:
             if 0 <= index < len(sessions):
                 return self._load_selected_session(sessions[index])
             else:
-                UserInteraction.display_error(f"Please enter a number between 1 and {len(sessions)}, 'new', '/delete <number>', or 'q'")
+                self.user_interaction.display_error(f"Please enter a number between 1 and {len(sessions)}, 'new', '/delete <number>', or 'q'")
                 return None
         except ValueError:
-            UserInteraction.display_error("Please enter a valid number, 'new', '/delete <number>', or 'q'")
+            self.user_interaction.display_error("Please enter a valid number, 'new', '/delete <number>', or 'q'")
             return None
 
     def _load_selected_session(self, session: ChatSession) -> tuple[Optional[ChatSession], Optional[str], bool, bool]:
@@ -222,8 +228,8 @@ class ModelSelector:
 
     def _collect_user_preferences(self) -> tuple[bool, bool]:
         """Collect user preferences for markdown and thinking display."""
-        markdown_enabled = UserInteraction.prompt_markdown_preference()
-        show_thinking = UserInteraction.prompt_thinking_display() if markdown_enabled else False
+        markdown_enabled = self.user_interaction.prompt_markdown_preference()
+        show_thinking = self.user_interaction.prompt_thinking_display() if markdown_enabled else False
         return markdown_enabled, show_thinking
 
     def display_chat_history(self, session: ChatSession) -> None:

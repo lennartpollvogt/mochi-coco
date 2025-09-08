@@ -10,7 +10,7 @@ import logging
 from typing import Optional as OptionalLoop
 
 from .ollama import OllamaClient, AsyncOllamaClient
-from .ui import ModelSelector
+from .ui import ModelSelector, ChatInterface
 from .rendering import MarkdownRenderer, RenderingMode
 from .user_prompt import get_user_input
 from .commands import CommandProcessor
@@ -40,6 +40,9 @@ class ChatController:
         self.renderer_manager = RendererManager(self.renderer)
         self.command_processor = CommandProcessor(self.model_selector, self.renderer_manager)
         self.session_manager = SessionManager(self.model_selector)
+
+        # Initialize chat interface for Rich styling
+        self.chat_interface = ChatInterface()
 
         # Initialize summarization service
         self.summarization_service = SummarizationService(self.async_client)
@@ -96,14 +99,26 @@ class ChatController:
         """Display session information and available commands."""
         markdown_enabled = self.renderer_manager.is_markdown_enabled()
         show_thinking = self.renderer_manager.is_thinking_enabled()
-        self.session_manager.display_session_info(markdown_enabled, show_thinking)
+
+        # Display session info using Rich panels
+        assert self.session is not None
+        assert self.selected_model is not None
+        self.chat_interface.print_session_info(
+            session_id=self.session.session_id,
+            model=self.selected_model,
+            markdown=markdown_enabled,
+            thinking=show_thinking
+        )
+        self.chat_interface.print_command_help()
+        self.chat_interface.print_separator()
 
     def _run_chat_loop(self) -> None:
         """Run the main chat interaction loop."""
         try:
             while True:
                 try:
-                    typer.secho("You:", fg=typer.colors.CYAN, bold=True)
+                    # Use Rich panel for user prompt
+                    self.chat_interface.print_user_header()
                     user_input = get_user_input()
                 except (EOFError, KeyboardInterrupt):
                     typer.secho("\nExiting.", fg=typer.colors.YELLOW)
@@ -149,7 +164,9 @@ class ChatController:
         self.session.add_user_message(content=user_input)
 
         try:
-            typer.secho("\nAssistant:", fg=typer.colors.MAGENTA, bold=True)
+            # Use Rich panel for assistant response
+            self.chat_interface.print_separator()
+            self.chat_interface.print_assistant_header()
 
             # Use renderer for streaming response
             assert self.session is not None
@@ -158,14 +175,14 @@ class ChatController:
             text_stream = self.client.chat_stream(self.selected_model, messages)
             final_chunk = self.renderer.render_streaming_response(text_stream)
 
-            print()  # Extra newline for spacing
+            self.chat_interface.print_separator()  # Extra spacing
             if final_chunk:
                 assert self.session is not None
                 self.session.add_message(chunk=final_chunk)
             else:
                 raise Exception("No response received. Final chunk: {final_chunk}")
         except Exception as e:
-            typer.secho(f"Error: {e}", fg=typer.colors.RED)
+            self.chat_interface.print_error_message(f"Error: {e}")
 
     def _start_summarization(self) -> None:
         """Start background summarization service."""

@@ -1,16 +1,22 @@
 """
-Menu display utilities for formatting and displaying tables and UI elements.
+Menu display utilities using Rich for consistent and beautiful formatting.
 """
 
 from typing import List, Optional
-import typer
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.text import Text
+from rich.box import ROUNDED, HEAVY
+from rich.align import Align
+
 from ..ollama import OllamaClient, ModelInfo
 from ..chat import ChatSession
 from ..rendering import MarkdownRenderer
 
 
 class MenuDisplay:
-    """Handles all table formatting and display logic for the menu system."""
+    """Handles all table formatting and display logic using Rich for consistent styling."""
 
     def __init__(self, renderer: Optional[MarkdownRenderer] = None):
         """
@@ -20,203 +26,419 @@ class MenuDisplay:
             renderer: Optional markdown renderer for chat history display
         """
         self.renderer = renderer
+        self.console = Console()
+
+        # Define consistent color scheme
+        self.colors = {
+            'primary': 'bright_magenta',
+            'secondary': 'bright_cyan',
+            'success': 'bright_green',
+            'warning': 'bright_yellow',
+            'error': 'bright_red',
+            'info': 'bright_blue',
+            'muted': 'bright_black'
+        }
 
     def display_models_table(self, models: List[ModelInfo], client: OllamaClient) -> None:
-        """Display available models in a nice table format."""
+        """Display available models in a Rich table format."""
         if not models:
-            typer.secho("No models found!", fg=typer.colors.RED)
+            error_panel = Panel(
+                "❌ No models found!",
+                style=self.colors['error'],
+                box=ROUNDED
+            )
+            self.console.print(error_panel)
             return
 
-        typer.secho("\nAvailable Models:", fg=typer.colors.BRIGHT_GREEN, bold=True)
-        typer.echo("=" * 80)
+        # Create the models table
+        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
+        table.add_column("#", style=self.colors['secondary'], width=3)
+        table.add_column("Model Name", style="bold white", min_width=25)
+        table.add_column("Size (MB)", style=self.colors['info'], justify="right", width=12)
+        table.add_column("Family", style=self.colors['warning'], width=15)
+        table.add_column("Max. Context", style=self.colors['success'], justify="right", width=12)
 
-        # Table header
-        header = f"{'#':<3} {'Model Name':<30} {'Size (MB)':<12} {'Family':<13} {'Max. Cxt Length':<15}"
-        typer.secho(header, fg=typer.colors.CYAN, bold=True)
-        typer.echo("-" * 80)
-
-        # Table rows
+        # Add model rows
         for i, model in enumerate(models, 1):
             size_str = f"{model.size_mb:.1f}" if model.size_mb else "N/A"
             family_str = model.family or "N/A"
-            model_details = client.show_model_details(model.name) if model.name else False
-            if model_details:
-                max_context_window = model_details.model_dump()['modelinfo'][f'{family_str}.context_length']
-            else:
-                max_context_window = "N/A"
 
-            row = f"{i:<3} {model.name:<30} {size_str:<12} {family_str:<13} {max_context_window:<15}"
-            typer.echo(row)
+            # Get context length safely
+            max_context_window = "N/A"
+            try:
+                if model.name:
+                    model_details = client.show_model_details(model.name)
+                    if model_details:
+                        model_info = model_details.model_dump()
+                        if 'modelinfo' in model_info and f'{family_str}.context_length' in model_info['modelinfo']:
+                            max_context_window = str(model_info['modelinfo'][f'{family_str}.context_length'])
+            except Exception:
+                pass
 
-        typer.echo("=" * 80)
-        typer.secho(
-            "ATTENTION: The maximum context length is the supported length of the model but not the actual during the chat session.",
-            fg=typer.colors.BRIGHT_MAGENTA, bold=True
+            table.add_row(
+                str(i),
+                model.name or "Unknown",
+                size_str,
+                family_str,
+                max_context_window
+            )
+
+        # Wrap table in panel
+        models_panel = Panel(
+            table,
+            title="🤖 Available Models",
+            title_align="left",
+            style=self.colors['primary'],
+            box=ROUNDED
         )
-        typer.secho(
-            "Open Ollama application to set default context length!",
-            fg=typer.colors.BRIGHT_MAGENTA, bold=True
+        self.console.print(models_panel)
+
+        # Add attention notice
+        attention_text = Text()
+        attention_text.append("⚠️  ATTENTION: ", style="bold bright_red")
+        attention_text.append("The maximum context length is the supported length of the model ", style="yellow")
+        attention_text.append("but not the actual length during chat sessions.\n", style="yellow")
+        attention_text.append("💡 ", style="bright_blue")
+        attention_text.append("Open Ollama application to set default context length!", style="bright_blue")
+
+        attention_panel = Panel(
+            attention_text,
+            style=self.colors['warning'],
+            box=ROUNDED
         )
+        self.console.print(attention_panel)
 
     def display_sessions_table(self, sessions: List[ChatSession]) -> None:
-        """Display available sessions in a nice table format."""
+        """Display available sessions in a Rich table format."""
         if not sessions:
-            typer.secho("No previous sessions found!", fg=typer.colors.RED)
+            error_panel = Panel(
+                "❌ No previous sessions found!",
+                style=self.colors['error'],
+                box=ROUNDED
+            )
+            self.console.print(error_panel)
             return
 
-        typer.secho("\nPrevious Sessions:", fg=typer.colors.BRIGHT_GREEN, bold=True)
-        typer.echo("=" * 100)
+        # Create the sessions table
+        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
+        table.add_column("#", style=self.colors['secondary'], width=2)
+        table.add_column("Session ID", style="bold cyan", width=12)
+        table.add_column("Model", style=self.colors['primary'], width=17)
+        table.add_column("Preview", style="white", min_width=28)
+        table.add_column("Messages", style=self.colors['success'], justify="center", width=8)
 
-        # Table header
-        header = f"{'#':<3} {'Session ID':<12} {'Model':<20} {'Preview':<40} {'Messages':<8}"
-        typer.secho(header, fg=typer.colors.CYAN, bold=True)
-        typer.echo("-" * 100)
-
-        # Table rows
+        # Add session rows
         for i, session in enumerate(sessions, 1):
-            preview = session.get_session_summary().split(': ', 1)[1] if ': ' in session.get_session_summary() else "Empty session"
-            if len(preview) > 40:
-                preview = preview[:37] + "..."
+            # Get preview safely
+            try:
+                summary = session.get_session_summary()
+                preview = summary.split(': ', 1)[1] if ': ' in summary else "Empty session"
+                if len(preview) > 35:
+                    preview = preview[:32] + "..."
+            except Exception:
+                preview = "Empty session"
 
-            row = f"{i:<3} {session.session_id:<12} {session.metadata.model:<20} {preview:<40} {session.metadata.message_count:<8}"
-            typer.echo(row)
+            table.add_row(
+                str(i),
+                session.session_id,
+                session.metadata.model,
+                preview,
+                str(session.metadata.message_count)
+            )
 
-        typer.echo("=" * 100)
+        # Wrap table in panel
+        sessions_panel = Panel(
+            table,
+            title="💬 Previous Sessions",
+            title_align="left",
+            style=self.colors['primary'],
+            box=ROUNDED
+        )
+        self.console.print(sessions_panel)
 
     def display_menu_help(self, session_count: int) -> None:
-        """Display help text for menu options."""
-        typer.secho("\nOptions:", fg=typer.colors.YELLOW, bold=True)
-        typer.secho(f"• Select session (1-{session_count})", fg=typer.colors.WHITE)
-        typer.secho("• Type 'new' for new chat", fg=typer.colors.WHITE)
-        typer.secho("• Type '/delete <number>' to delete a session", fg=typer.colors.WHITE)
-        typer.secho("• Type 'q' to quit", fg=typer.colors.WHITE)
+        """Display help text for menu options using Rich panels."""
+        options = [
+            f"📝 Select session (1-{session_count})",
+            "🆕 Type 'new' for new chat",
+            "🗑️  Type '/delete <number>' to delete session",
+            "👋 Type 'q' to quit"
+        ]
+
+        help_text = "\n".join(f"• {option}" for option in options)
+
+        help_panel = Panel(
+            help_text,
+            title="💡 Options",
+            title_align="left",
+            style=self.colors['info'],
+            box=ROUNDED
+        )
+        self.console.print(help_panel)
 
     def display_welcome_message(self) -> None:
-        """Display the welcome message for the chat application."""
-        mochi = """
+        """Display the welcome message using Rich styling."""
+        # ASCII art in a text object for better control
+        mochi_art = """
         .-===-.
         |[:::]|
-        `-----´
-        """
-        typer.secho("🚀 Welcome to Mochi-Coco!", fg=typer.colors.BRIGHT_MAGENTA, bold=True)
-        typer.secho(mochi, fg=typer.colors.BRIGHT_WHITE, bold=True)
+        `-----´"""
+
+        # Create welcome content
+        welcome_text = Text()
+        welcome_text.append("🍡 Welcome to ", style="bold bright_magenta")
+        welcome_text.append("Mochi-Coco", style="bold bright_white")
+        welcome_text.append("!\n\n", style="bold bright_magenta")
+        welcome_text.append(mochi_art, style="bright_white bold")
+        welcome_text.append("\n\n🤖 ", style="bright_magenta")
+        welcome_text.append("AI Chat with Flavor", style="italic bright_blue")
+
+        welcome_panel = Panel(
+            Align.center(welcome_text),
+            style=self.colors['primary'],
+            box=HEAVY,
+            padding=(1, 2)
+        )
+        self.console.print(welcome_panel)
 
     def display_chat_history(self, session: ChatSession) -> None:
-        """Display the chat history of a session."""
+        """Display the chat history of a session using Rich formatting."""
         if not session.messages:
-            typer.secho("No previous messages in this session.", fg=typer.colors.CYAN)
+            info_panel = Panel(
+                "📝 No previous messages in this session.",
+                style=self.colors['info'],
+                box=ROUNDED
+            )
+            self.console.print(info_panel)
             return
 
-        typer.secho(f"\n📜 Chat History (Session: {session.session_id}):", fg=typer.colors.BRIGHT_BLUE, bold=True)
-        typer.secho(f"Models used: {session.model}", fg=typer.colors.YELLOW)
-        typer.echo("=" * 80)
+        # Session info header
+        session_info = Text()
+        session_info.append("Session ID: ", style="bold")
+        session_info.append(session.session_id, style="cyan")
+        session_info.append(" | Model: ", style="bold")
+        session_info.append(session.model, style="magenta")
 
-        for message in session.messages:
+        header_panel = Panel(
+            session_info,
+            title="📜 Chat History",
+            title_align="left",
+            style=self.colors['info'],
+            box=ROUNDED
+        )
+        self.console.print(header_panel)
+
+        # Display messages
+        for i, message in enumerate(session.messages):
             if message.role == "user":
-                typer.secho("You:", fg=typer.colors.CYAN, bold=True)
-                if self.renderer:
-                    self.renderer.render_static_text(message.content)
-                else:
-                    typer.echo(message.content)
+                user_panel = Panel(
+                    message.content,
+                    title="🧑 You",
+                    title_align="left",
+                    style="bright_cyan",
+                    box=ROUNDED,
+                    padding=(0, 1)
+                )
+                self.console.print(user_panel)
             elif message.role == "assistant":
-                assistant_label = "\nAssistant:"
-                typer.secho(assistant_label, fg=typer.colors.MAGENTA, bold=True)
-                if self.renderer:
-                    self.renderer.render_static_text(message.content)
-                else:
-                    typer.echo(message.content)
+                assistant_panel = Panel(
+                    message.content,
+                    title="🤖 Assistant",
+                    title_align="left",
+                    style="bright_magenta",
+                    box=ROUNDED,
+                    padding=(0, 1)
+                )
+                self.console.print(assistant_panel)
 
-            # Add consistent spacing after each message for readability
-            print()
-
-        typer.echo("=" * 80)
+            # Add spacing between messages
+            if i < len(session.messages) - 1:
+                self.console.print()
 
     def display_model_selection_header(self) -> None:
         """Display header for model selection."""
-        typer.secho("🤖 Model Selection", fg=typer.colors.BRIGHT_MAGENTA, bold=True)
+        header_panel = Panel(
+            "🤖 Select your AI model",
+            style=self.colors['primary'],
+            box=ROUNDED
+        )
+        self.console.print(header_panel)
 
     def display_model_selection_prompt(self, model_count: int) -> None:
-        """Display prompt for model selection."""
-        typer.secho(f"\nSelect a model (1-{model_count}) or 'q' to quit:",
-                   fg=typer.colors.YELLOW, bold=True)
+        """Display prompt for model selection using Rich styling."""
+        prompt_text = f"Select a model (1-{model_count}) or 'q' to quit"
+        prompt_panel = Panel(
+            prompt_text,
+            style=self.colors['warning'],
+            box=ROUNDED
+        )
+        self.console.print(prompt_panel)
 
     def display_no_sessions_message(self) -> None:
         """Display message when no previous sessions are found."""
-        typer.secho("\nNo previous sessions found. Starting new chat...", fg=typer.colors.CYAN)
+        info_panel = Panel(
+            "🆕 No previous sessions found. Let's start a new chat!",
+            style=self.colors['info'],
+            box=ROUNDED
+        )
+        self.console.print(info_panel)
 
     def display_model_selected(self, model_name: str) -> None:
         """Display confirmation of model selection."""
-        typer.secho(f"\n✅ Selected model: {model_name}", fg=typer.colors.GREEN, bold=True)
+        success_text = Text()
+        success_text.append("✅ Selected model: ", style="bold green")
+        success_text.append(model_name, style="bold magenta")
+
+        success_panel = Panel(
+            success_text,
+            style=self.colors['success'],
+            box=ROUNDED
+        )
+        self.console.print(success_panel)
 
     def display_session_loaded(self, session_id: str, model: str) -> None:
         """Display confirmation of session loading."""
-        typer.secho(f"\n✅ Loaded session: {session_id} with {model}",
-                   fg=typer.colors.GREEN, bold=True)
+        success_text = Text()
+        success_text.append("✅ Loaded session: ", style="bold green")
+        success_text.append(session_id, style="bold cyan")
+        success_text.append(" with ", style="bold green")
+        success_text.append(model, style="bold magenta")
+
+        success_panel = Panel(
+            success_text,
+            style=self.colors['success'],
+            box=ROUNDED
+        )
+        self.console.print(success_panel)
 
     def display_edit_messages_table(self, session: ChatSession) -> None:
-        """Display messages for editing with user messages numbered."""
+        """Display messages for editing with Rich table formatting."""
         if not session.messages:
-            typer.secho("No messages to edit in this session.", fg=typer.colors.RED)
+            error_panel = Panel(
+                "❌ No messages to edit in this session.",
+                style=self.colors['error'],
+                box=ROUNDED
+            )
+            self.console.print(error_panel)
             return
 
-        typer.secho("\nSelect a message to edit:", fg=typer.colors.BRIGHT_GREEN, bold=True)
-        typer.echo("=" * 100)
+        # Create the edit table
+        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
+        table.add_column("#", style=self.colors['secondary'], width=3)
+        table.add_column("Role", style="bold", width=12)
+        table.add_column("Preview", style="white", min_width=70)
 
-        # Table header
-        header = f"{'#':<3} {'Role':<12} {'Preview':<85}"
-        typer.secho(header, fg=typer.colors.CYAN, bold=True)
-        typer.echo("-" * 100)
-
-        # Track user message counter for numbering
+        # Track user message counter
         user_msg_counter = 0
 
-        # Table rows
-        for i, message in enumerate(session.messages):
+        # Add message rows
+        for message in session.messages:
             role = message.role
-            preview = message.content[:82] + "..." if len(message.content) > 82 else message.content
-            # Replace newlines with spaces for clean display
+            preview = message.content[:70] + "..." if len(message.content) > 70 else message.content
+            # Clean up preview
             preview = preview.replace('\n', ' ').replace('\r', ' ')
 
             if role == "user":
                 user_msg_counter += 1
                 number = str(user_msg_counter)
+                role_display = "🧑 User"
+                row_style = "bright_white"
             else:
                 number = "-"
+                role_display = "🤖 Assistant"
+                row_style = "dim"
 
-            row = f"{number:<3} {role:<12} {preview:<85}"
+            table.add_row(number, role_display, preview, style=row_style)
 
-            # Highlight user messages that can be selected
-            if role == "user":
-                typer.secho(row, fg=typer.colors.WHITE)
-            else:
-                typer.secho(row, fg=typer.colors.BRIGHT_BLACK)
+        # Wrap table in panel
+        edit_panel = Panel(
+            table,
+            title="✏️  Edit Messages",
+            title_align="left",
+            style=self.colors['warning'],
+            box=ROUNDED
+        )
+        self.console.print(edit_panel)
 
-        typer.echo("=" * 100)
-        typer.secho(f"Select a user message (1-{user_msg_counter}) or 'q' to cancel:",
-                   fg=typer.colors.YELLOW, bold=True)
+        # Add prompt
+        prompt_text = f"Select a user message (1-{user_msg_counter}) or 'q' to cancel"
+        prompt_panel = Panel(
+            prompt_text,
+            style=self.colors['info'],
+            box=ROUNDED
+        )
+        self.console.print(prompt_panel)
 
     def display_command_menu(self) -> None:
-        """Display the command menu options."""
-        typer.secho("\n⚙️  Command Menu", fg=typer.colors.BRIGHT_CYAN, bold=True)
-        typer.echo("=" * 50)
-
-        # Table header
-        header = f"{'#':<3} {'Command':<15} {'Description':<30}"
-        typer.secho(header, fg=typer.colors.CYAN, bold=True)
-        typer.echo("-" * 50)
-
-        # Menu options
-        options = [
-            ("1", "chats", "Switch to a different chat session"),
-            ("2", "models", "Change the current model"),
-            ("3", "markdown", "Toggle markdown rendering"),
-            ("4", "thinking", "Toggle thinking blocks display")
+        """Display the command menu using Rich panels."""
+        # Create command options as individual panels
+        commands = [
+            ("1", "💬 Switch Sessions", "Change to different chat session"),
+            ("2", "🤖 Change Model", "Select a different AI model"),
+            ("3", "📝 Toggle Markdown", "Enable/disable markdown rendering"),
+            ("4", "🤔 Toggle Thinking", "Show/hide thinking blocks")
         ]
 
-        for number, command, description in options:
-            row = f"{number:<3} {command:<15} {description:<30}"
-            typer.echo(row)
+        # Create table for commands
+        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
+        table.add_column("#", style=self.colors['secondary'], width=3)
+        table.add_column("Command", style="bold", width=20)
+        table.add_column("Description", style="white", min_width=30)
 
-        typer.echo("=" * 50)
-        typer.secho("Select an option (1-4) or 'q' to cancel:",
-                   fg=typer.colors.YELLOW, bold=True)
+        for number, command, description in commands:
+            table.add_row(number, command, description)
+
+        # Wrap in panel
+        menu_panel = Panel(
+            table,
+            title="⚙️  Command Menu",
+            title_align="left",
+            style=self.colors['info'],
+            box=ROUNDED
+        )
+        self.console.print(menu_panel)
+
+        # Add prompt
+        prompt_panel = Panel(
+            "Select an option (1-4) or 'q' to cancel",
+            style=self.colors['warning'],
+            box=ROUNDED
+        )
+        self.console.print(prompt_panel)
+
+    def display_confirmation_prompt(self, message: str, style: str = "warning") -> None:
+        """Display a confirmation prompt with Rich styling."""
+        panel_style = self.colors.get(style, style)
+        confirmation_panel = Panel(
+            message,
+            style=panel_style,
+            box=ROUNDED
+        )
+        self.console.print(confirmation_panel)
+
+    def display_error(self, message: str) -> None:
+        """Display an error message with Rich styling."""
+        error_panel = Panel(
+            f"❌ {message}",
+            style=self.colors['error'],
+            box=ROUNDED
+        )
+        self.console.print(error_panel)
+
+    def display_success(self, message: str) -> None:
+        """Display a success message with Rich styling."""
+        success_panel = Panel(
+            f"✅ {message}",
+            style=self.colors['success'],
+            box=ROUNDED
+        )
+        self.console.print(success_panel)
+
+    def display_info(self, message: str) -> None:
+        """Display an info message with Rich styling."""
+        info_panel = Panel(
+            f"💡 {message}",
+            style=self.colors['info'],
+            box=ROUNDED
+        )
+        self.console.print(info_panel)

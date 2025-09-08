@@ -16,6 +16,9 @@ class SessionManager:
 
     def __init__(self, model_selector: "ModelSelector"):
         self.model_selector = model_selector
+        # Import here to avoid circular imports
+        from ..ui import ChatInterface
+        self.chat_interface = ChatInterface()
 
     def initialize_session(self) -> Tuple[Optional["ChatSession"], Optional[str], bool, bool]:
         """
@@ -54,24 +57,18 @@ class SessionManager:
 
             from ..chat import ChatSession
             session = ChatSession(model=selected_model)
-            typer.secho(f"\n💬 New chat started with {selected_model}",
-                        fg=typer.colors.BRIGHT_GREEN)
-            typer.secho(f"Session ID: {session.session_id}", fg=typer.colors.CYAN)
+            self.chat_interface.print_success_message(f"New chat started with {selected_model}")
+            self.chat_interface.print_info_message(f"Session ID: {session.session_id}")
             return session, selected_model
         else:
             # Handle existing session
             self.model_selector.display_chat_history(session)
             selected_model = session.metadata.model
-            typer.secho(f"\n💬 Continuing chat with {selected_model}",
-                        fg=typer.colors.BRIGHT_GREEN)
+            self.chat_interface.print_success_message(f"Continuing chat with {selected_model}")
             return session, selected_model
 
     def display_session_info(self, markdown_enabled: bool, show_thinking: bool) -> None:
         """Display session information and available commands."""
-        typer.secho("Type 'exit' to quit, '/menu' to access settings, or '/edit' to edit messages.\n",
-                   fg=typer.colors.BRIGHT_GREEN)
-
-        if markdown_enabled:
-            typer.secho("Markdown rendering is enabled.", fg=typer.colors.CYAN)
-            if show_thinking:
-                typer.secho("Thinking blocks will be displayed.", fg=typer.colors.CYAN)
+        # This method is now handled by ChatInterface in the chat controller
+        # Keeping for backward compatibility but functionality moved to ChatController
+        pass
