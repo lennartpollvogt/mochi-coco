@@ -56,31 +56,25 @@ class MenuDisplay:
         table.add_column("Model Name", style="bold white", min_width=25)
         table.add_column("Size (MB)", style=self.colors['info'], justify="right", width=12)
         table.add_column("Family", style=self.colors['warning'], width=15)
-        table.add_column("Max. Context", style=self.colors['success'], justify="right", width=12)
+        table.add_column("Max. Cxt", style=self.colors['success'], justify="right", width=8)
+        table.add_column("Tools", style=self.colors['primary'], justify="center", width=5)
 
         # Add model rows
         for i, model in enumerate(models, 1):
             size_str = f"{model.size_mb:.1f}" if model.size_mb else "N/A"
             family_str = model.family or "N/A"
+            context_str = str(model.context_length) if model.context_length else "N/A"
 
-            # Get context length safely
-            max_context_window = "N/A"
-            try:
-                if model.name:
-                    model_details = client.show_model_details(model.name)
-                    if model_details:
-                        model_info = model_details.model_dump()
-                        if 'modelinfo' in model_info and f'{family_str}.context_length' in model_info['modelinfo']:
-                            max_context_window = str(model_info['modelinfo'][f'{family_str}.context_length'])
-            except Exception:
-                pass
+            # Check if model has tools capability
+            tools_str = "☑️" if model.capabilities and 'tools' in model.capabilities else ""
 
             table.add_row(
                 str(i),
                 model.name or "Unknown",
                 size_str,
                 family_str,
-                max_context_window
+                context_str,
+                tools_str
             )
 
         # Create model selection options

@@ -84,6 +84,23 @@ class TestOllamaClient:
         """Test successful model listing and ModelInfo creation."""
         mock_list.return_value = mock_ollama_list_response
 
+        # Mock show_model_details for capability checking
+        def mock_show_details(model_name):
+            mock_response = Mock()
+            if model_name == "llama3.2:latest":
+                mock_response.model_dump.return_value = {
+                    'capabilities': ['completion', 'tools'],
+                    'modelinfo': {'llama.context_length': 131072}
+                }
+            elif model_name == "phi3:mini":
+                mock_response.model_dump.return_value = {
+                    'capabilities': ['completion'],
+                    'modelinfo': {}
+                }
+            return mock_response
+
+        client.show_model_details = Mock(side_effect=mock_show_details)
+
         models = client.list_models()
 
         assert len(models) == 2
@@ -97,6 +114,8 @@ class TestOllamaClient:
         assert model1.family == "llama"
         assert model1.parameter_size == "3B"
         assert model1.quantization_level == "Q4_0"
+        assert model1.capabilities == ['completion', 'tools']
+        assert model1.context_length == 131072
 
         # Test second model with missing details
         model2 = models[1]
@@ -106,6 +125,8 @@ class TestOllamaClient:
         assert model2.family is None
         assert model2.parameter_size is None
         assert model2.quantization_level is None
+        assert model2.capabilities == ['completion']
+        assert model2.context_length is None
 
     @patch('mochi_coco.ollama.client.ollama_list')
     def test_list_models_empty_response(self, mock_list, client):
@@ -129,10 +150,109 @@ class TestOllamaClient:
         mock_response.models = [mock_model]
         mock_list.return_value = mock_response
 
+        # Mock show_model_details to return completion capability
+        def mock_show_details(model_name):
+            mock_response = Mock()
+            mock_response.model_dump.return_value = {
+                'capabilities': ['completion'],
+                'modelinfo': {}
+            }
+            return mock_response
+
+        client.show_model_details = Mock(side_effect=mock_show_details)
+
         models = client.list_models()
 
         assert len(models) == 1
         assert models[0].size_mb == 0
+        assert models[0].capabilities == ['completion']
+
+    @patch('mochi_coco.ollama.client.ollama_list')
+    def test_list_models_filters_non_completion_models(self, mock_list, client):
+        """Test that models without completion capability are filtered out."""
+        mock_response = Mock()
+
+        # Create mock model with only embedding capability (should be filtered out)
+        mock_model1 = Mock()
+        mock_model1.model = "embed-model"
+        mock_model1.size = 500 * 1024 * 1024
+        mock_model1.details = Mock()
+        mock_model1.details.family = "nomic-bert"
+
+        # Create mock model with completion capability (should be included)
+        mock_model2 = Mock()
+        mock_model2.model = "completion-model"
+        mock_model2.size = 1000 * 1024 * 1024
+        mock_model2.details = Mock()
+        mock_model2.details.family = "llama"
+
+        mock_response.models = [mock_model1, mock_model2]
+        mock_list.return_value = mock_response
+
+        # Mock show_model_details to return different capabilities
+        def mock_show_details(model_name):
+            mock_response = Mock()
+            if model_name == "embed-model":
+                mock_response.model_dump.return_value = {
+                    'capabilities': ['embedding'],  # No completion capability
+                    'modelinfo': {}
+                }
+            elif model_name == "completion-model":
+                mock_response.model_dump.return_value = {
+                    'capabilities': ['completion'],
+                    'modelinfo': {'llama.context_length': 4096}
+                }
+            return mock_response
+
+        client.show_model_details = Mock(side_effect=mock_show_details)
+
+        models = client.list_models()
+
+        # Only the completion model should be included
+        assert len(models) == 1
+        assert models[0].name == "completion-model"
+        assert models[0].capabilities == ['completion']
+
+    @patch('mochi_coco.ollama.client.ollama_list')
+    def test_list_models_show_details_failure(self, mock_list, client):
+        """Test that models are skipped when show_model_details fails."""
+        mock_response = Mock()
+
+        # Create mock models
+        mock_model1 = Mock()
+        mock_model1.model = "working-model"
+        mock_model1.size = 1000 * 1024 * 1024
+        mock_model1.details = Mock()
+        mock_model1.details.family = "llama"
+
+        mock_model2 = Mock()
+        mock_model2.model = "broken-model"
+        mock_model2.size = 500 * 1024 * 1024
+        mock_model2.details = Mock()
+        mock_model2.details.family = "test"
+
+        mock_response.models = [mock_model1, mock_model2]
+        mock_list.return_value = mock_response
+
+        # Mock show_model_details to fail for one model
+        def mock_show_details(model_name):
+            if model_name == "working-model":
+                mock_response = Mock()
+                mock_response.model_dump.return_value = {
+                    'capabilities': ['completion'],
+                    'modelinfo': {'llama.context_length': 4096}
+                }
+                return mock_response
+            elif model_name == "broken-model":
+                raise Exception("Failed to get model details")
+
+        client.show_model_details = Mock(side_effect=mock_show_details)
+
+        models = client.list_models()
+
+        # Only the working model should be included
+        assert len(models) == 1
+        assert models[0].name == "working-model"
 
     @patch('mochi_coco.ollama.client.ollama_list')
     def test_list_models_api_error(self, mock_list, client):

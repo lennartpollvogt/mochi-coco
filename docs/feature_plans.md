@@ -7,7 +7,6 @@
 - [x] customize the markdown rendering (headers)
 - [x] within chat session open session menu to choose chats with `/chats`
 - [x] add eval_count and prompt_eval_count to assistant message
-- [ ] customize the markdown rendering (code blocks)
 - [x] when enable or disable markdown rendering during chat, the chat history should be cleared and re-rendered
 - [x] multiline input for user
 - [x] delete command for chat session menu
@@ -21,18 +20,12 @@
   - This feature does not affect `/edit` command.
 - [x] workflow: during session, within breaks a LLM is requested to create a chat session summary. This could be used for the @chat workflow, so an LLM would be better in finding other chat sessions for the user request.
 - [x] break llm response with "ESC" and store partial response in chat history
-- [ ] workflow: use @chat to select a chat -> let a LLM summarize prompt specific information from this chat -> let return the summary -> use summary within user prompt -> send user prompt to Ollama
 - [x] Give user possibility to change a specific user prompt and continue from this message again (see `manual_testing/edit_message.md`) while old messages will be deleted from the chat history
+- [x] only list ollama models with `completion` functionality (see `OllamaClient().show(model).capabilities`)
+- [x] add info to model overview if a model can use tools
+- [ ] add system prompt
 - [ ] Add tool usage
-  - user can place a folder `tools` in the root directory of the terminal
-  - this folder has to have a `__init__.py` file with the `__all__` variable defined to expose the tools
-  - the tools themselves are in files within this folder
-  - the user can, before starting a chat session and during a chat session, choose the tools which are available for the LLM (during chat session with command `/tools`).
-- [ ] add workflow usage
-  - user can place a folder `workflow` in the root directory of the temrinal.
-  - this folder has to have a `__init__.py` file with the `__all__` variable defined to expose the workflows.
-  - the workflows themselves are in files within this folder
-  - the user can within a chat session call a workflow by typing `/workflow` which will list all available workflows. The user is then prompted to select one by number and the workflow will be executed.
+- [ ] add folder with example tools users of the application can use to get started and to showcase the capabilities of the application + add documentation on how to create own tools
 
 # Issues
 
@@ -40,7 +33,6 @@
 
 # Open Questions
 
-- how could adding a text file to the user input be done?
 - how could adding an image to the user input be done?
 
 # Feature Drafts

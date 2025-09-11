@@ -17,20 +17,44 @@ class ModelInfo:
     family: Optional[str] = None
     parameter_size: Optional[str] = None
     quantization_level: Optional[str] = None
-    # supported_context_size = Optional[int] = None
+    capabilities: Optional[List[str]] = None
+    context_length: Optional[int] = None
 
 class AsyncOllamaClient:
     def __init__(self, host: Optional[str] = None):
         self.client = AsyncClient(host=host) if host else AsyncClient()
 
     async def list_models(self) -> List[ModelInfo]:
-        """List all available models asynchronously."""
+        """List all available models that support completion asynchronously."""
         try:
             # Note: ollama_list() is still synchronous, so we'll use the client's list method
             response: ListResponse = await self.client.list()
             models = []
 
             for model in response.models:
+                if not model.model:
+                    continue
+
+                # Get detailed model information including capabilities
+                try:
+                    model_details = await self.show_model_details(model.model)
+                    capabilities = model_details.model_dump().get('capabilities', [])
+
+                    # Only include models that support completion
+                    if 'completion' not in capabilities:
+                        continue
+
+                    # Extract context length from modelinfo
+                    context_length = None
+                    model_info_dict = model_details.model_dump().get('modelinfo', {})
+                    family = model.details.family if model.details else None
+                    if family and f'{family}.context_length' in model_info_dict:
+                        context_length = model_info_dict[f'{family}.context_length']
+
+                except Exception:
+                    # If we can't get model details, skip this model
+                    continue
+
                 size_mb = model.size / 1024 / 1024 if model.size else 0
 
                 model_info = ModelInfo(
@@ -40,6 +64,8 @@ class AsyncOllamaClient:
                     family=model.details.family if model.details else None,
                     parameter_size=model.details.parameter_size if model.details else None,
                     quantization_level=model.details.quantization_level if model.details else None,
+                    capabilities=capabilities,
+                    context_length=context_length,
                 )
                 models.append(model_info)
 
