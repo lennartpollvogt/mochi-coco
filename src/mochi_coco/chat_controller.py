@@ -72,14 +72,14 @@ class ChatController:
         Returns:
             True if session was successfully initialized, False otherwise
         """
-        # Get session and user preferences
-        session, selected_model, markdown_enabled, show_thinking = self.session_manager.initialize_session()
+        # Get session and user preferences (including system prompt for new sessions)
+        session, selected_model, markdown_enabled, show_thinking, system_prompt_content = self.session_manager.initialize_session()
 
         # Configure renderer based on user preferences
         self.renderer_manager.configure_renderer(markdown_enabled, show_thinking)
 
-        # Setup session for chatting
-        session, selected_model = self.session_manager.setup_session(session, selected_model)
+        # Setup session for chatting (with system prompt for new sessions)
+        session, selected_model = self.session_manager.setup_session(session, selected_model, system_prompt_content)
 
         if session is None or selected_model is None:
             return False

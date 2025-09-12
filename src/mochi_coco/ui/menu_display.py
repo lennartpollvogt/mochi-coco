@@ -13,6 +13,7 @@ from rich.align import Align
 from ..ollama import OllamaClient, ModelInfo
 from ..chat import ChatSession
 from ..rendering import MarkdownRenderer
+from ..services.system_prompt_service import SystemPromptInfo
 
 
 class MenuDisplay:
@@ -66,7 +67,7 @@ class MenuDisplay:
             context_str = str(model.context_length) if model.context_length else "N/A"
 
             # Check if model has tools capability
-            tools_str = "☑️" if model.capabilities and 'tools' in model.capabilities else ""
+            tools_str = "Yes" if model.capabilities and 'tools' in model.capabilities else "No"
 
             table.add_row(
                 str(i),
@@ -85,9 +86,8 @@ class MenuDisplay:
         options_text.append("• 👋 Type 'q' to quit\n", style="white")
 
         # Add attention notice
-        options_text.append("\n⚠️  ATTENTION: ", style="bold bright_red")
-        options_text.append("The maximum context length is the supported length of the model ", style="yellow")
-        options_text.append("but not the actual length during chat sessions.\n", style="yellow")
+        options_text.append("\n⚠️ ATTENTION: ", style="bold bright_red")
+        options_text.append("Max. Cxt. is only supported context length not set.\n", style="yellow")
         options_text.append("💡 ", style="bright_blue")
         options_text.append("Open Ollama application to set default context length!", style="bright_blue")
 
@@ -280,6 +280,56 @@ class MenuDisplay:
         # Removed redundant confirmation - session info is shown in chat session panel
         pass
 
+    def display_system_prompts_table(self, prompts: List[SystemPromptInfo]) -> None:
+        """Display available system prompts in a Rich table format with integrated options."""
+        if not prompts:
+            error_panel = Panel(
+                "❌ No system prompts found!",
+                style=self.colors['error'],
+                box=ROUNDED
+            )
+            self.console.print(error_panel)
+            return
+
+        # Create the system prompts table
+        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
+        table.add_column("#", style=self.colors['secondary'], width=3)
+        table.add_column("Filename", style="bold white", min_width=15)
+        table.add_column("Preview", style="white", min_width=35)
+        table.add_column("Word Count", style=self.colors['success'], justify="right", width=10)
+
+        # Add system prompt rows
+        for i, prompt in enumerate(prompts, 1):
+            table.add_row(
+                str(i),
+                prompt.filename,
+                prompt.preview,
+                str(prompt.word_count)
+            )
+
+        # Create system prompt selection options
+        prompt_count = len(prompts)
+        options_text = Text()
+        options_text.append("\n💡 Options:\n", style="bold bright_yellow")
+        options_text.append(f"• 📝 Select system prompt (1-{prompt_count})\n", style="white")
+        options_text.append("• 🆕 Type 'no' for no system prompt\n", style="white")
+        options_text.append("• 🗑️ Type '/delete <number>' to delete a system prompt\n", style="white")
+        options_text.append("• 👋 Type 'q' to quit", style="white")
+
+        # Combine table and options
+        from rich.console import Group
+        combined_content = Group(table, options_text)
+
+        # Wrap in panel
+        prompts_panel = Panel(
+            combined_content,
+            title="🔧 System Prompts",
+            title_align="left",
+            style=self.colors['primary'],
+            box=ROUNDED
+        )
+        self.console.print(prompts_panel)
+
     def display_edit_messages_table(self, session: ChatSession) -> None:
         """Display messages for editing with Rich table formatting."""
         if not session.messages:
@@ -338,7 +388,7 @@ class MenuDisplay:
         )
         self.console.print(prompt_panel)
 
-    def display_command_menu(self) -> None:
+    def display_command_menu(self, has_system_prompts: bool = False) -> None:
         """Display the chat menu using Rich panels with integrated options."""
         # Create command options
         commands = [
@@ -347,6 +397,10 @@ class MenuDisplay:
             ("3", "📝 Toggle Markdown", "Enable/disable markdown rendering"),
             ("4", "🤔 Toggle Thinking", "Show/hide thinking blocks")
         ]
+
+        # Add system prompt option if prompts are available
+        if has_system_prompts:
+            commands.append(("5", "🔧 Change System Prompt", "Select different system prompt"))
 
         # Create table for commands
         table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
@@ -358,9 +412,10 @@ class MenuDisplay:
             table.add_row(number, command, description)
 
         # Create options text
+        max_option = 5 if has_system_prompts else 4
         options_text = Text()
         options_text.append("\n💡 Options:\n", style="bold bright_yellow")
-        options_text.append("• Select an option (1-4)\n", style="white")
+        options_text.append(f"• Select an option (1-{max_option})\n", style="white")
         options_text.append("• Type 'q' to cancel", style="white")
 
         # Combine table and options

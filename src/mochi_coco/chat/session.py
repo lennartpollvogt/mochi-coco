@@ -27,6 +27,26 @@ class UserMessage:
         return getattr(self, key)
 
 @dataclass
+class SystemMessage:
+    """
+    A system message that sets the context/persona for the AI assistant.
+    """
+    role: str = "system"
+    content: str = ""
+    source_file: Optional[str] = None
+    message_id: Optional[str] = None
+    timestamp: Optional[str] = None
+
+    def __post_init__(self):
+        if self.message_id is None:
+            self.message_id = str(uuid.uuid4()).replace("-", "")[:10]
+        if self.timestamp is None:
+            self.timestamp = datetime.now().isoformat()
+
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+@dataclass
 class SessionMessage:
     role: str
     content: str
@@ -63,7 +83,7 @@ class ChatSession:
         self.sessions_dir = Path(sessions_dir) if sessions_dir else Path.cwd() / "chat_sessions"
         self.sessions_dir.mkdir(exist_ok=True)
 
-        self.messages: List[SessionMessage | UserMessage] = []
+        self.messages: List[SessionMessage | UserMessage | SystemMessage] = []
         self.metadata = SessionMetadata(
             session_id=self.session_id,
             model=model,
@@ -96,6 +116,56 @@ class ChatSession:
         self.metadata.message_count = len(self.messages)
         self.metadata.updated_at = datetime.now().isoformat()
         self.save_session()
+
+    def add_system_message(self, content: str, source_file: Optional[str] = None, message_id: Optional[str] = None) -> None:
+        """Add a system message as the first message in the session."""
+        system_message = SystemMessage(
+            content=content,
+            source_file=source_file,
+            message_id=message_id,
+        )
+
+        # Always insert system message at the beginning
+        self.messages.insert(0, system_message)
+        self.metadata.message_count = len(self.messages)
+        self.metadata.updated_at = datetime.now().isoformat()
+        self.save_session()
+
+    def update_system_message(self, content: str, source_file: Optional[str] = None) -> None:
+        """
+        Update or add system message. System message is always at index 0 when present.
+
+        Args:
+            content: The system prompt content
+            source_file: Optional filename of the source system prompt file
+        """
+        if self.messages and self.messages[0].role == "system":
+            # Replace existing system message
+            self.messages[0] = SystemMessage(
+                content=content,
+                source_file=source_file,
+            )
+        else:
+            # Insert new system message at beginning
+            system_message = SystemMessage(
+                content=content,
+                source_file=source_file,
+            )
+            self.messages.insert(0, system_message)
+
+        self.metadata.message_count = len(self.messages)
+        self.metadata.updated_at = datetime.now().isoformat()
+        self.save_session()
+
+    def has_system_message(self) -> bool:
+        """Check if session has a system message (first message with role='system')."""
+        return bool(self.messages and self.messages[0].role == "system")
+
+    def get_current_system_prompt_file(self) -> Optional[str]:
+        """Get filename of current system prompt for UI display."""
+        if self.has_system_message() and hasattr(self.messages[0], 'source_file'):
+            return self.messages[0].source_file
+        return None
 
     def add_message(self, chunk: ChatResponse, message_id: Optional[str] = None) -> None:
         """Add a message to the session."""
@@ -146,7 +216,7 @@ class ChatSession:
             metadata_dict = session_data.get("metadata", {})
             self.metadata = SessionMetadata(**metadata_dict)
 
-            # Load messages - handle both UserMessage and SessionMessage types
+            # Load messages - handle UserMessage, SessionMessage, and SystemMessage types
             messages_data = session_data.get("messages", [])
             self.messages = []
             for msg_dict in messages_data:
@@ -161,6 +231,18 @@ class ChatSession:
                     # Remove None values
                     user_msg_data = {k: v for k, v in user_msg_data.items() if v is not None}
                     self.messages.append(UserMessage(**user_msg_data))
+                elif msg_dict.get("role") == "system":
+                    # For system messages, only use fields that SystemMessage expects
+                    system_msg_data = {
+                        "role": msg_dict.get("role", "system"),
+                        "content": msg_dict.get("content", ""),
+                        "source_file": msg_dict.get("source_file"),
+                        "message_id": msg_dict.get("message_id"),
+                        "timestamp": msg_dict.get("timestamp")
+                    }
+                    # Remove None values
+                    system_msg_data = {k: v for k, v in system_msg_data.items() if v is not None}
+                    self.messages.append(SystemMessage(**system_msg_data))
                 else:
                     self.messages.append(SessionMessage(**msg_dict))
 

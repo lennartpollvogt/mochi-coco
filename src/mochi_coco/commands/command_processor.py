@@ -4,6 +4,7 @@ Command processor for handling special commands in the chat interface.
 
 from typing import Optional, TYPE_CHECKING
 import typer
+from datetime import datetime
 
 from ..rendering import RenderingMode
 from ..utils import re_render_chat_history
@@ -31,6 +32,14 @@ class CommandProcessor:
     def __init__(self, model_selector: "ModelSelector", renderer_manager: "RendererManager"):
         self.model_selector = model_selector
         self.renderer_manager = renderer_manager
+
+        # Initialize system prompt services
+        from ..services import SystemPromptService
+        from ..ui import SystemPromptMenuHandler
+        self.system_prompt_service = SystemPromptService()
+        self.system_prompt_menu_handler = SystemPromptMenuHandler(
+            self.system_prompt_service
+        )
 
     def process_command(self, user_input: str, session: "ChatSession", selected_model: str) -> CommandResult:
         """
@@ -75,7 +84,67 @@ class CommandProcessor:
                 return CommandResult(new_model=new_model)
             return CommandResult()
         except Exception as e:
-            typer.secho(f"\n❌ Error selecting model: {e}", fg=typer.colors.RED)
+            typer.secho(f"\n❌ Error editing message: {e}", fg=typer.colors.RED)
+            return CommandResult()
+
+    def _handle_system_prompt_command(self, session: "ChatSession") -> CommandResult:
+        """Handle system prompt changes."""
+        try:
+            if not self.system_prompt_service.has_system_prompts():
+                typer.secho("\n❌ No system prompts found in system_prompts/ directory.", fg=typer.colors.RED)
+                return CommandResult()
+
+            # Show current system prompt if exists
+            current_file = session.get_current_system_prompt_file()
+            if current_file:
+                typer.secho(f"\n📝 Current system prompt: {current_file}", fg=typer.colors.BLUE)
+
+            # Show system prompt selection
+            from ..ui.system_prompt_menu_handler import SystemPromptSelectionContext
+            new_content = self.system_prompt_menu_handler.select_system_prompt(SystemPromptSelectionContext.FROM_MENU)
+
+            if new_content is not None:
+                if new_content == "":  # Empty string indicates removal
+                    if session.has_system_message():
+                        # Remove system message
+                        session.messages = [msg for msg in session.messages if msg.role != "system"]
+                        session.metadata.message_count = len(session.messages)
+                        session.metadata.updated_at = datetime.now().isoformat()
+                        session.save_session()
+                        typer.secho("\n✅ System prompt removed.\n", fg=typer.colors.GREEN, bold=True)
+                    else:
+                        typer.secho("\n💡 No system prompt was active.\n", fg=typer.colors.YELLOW)
+                else:
+                    # Update system prompt
+                    session.update_system_message(new_content)
+                    typer.secho("\n✅ System prompt updated.\n", fg=typer.colors.GREEN, bold=True)
+
+            return CommandResult()
+
+        except Exception as e:
+            typer.secho(f"\n❌ Error changing system prompt: {e}", fg=typer.colors.RED)
+            return CommandResult()
+
+    def _handle_markdown_command(self) -> CommandResult:
+        """Handle markdown toggle command."""
+        try:
+            self.renderer_manager.toggle_markdown()
+            status = "enabled" if self.renderer_manager.is_markdown_enabled() else "disabled"
+            typer.secho(f"\n✅ Markdown rendering {status}.\n", fg=typer.colors.GREEN, bold=True)
+            return CommandResult()
+        except Exception as e:
+            typer.secho(f"\n❌ Error toggling markdown: {e}", fg=typer.colors.RED)
+            return CommandResult()
+
+    def _handle_thinking_command(self) -> CommandResult:
+        """Handle thinking blocks toggle command."""
+        try:
+            self.renderer_manager.toggle_thinking()
+            status = "enabled" if self.renderer_manager.is_thinking_enabled() else "disabled"
+            typer.secho(f"\n✅ Thinking blocks {status}.\n", fg=typer.colors.GREEN, bold=True)
+            return CommandResult()
+        except Exception as e:
+            typer.secho(f"\n❌ Error toggling thinking blocks: {e}", fg=typer.colors.RED)
             return CommandResult()
 
     def _handle_chats_command(self) -> CommandResult:
@@ -256,8 +325,11 @@ class CommandProcessor:
         from ..ui.user_interaction import UserInteraction
 
         while True:
+            # Check if system prompts are available
+            has_system_prompts = self.system_prompt_service.has_system_prompts()
+
             # Display the menu
-            self.model_selector.menu_display.display_command_menu()
+            self.model_selector.menu_display.display_command_menu(has_system_prompts)
 
             # Get user selection
             user_interaction = UserInteraction()
@@ -291,6 +363,11 @@ class CommandProcessor:
                 # Handle thinking command
                 result = self._handle_thinking_command(session)
                 return result  # Always return after thinking toggle
+            elif choice == "5" and has_system_prompts:
+                # Handle system prompt command
+                result = self._handle_system_prompt_command(session)
+                return result  # Always return after system prompt change
             else:
-                typer.secho("Please enter 1, 2, 3, 4, or 'q'", fg=typer.colors.RED)
+                max_option = 5 if has_system_prompts else 4
+                typer.secho(f"Please enter 1-{max_option} or 'q'", fg=typer.colors.RED)
                 continue

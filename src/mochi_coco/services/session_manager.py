@@ -9,6 +9,9 @@ if TYPE_CHECKING:
     from ..chat import ChatSession
     from ..ui import ModelSelector
 
+from .system_prompt_service import SystemPromptService
+from ..ui.system_prompt_menu_handler import SystemPromptMenuHandler, SystemPromptSelectionContext
+
 
 
 class SessionManager:
@@ -20,27 +23,43 @@ class SessionManager:
         from ..ui import ChatInterface
         self.chat_interface = ChatInterface()
 
-    def initialize_session(self) -> Tuple[Optional["ChatSession"], Optional[str], bool, bool]:
+        # Initialize system prompt services
+        self.system_prompt_service = SystemPromptService()
+        self.system_prompt_menu_handler = SystemPromptMenuHandler(
+            self.system_prompt_service
+        )
+
+    def initialize_session(self) -> Tuple[Optional["ChatSession"], Optional[str], bool, bool, Optional[str]]:
         """
         Initialize a chat session - either select existing or create new.
 
         Returns:
-            Tuple of (session, selected_model, markdown_enabled, show_thinking)
+            Tuple of (session, selected_model, markdown_enabled, show_thinking, system_prompt_content)
         """
         session, selected_model, markdown_enabled, show_thinking = self.model_selector.select_session_or_new()
 
         if session is None and selected_model is None:
-            return None, None, False, False
+            return None, None, False, False, None
 
-        return session, selected_model, markdown_enabled, show_thinking
+        # Handle system prompt selection for new sessions
+        system_prompt_content = None
+        if session is None:  # New session
+            if self.system_prompt_service.has_system_prompts():
+                system_prompt_content = self.system_prompt_menu_handler.select_system_prompt(
+                    SystemPromptSelectionContext.NEW_SESSION
+                )
 
-    def setup_session(self, session: Optional["ChatSession"], selected_model: Optional[str]) -> Tuple[Optional["ChatSession"], Optional[str]]:
+        return session, selected_model, markdown_enabled, show_thinking, system_prompt_content
+
+    def setup_session(self, session: Optional["ChatSession"], selected_model: Optional[str],
+                     system_prompt_content: Optional[str] = None) -> Tuple[Optional["ChatSession"], Optional[str]]:
         """
         Set up the session for chatting - create new if needed or load existing.
 
         Args:
             session: Existing session or None for new session
             selected_model: Selected model name
+            system_prompt_content: System prompt content for new sessions
 
         Returns:
             Tuple of (final_session, final_model)
@@ -57,6 +76,11 @@ class SessionManager:
 
             from ..chat import ChatSession
             session = ChatSession(model=selected_model)
+
+            # Add system prompt if provided
+            if system_prompt_content:
+                session.add_system_message(system_prompt_content)
+
             # Removed redundant messages - info is shown in chat session panel
             return session, selected_model
         else:

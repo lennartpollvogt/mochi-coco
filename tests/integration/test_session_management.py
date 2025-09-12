@@ -40,6 +40,7 @@ class TestSessionManagementFlow:
     @pytest.fixture
     def session_manager(self, mock_model_selector):
         """Create SessionManager with mock dependencies."""
+        # Create a SessionManager but patch the SystemPromptService in tests that use it
         return SessionManager(mock_model_selector)
 
     @pytest.fixture
@@ -94,14 +95,16 @@ class TestSessionManagementFlow:
             False  # show_thinking
         )
 
-        # Initialize session
-        session, model, markdown, thinking = session_manager.initialize_session()
+        # Initialize session with mocked system prompt service
+        with patch.object(session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+            session, model, markdown, thinking, system_prompt = session_manager.initialize_session()
 
         # Verify results
         assert session is None  # Should be None for new session
         assert model == "llama3.2:latest"
         assert markdown is True
         assert thinking is False
+        assert system_prompt is None  # No system prompt for new session in test
 
         # Verify ModelSelector was called
         mock_model_selector.select_session_or_new.assert_called_once()
@@ -131,8 +134,9 @@ class TestSessionManagementFlow:
             True   # show_thinking
         )
 
-        # Initialize session
-        session, model, markdown, thinking = session_manager.initialize_session()
+        # Initialize session with mocked system prompt service
+        with patch.object(session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+            session, model, markdown, thinking, system_prompt = session_manager.initialize_session()
 
         # Verify results
         assert session is not None
@@ -140,6 +144,7 @@ class TestSessionManagementFlow:
         assert model == existing_session.metadata.model
         assert markdown is True
         assert thinking is True
+        assert system_prompt is None  # Existing session doesn't need system prompt
         assert len(session.messages) > 0  # Should have existing messages
 
     def test_session_setup_new_session_creation(self, session_manager, temp_sessions_dir):
@@ -228,8 +233,9 @@ class TestSessionManagementFlow:
         )
 
         # Simulate switching workflow
-        new_session, new_model, markdown, thinking = session_manager.initialize_session()
-        final_session, final_model = session_manager.setup_session(new_session, new_model)
+        with patch.object(session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+            new_session, new_model, markdown, thinking, system_prompt = session_manager.initialize_session()
+            final_session, final_model = session_manager.setup_session(new_session, new_model, system_prompt)
 
         # Verify session switch
         assert final_session.session_id == session2.session_id
@@ -331,8 +337,9 @@ class TestSessionManagementFlow:
         )
 
         # Test recovery flow
-        session, model, markdown, thinking = session_manager.initialize_session()
-        final_session, final_model = session_manager.setup_session(session, model)
+        with patch.object(session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+            session, model, markdown, thinking, system_prompt = session_manager.initialize_session()
+            final_session, final_model = session_manager.setup_session(session, model, system_prompt)
 
         # Verify recovery
         assert final_session is not None

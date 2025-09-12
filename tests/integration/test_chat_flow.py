@@ -117,6 +117,16 @@ class TestCompleteChatFlow:
             yield mock_selector
 
     @pytest.fixture
+    def mock_system_prompt_service(self):
+        """Mock SystemPromptService to avoid real file system interactions."""
+        with patch('mochi_coco.services.session_manager.SystemPromptService') as MockSystemPromptService:
+            mock_service = Mock()
+            mock_service.has_system_prompts.return_value = False
+            mock_service.list_system_prompts.return_value = []
+            MockSystemPromptService.return_value = mock_service
+            yield mock_service
+
+    @pytest.fixture
     def mock_user_input_sequence(self):
         """Mock user input sequence for automated testing."""
         inputs = ["Hello, how are you?", "Tell me a joke", "/exit"]
@@ -136,7 +146,8 @@ class TestCompleteChatFlow:
         temp_sessions_dir,
         mock_ollama_client_integration,
         mock_model_selector_for_integration,
-        mock_user_input_sequence
+        mock_user_input_sequence,
+        mock_system_prompt_service
     ):
         """
         Test complete flow: Initialize new session -> Send message -> Get response -> Save session.
@@ -149,53 +160,56 @@ class TestCompleteChatFlow:
         """
         controller = ChatController()
 
-        # Mock the renderer to capture output without terminal formatting
-        with patch.object(controller.renderer, 'render_streaming_response') as mock_render:
-            # Create a final chunk that renderer would return
-            final_chunk = Mock()
-            final_chunk.message = Mock()
-            final_chunk.message.__getitem__ = lambda self, key: "Hello! I'm here to help you. What can I do for you today?"
-            final_chunk.message.role = "assistant"
-            final_chunk.model = "test-model"
-            final_chunk.eval_count = 95
-            final_chunk.prompt_eval_count = 45
-            mock_render.return_value = final_chunk
+        # Mock the system prompt service to avoid real file system interactions
+        with patch.object(controller.session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+            # Mock the renderer to capture output without terminal formatting
+            with patch.object(controller.renderer, 'render_streaming_response') as mock_render:
+                # Create a final chunk that renderer would return
+                final_chunk = Mock()
+                final_chunk.message = Mock()
+                final_chunk.message.__getitem__ = lambda self, key: "Hello! I'm here to help you. What can I do for you today?"
+                final_chunk.message.role = "assistant"
+                final_chunk.model = "test-model"
+                final_chunk.eval_count = 95
+                final_chunk.prompt_eval_count = 45
+                mock_render.return_value = final_chunk
 
-            # Run the chat controller (will exit after /exit command)
-            controller.run()
+                # Run the chat controller (will exit after /exit command)
+                controller.run()
 
-        # Verify session was created and persisted
-        assert controller.session is not None
-        assert controller.session.session_id is not None
-        assert controller.selected_model == "test-model"
+                # Verify session was created and persisted
+                assert controller.session is not None
+                assert controller.session.session_id is not None
+                assert controller.selected_model == "test-model"
 
-        # Verify session file was created
-        session_files = list(Path(controller.session.sessions_dir).glob("*.json"))
-        assert len(session_files) >= 1
+                # Verify session file was created
+                session_files = list(Path(controller.session.sessions_dir).glob("*.json"))
+                assert len(session_files) >= 1
 
-        # Verify session contains expected messages
-        session = controller.session
-        assert len(session.messages) >= 4  # At least 2 user messages + 2 assistant responses
+                # Verify session contains expected messages
+                session = controller.session
+                assert len(session.messages) >= 4  # At least 2 user messages + 2 assistant responses
 
-        # Check message sequence
-        assert session.messages[0].role == "user"
-        assert session.messages[0].content == "Hello, how are you?"
-        assert session.messages[1].role == "assistant"
-        assert session.messages[2].role == "user"
-        assert session.messages[2].content == "Tell me a joke"
-        assert session.messages[3].role == "assistant"
+                # Check message sequence
+                assert session.messages[0].role == "user"
+                assert session.messages[0].content == "Hello, how are you?"
+                assert session.messages[1].role == "assistant"
+                assert session.messages[2].role == "user"
+                assert session.messages[2].content == "Tell me a joke"
+                assert session.messages[3].role == "assistant"
 
-        # Verify API calls were made correctly
-        assert mock_ollama_client_integration.chat_stream.call_count == 2
+                # Verify API calls were made correctly
+                assert mock_ollama_client_integration.chat_stream.call_count == 2
 
-        # Verify session metadata
-        assert session.metadata.model == "test-model"
-        assert session.metadata.message_count == len(session.messages)
+                # Verify session metadata
+                assert session.metadata.model == "test-model"
+                assert session.metadata.message_count == len(session.messages)
 
     def test_session_loading_and_continuation_flow(
         self,
         temp_sessions_dir,
-        mock_ollama_client_integration
+        mock_ollama_client_integration,
+        mock_system_prompt_service
     ):
         """
         Test loading existing session and continuing conversation.
@@ -238,33 +252,36 @@ class TestCompleteChatFlow:
             with patch('mochi_coco.chat_controller.get_user_input', side_effect=["Continue chat", "/exit"]):
                 controller = ChatController()
 
-                # Mock renderer
-                with patch.object(controller.renderer, 'render_streaming_response') as mock_render:
-                    final_chunk = Mock()
-                    final_chunk.message = Mock()
-                    final_chunk.message.__getitem__ = lambda self, key: "Continuing our chat..."
-                    final_chunk.message.role = "assistant"
-                    final_chunk.model = "test-model"
-                    final_chunk.eval_count = 75
-                    final_chunk.prompt_eval_count = 35
-                    mock_render.return_value = final_chunk
+                # Mock the system prompt service to avoid real file system interactions
+                with patch.object(controller.session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+                    # Mock renderer
+                    with patch.object(controller.renderer, 'render_streaming_response') as mock_render:
+                        final_chunk = Mock()
+                        final_chunk.message = Mock()
+                        final_chunk.message.__getitem__ = lambda self, key: "Continuing our chat..."
+                        final_chunk.message.role = "assistant"
+                        final_chunk.model = "test-model"
+                        final_chunk.eval_count = 75
+                        final_chunk.prompt_eval_count = 35
+                        mock_render.return_value = final_chunk
 
-                    controller.run()
+                        controller.run()
 
-        # Verify session continuation
-        assert controller.session is not None
-        assert controller.session.session_id == session_id
-        assert len(controller.session.messages) == 4  # Original 2 + new 2
-        assert controller.session.messages[-2].content == "Continue chat"
-        assert controller.session.messages[-1].role == "assistant"
+                    # Verify session continuation
+                    assert controller.session is not None
+                    assert controller.session.session_id == session_id
+                    assert len(controller.session.messages) == 4  # Original 2 + new 2
+                    assert controller.session.messages[-2].content == "Continue chat"
+                    assert controller.session.messages[-1].role == "assistant"
 
-        # Verify history display was called
-        mock_selector.display_chat_history.assert_called_once_with(existing_session)
+                    # Verify history display was called
+                    mock_selector.display_chat_history.assert_called_once_with(existing_session)
 
     def test_error_handling_during_chat_flow(
         self,
         temp_sessions_dir,
-        mock_model_selector_for_integration
+        mock_model_selector_for_integration,
+        mock_system_prompt_service
     ):
         """
         Test error handling during chat flow when API calls fail.
@@ -284,27 +301,30 @@ class TestCompleteChatFlow:
             with patch('mochi_coco.chat_controller.get_user_input', side_effect=["Hello", "/exit"]):
                 controller = ChatController()
 
-                # Mock the chat interface to capture error messages
-                with patch.object(controller, 'chat_interface') as mock_chat_interface:
-                    controller.run()
+                # Mock the system prompt service to avoid real file system interactions
+                with patch.object(controller.session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+                    # Mock the chat interface to capture error messages
+                    with patch.object(controller, 'chat_interface') as mock_chat_interface:
+                        controller.run()
 
-                    # Verify error was handled and displayed via chat interface
-                    mock_chat_interface.print_error_message.assert_called()
-                    error_call_args = mock_chat_interface.print_error_message.call_args_list
-                    error_displayed = any('API connection failed' in str(call) for call in error_call_args)
-                    assert error_displayed, f"Error message not found in chat interface calls: {error_call_args}"
+                        # Verify error was handled and displayed via chat interface
+                        mock_chat_interface.print_error_message.assert_called()
+                        error_call_args = mock_chat_interface.print_error_message.call_args_list
+                        error_displayed = any('API connection failed' in str(call) for call in error_call_args)
+                        assert error_displayed, f"Error message not found in chat interface calls: {error_call_args}"
 
-        # Verify session still exists and has user message
-        assert controller.session is not None
-        assert len(controller.session.messages) == 1
-        assert controller.session.messages[0].role == "user"
-        assert controller.session.messages[0].content == "Hello"
+                    # Verify session still exists and has user message
+                    assert controller.session is not None
+                    assert len(controller.session.messages) == 1
+                    assert controller.session.messages[0].role == "user"
+                    assert controller.session.messages[0].content == "Hello"
 
     def test_markdown_rendering_integration(
         self,
         temp_sessions_dir,
         mock_ollama_client_integration,
-        mock_model_selector_for_integration
+        mock_model_selector_for_integration,
+        mock_system_prompt_service
     ):
         """
         Test integration between streaming response and markdown rendering.
@@ -344,37 +364,40 @@ class TestCompleteChatFlow:
         with patch('mochi_coco.chat_controller.get_user_input', side_effect=["Show me some code", "/exit"]):
             controller = ChatController()
 
-            # Use real MarkdownRenderer to test integration
-            controller.renderer = MarkdownRenderer(mode=RenderingMode.MARKDOWN)
+            # Mock the system prompt service to avoid real file system interactions
+            with patch.object(controller.session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+                # Use real MarkdownRenderer to test integration
+                controller.renderer = MarkdownRenderer(mode=RenderingMode.MARKDOWN)
 
-            # Capture the rendered output
-            rendered_content = []
-            original_render = controller.renderer.render_streaming_response
+                # Capture the rendered output
+                rendered_content = []
+                original_render = controller.renderer.render_streaming_response
 
-            def capture_render(text_stream):
-                result = original_render(text_stream)
-                # The final content should include the complete text
-                if result and hasattr(result.message, '__getitem__'):
-                    full_content = result.message['content'] if callable(result.message.__getitem__) else ""
-                    rendered_content.append(full_content)
-                return result
+                def capture_render(text_stream):
+                    result = original_render(text_stream)
+                    # The final content should include the complete text
+                    if result and hasattr(result.message, '__getitem__'):
+                        full_content = result.message['content'] if callable(result.message.__getitem__) else ""
+                        rendered_content.append(full_content)
+                    return result
 
-            with patch.object(controller.renderer, 'render_streaming_response', side_effect=capture_render):
-                controller.run()
+                with patch.object(controller.renderer, 'render_streaming_response', side_effect=capture_render):
+                    controller.run()
 
-        # Verify session contains the complete message
-        assert controller.session is not None
-        assert len(controller.session.messages) >= 2
-        assistant_message = controller.session.messages[1]
-        assert assistant_message.role == "assistant"
-        # Content should include both markdown parts
-        expected_content = "Here's a **bold** statement:\n\n```python\nprint('Hello, World!')\n```"
-        assert assistant_message.content == expected_content
+                # Verify session contains the complete message
+                assert controller.session is not None
+                assert len(controller.session.messages) >= 2
+                assistant_message = controller.session.messages[1]
+                assert assistant_message.role == "assistant"
+                # Content should include both markdown parts
+                expected_content = "Here's a **bold** statement:\n\n```python\nprint('Hello, World!')\n```"
+                assert assistant_message.content == expected_content
 
     def test_thinking_blocks_integration(
         self,
         temp_sessions_dir,
-        mock_ollama_client_integration
+        mock_ollama_client_integration,
+        mock_system_prompt_service
     ):
         """
         Test integration of thinking blocks in responses.
@@ -425,23 +448,26 @@ class TestCompleteChatFlow:
             with patch('mochi_coco.chat_controller.get_user_input', side_effect=["What should I think about?", "/exit"]):
                 controller = ChatController()
 
-                # Ensure renderer is set to show thinking blocks
-                controller.renderer.set_show_thinking(True)
-                controller.renderer.set_mode(RenderingMode.MARKDOWN)
+                # Mock the system prompt service to avoid real file system interactions
+                with patch.object(controller.session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+                    # Ensure renderer is set to show thinking blocks
+                    controller.renderer.set_show_thinking(True)
+                    controller.renderer.set_mode(RenderingMode.MARKDOWN)
 
-                controller.run()
+                    controller.run()
 
-        # Verify session contains complete content including thinking blocks
-        assert controller.session is not None
-        assistant_message = controller.session.messages[1]
-        expected_content = "<thinking>\nLet me think about this question...\n</thinking>\n\nHere's my response after thinking."
-        assert assistant_message.content == expected_content
+                    # Verify session contains complete content including thinking blocks
+                    assert controller.session is not None
+                    assistant_message = controller.session.messages[1]
+                    expected_content = "<thinking>\nLet me think about this question...\n</thinking>\n\nHere's my response after thinking."
+                    assert assistant_message.content == expected_content
 
     def test_session_persistence_across_multiple_messages(
         self,
         temp_sessions_dir,
         mock_ollama_client_integration,
-        mock_model_selector_for_integration
+        mock_model_selector_for_integration,
+        mock_system_prompt_service
     ):
         """
         Test that session persistence works correctly across multiple message exchanges.
@@ -463,84 +489,86 @@ class TestCompleteChatFlow:
         with patch('mochi_coco.chat_controller.get_user_input', side_effect=user_inputs):
             controller = ChatController()
 
-            # Mock renderer to return consistent responses
-            response_count = 0
-            def mock_render_response(text_stream):
-                nonlocal response_count
-                response_count += 1
+            # Mock the system prompt service to avoid real file system interactions
+            with patch.object(controller.session_manager.system_prompt_service, 'has_system_prompts', return_value=False):
+                # Mock renderer to return consistent responses
+                response_count = 0
+                def mock_render_response(text_stream):
+                    nonlocal response_count
+                    response_count += 1
 
-                # Consume the stream to simulate real rendering
-                content_parts = []
-                final_chunk = None
-                for chunk in text_stream:
-                    if chunk.done:
-                        final_chunk = chunk
-                        break
-                    content_parts.append(chunk.message.content)
+                    # Consume the stream to simulate real rendering
+                    content_parts = []
+                    final_chunk = None
+                    for chunk in text_stream:
+                        if chunk.done:
+                            final_chunk = chunk
+                            break
+                        content_parts.append(chunk.message.content)
 
-                # Create a realistic final chunk with accumulated content
-                if final_chunk:
-                    # Create properly structured mock chunk
-                    mock_chunk = Mock()
-                    mock_chunk.message = Mock()
-                    mock_chunk.message.role = "assistant"
-                    mock_chunk.message.__getitem__ = lambda self, key: f"Response {response_count}" if key == 'content' else ""
-                    mock_chunk.message.content = f"Response {response_count}"
-                    mock_chunk.model = "test-model"
-                    mock_chunk.eval_count = 50 + response_count * 5
-                    mock_chunk.prompt_eval_count = 25 + response_count * 2
-                    mock_chunk.done = True
+                    # Create a realistic final chunk with accumulated content
+                    if final_chunk:
+                        # Create properly structured mock chunk
+                        mock_chunk = Mock()
+                        mock_chunk.message = Mock()
+                        mock_chunk.message.role = "assistant"
+                        mock_chunk.message.__getitem__ = lambda self, key: f"Response {response_count}" if key == 'content' else ""
+                        mock_chunk.message.content = f"Response {response_count}"
+                        mock_chunk.model = "test-model"
+                        mock_chunk.eval_count = 50 + response_count * 5
+                        mock_chunk.prompt_eval_count = 25 + response_count * 2
+                        mock_chunk.done = True
 
-                    return mock_chunk
+                        return mock_chunk
 
-                return final_chunk
+                    return final_chunk
 
-            with patch.object(controller.renderer, 'render_streaming_response', side_effect=mock_render_response):
-                controller.run()
+                with patch.object(controller.renderer, 'render_streaming_response', side_effect=mock_render_response):
+                    controller.run()
 
-        # Verify final session state
-        session = controller.session
-        assert session is not None
-        assert len(session.messages) == 6  # 3 user + 3 assistant messages
+                # Verify final session state
+                session = controller.session
+                assert session is not None
+                assert len(session.messages) == 6  # 3 user + 3 assistant messages
 
-        # Verify message sequence
-        expected_sequence = [
-            ("user", "First message"),
-            ("assistant", "Response 1"),
-            ("user", "Second message"),
-            ("assistant", "Response 2"),
-            ("user", "Third message"),
-            ("assistant", "Response 3")
-        ]
+                # Verify message sequence
+                expected_sequence = [
+                    ("user", "First message"),
+                    ("assistant", "Response 1"),
+                    ("user", "Second message"),
+                    ("assistant", "Response 2"),
+                    ("user", "Third message"),
+                    ("assistant", "Response 3")
+                ]
 
-        for i, (expected_role, expected_content) in enumerate(expected_sequence):
-            assert session.messages[i].role == expected_role
-            if expected_role == "user":
-                assert session.messages[i].content == expected_content
-            else:
-                assert expected_content in session.messages[i].content
+                for i, (expected_role, expected_content) in enumerate(expected_sequence):
+                    assert session.messages[i].role == expected_role
+                    if expected_role == "user":
+                        assert session.messages[i].content == expected_content
+                    else:
+                        assert expected_content in session.messages[i].content
 
-        # Verify session metadata
-        assert session.metadata.message_count == 6
-        assert session.metadata.model == "test-model"
+                # Verify session metadata
+                assert session.metadata.message_count == 6
+                assert session.metadata.model == "test-model"
 
-        # Verify session was persisted correctly
-        session_file = session.session_file
-        assert session_file.exists()
+                # Verify session was persisted correctly
+                session_file = session.session_file
+                assert session_file.exists()
 
-        # Load session from file and verify integrity
-        from mochi_coco.chat.session import ChatSession
-        loaded_session = ChatSession(
-            model="",
-            session_id=session.session_id,
-            sessions_dir=str(session.sessions_dir)  # Use the same directory as the original session
-        )
-        assert loaded_session.load_session() is True
-        assert len(loaded_session.messages) == 6
-        assert loaded_session.metadata.message_count == 6
+                # Load session from file and verify integrity
+                from mochi_coco.chat.session import ChatSession
+                loaded_session = ChatSession(
+                    model="",
+                    session_id=session.session_id,
+                    sessions_dir=str(session.sessions_dir)  # Use the same directory as the original session
+                )
+                assert loaded_session.load_session() is True
+                assert len(loaded_session.messages) == 6
+                assert loaded_session.metadata.message_count == 6
 
     @pytest.mark.slow
-    def test_concurrent_chat_sessions(self, temp_sessions_dir, mock_ollama_client_integration):
+    def test_concurrent_chat_sessions(self, temp_sessions_dir, mock_ollama_client_integration, mock_system_prompt_service):
         """
         Test that multiple chat sessions can operate concurrently without interference.
 

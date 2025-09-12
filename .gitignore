@@ -208,4 +208,6 @@ __marimo__/
 
 # mochi-coco
 chat_sessions/
+system_prompts/
 tools/
+example.py
