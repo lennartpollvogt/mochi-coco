@@ -2,7 +2,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Any, Mapping, Tuple
+from typing import List, Optional, Any, Mapping, Tuple, Dict
 from dataclasses import dataclass, asdict
 
 from ollama import ChatResponse
@@ -73,7 +73,7 @@ class SessionMetadata:
     created_at: str
     updated_at: str
     message_count: int = 0
-    summary: Optional[str] = None
+    summary: Optional[Dict[str, Any]] = None
 
 
 class ChatSession:

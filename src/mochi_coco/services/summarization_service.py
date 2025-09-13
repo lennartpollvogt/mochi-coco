@@ -1,25 +1,31 @@
 import asyncio
-from typing import List, Optional, Callable, Mapping, Any
+from typing import List, Optional, Callable, Mapping, Any, Dict
 import logging
+from pydantic import BaseModel, Field
+import json
 
-from ..ollama import AsyncOllamaClient
+from ..ollama import AsyncInstructorOllamaClient
 from ..chat.session import ChatSession
 
 logger = logging.getLogger(__name__)
 
+class ConversationSummary(BaseModel):
+    """Structured summary of the conversation"""
+    summary: str = Field(..., description="Summary of the conversation in 2-5 sentences")
+    topics: List[str] = Field(..., description="List of topics discussed in the conversation")
 
 class SummarizationService:
     """Service for background conversation summarization using async Ollama client."""
 
-    def __init__(self, client: AsyncOllamaClient, model: Optional[str] = None):
+    def __init__(self, instructor_client: Optional[AsyncInstructorOllamaClient], model: Optional[str] = None):
         """
         Initialize the summarization service.
 
         Args:
-            client: AsyncOllamaClient instance for making requests
+            instructor_client: AsyncInstructorOllamaClient instance for structured responses (optional)
             model: Model name for summarization (if None, will use same model as chat)
         """
-        self.client = client
+        self.instructor_client = instructor_client
         self.model = model
         self.running = False
         self._task: Optional[asyncio.Task] = None
@@ -63,7 +69,7 @@ class SummarizationService:
                 logger.info("Summarization monitoring stopped")
                 pass
 
-    async def generate_summary_now(self, session: ChatSession, model: str) -> Optional[str]:
+    async def generate_summary_now(self, session: ChatSession, model: str) -> Optional[dict]:
         """
         Generate a summary immediately for the current conversation.
 
@@ -72,7 +78,7 @@ class SummarizationService:
             model: The model to use for summarization
 
         Returns:
-            Generated summary or None if generation failed
+            Generated summary dict or None if generation failed
         """
         try:
             return await self._generate_summary(session, model)
@@ -112,14 +118,18 @@ class SummarizationService:
                         # Save session to persist the summary to JSON file
                         try:
                             session.save_session()
-                            logger.info(f"Summary saved to session file: {summary[:100]}...")
+                            # Extract summary text for logging preview
+                            summary_preview = summary.get('summary', 'No summary available')[:100]
+                            logger.info(f"Summary saved to session file: {summary_preview}...")
                         except Exception as e:
                             logger.error(f"Failed to save session with summary: {e}")
 
                         # Call update callback if provided (but don't display in terminal by default)
                         if update_callback:
                             try:
-                                update_callback(summary)
+                                # Extract summary text from dict for callback
+                                summary_str = summary.get('summary', 'No summary text available')
+                                update_callback(summary_str)
                             except Exception as e:
                                 logger.error(f"Summary update callback failed: {e}")
 
@@ -152,7 +162,7 @@ class SummarizationService:
         last_message = session.messages[-1]
         return hasattr(last_message, 'role') and last_message.role == 'assistant'
 
-    async def _generate_summary(self, session: ChatSession, model: str) -> Optional[str]:
+    async def _generate_summary(self, session: ChatSession, model: str) -> Optional[dict]:
         """
         Generate a summary of the current conversation.
 
@@ -161,32 +171,39 @@ class SummarizationService:
             model: The model to use for summarization
 
         Returns:
-            Generated summary or None if generation failed
+            Generated summary dict or None if generation failed
         """
         try:
+            # Check if instructor client is available
+            if self.instructor_client is None:
+                logger.error("AsyncInstructorOllamaClient is not available for structured summarization")
+                return None
+
+            if model == 'gpt-oss:20b' or model == 'gpt-oss:120b':
+                logger.info(f"Model {model} not supported for structured summarization")
+                return None
+
             messages = session.get_messages_for_api()
+            current_summary = session.get_session_summary()
 
             # Create summarization prompt
             summary_prompt = [
                 {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful assistant that creates concise summaries of conversations. "
-                        "Summarize the key points and topics discussed in 1-2 sentences. "
-                        "Focus on the main themes and any important conclusions or decisions."
-                    )
-                },
-                {
                     "role": "user",
-                    "content": f"Please summarize this conversation:\n\n{self._format_conversation(messages)}"
+                    "content": (
+                        "You are a observer that creates concise summaries of conversations in a structured format. "
+                        f"Here is the current conversation:\n```\n{self._format_conversation(messages)}\n```\n\n"
+                        "Make sure you provide the correct json format by adhering to the provided schema."
+                        f"As you will overwrite the current summary, consider it in your response. Current summary: \n```\n{current_summary}\n```"
+                    )
                 }
             ]
-
             # Generate summary using single (non-streaming) request
-            response = await self.client.chat_single(model, summary_prompt)
+            response = await self.instructor_client.structured_response(model, summary_prompt, format=ConversationSummary)
 
             if response and response.message and response.message.content:
-                return response.message.content.strip()
+                parsed_summary: Dict[str, Any] = json.loads(response.message.content)
+                return parsed_summary
             else:
                 logger.warning("Empty response from summarization model")
                 return None
@@ -205,23 +222,26 @@ class SummarizationService:
         Returns:
             Formatted conversation string
         """
-        formatted = []
+        formatted = ""
 
         # Use last 10 messages to avoid context overflow and focus on recent conversation
-        recent_messages = messages[-10:] if len(messages) > 10 else messages
+        #recent_messages = messages[-10:] if len(messages) > 10 else messages
 
-        for msg in recent_messages:
+        for msg in messages:
             role = msg.get('role', 'unknown')
             content = msg.get('content', '')
 
             # Clean up content and truncate if too long
             content = content.strip()
-            if len(content) > 500:  # Truncate very long messages
-                content = content[:500] + "..."
+            #if len(content) > 500:  # Truncate very long messages
+                #content = content[:500] + "..."
 
-            formatted.append(f"{role.title()}: {content}")
+            message = f"<{role.title()}>:\n<content>{content}\n</content>\n</{role.title()}>"
+            # add message to formatted
+            formatted += message
 
-        return "\n".join(formatted)
+        #return "\n".join(formatted)
+        return formatted
 
     @property
     def is_running(self) -> bool:

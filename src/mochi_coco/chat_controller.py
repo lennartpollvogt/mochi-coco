@@ -9,7 +9,7 @@ from typing import Optional
 import asyncio
 import logging
 
-from .ollama import OllamaClient, AsyncOllamaClient
+from .ollama import OllamaClient, AsyncOllamaClient, AsyncInstructorOllamaClient
 from .ui import ModelSelector, ChatUIOrchestrator
 from .rendering import MarkdownRenderer, RenderingMode
 from .commands import CommandProcessor
@@ -33,6 +33,7 @@ class ChatController:
         # Initialize clients
         self.client = OllamaClient(host=host)
         self.async_client = AsyncOllamaClient(host=host)
+        self.instructor_client = AsyncInstructorOllamaClient(host=host)
 
         # Initialize core services
         self.renderer = MarkdownRenderer(mode=RenderingMode.PLAIN, show_thinking=False)
@@ -55,7 +56,7 @@ class ChatController:
         self.ui_orchestrator = ChatUIOrchestrator()
         self.session_controller = SessionController(self.session_manager, self.client)
         self.command_result_handler = CommandResultHandler(self.ui_orchestrator)
-        self.background_service_manager = BackgroundServiceManager(event_loop, self.async_client)
+        self.background_service_manager = BackgroundServiceManager(event_loop, self.instructor_client)
 
     def run(self) -> None:
         """Run the main chat application with standardized session creation."""

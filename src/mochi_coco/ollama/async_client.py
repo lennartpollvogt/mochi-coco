@@ -1,7 +1,9 @@
 from typing import AsyncIterator, List, Optional, Sequence, Mapping, Any
 from dataclasses import dataclass
+from pydantic import BaseModel
 
 from ollama import AsyncClient, ListResponse, ChatResponse, Message, ShowResponse
+from ollama_instructor import OllamaInstructorAsync
 
 @dataclass
 class ChatMessage:
@@ -110,8 +112,34 @@ class AsyncOllamaClient:
             response = await self.client.chat(
                 model=model,
                 messages=messages,
-                stream=False
+                stream=False,
+                format=None
             )
             return response
         except Exception as e:
             raise Exception(f"Chat failed: {e}")
+
+class AsyncInstructorOllamaClient:
+    def __init__(self, host: Optional[str] = None):
+        self.client = OllamaInstructorAsync(host=host, log_level="DEBUG") if host else OllamaInstructorAsync()
+
+    async def structured_response(self, model: str, messages: Sequence[Mapping[str, Any] | Message], format: type[BaseModel]) -> ChatResponse:
+        """
+        Get a structured response from the model asynchronously.
+        """
+        system_prompt = {
+            "role": "system",
+            "content": f"Make sure to answer in a json format. Here is the json schema: {str(format.model_json_schema())}"
+        }
+        messages = [system_prompt] + list(messages)
+        #print(messages)
+        try:
+            response = await self.client.chat_completion(
+                model=model, #"llama3.2:latest",
+                messages=messages,
+                format=format,
+                options={"num_ctx": 131072}
+            )
+            return response
+        except Exception as e:
+            raise Exception(f"Structured response failed: {e}")

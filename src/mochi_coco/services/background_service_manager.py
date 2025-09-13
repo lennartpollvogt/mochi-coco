@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import Optional, Callable, Set, TYPE_CHECKING
 from .summarization_service import SummarizationService
-from ..ollama import AsyncOllamaClient
+from ..ollama import AsyncInstructorOllamaClient
 
 if TYPE_CHECKING:
     from ..chat import ChatSession
@@ -21,10 +21,11 @@ class BackgroundServiceManager:
     """Manages background async services for the chat application."""
 
     def __init__(self, event_loop: Optional[asyncio.AbstractEventLoop] = None,
-                 async_client: Optional[AsyncOllamaClient] = None):
+                 instructor_client: Optional[AsyncInstructorOllamaClient] = None,
+    ):
         self.event_loop = event_loop
-        self.async_client = async_client
-        self.summarization_service = SummarizationService(async_client) if async_client else None
+        self.instructor_client = instructor_client
+        self.summarization_service = SummarizationService(instructor_client) if instructor_client else None
         self._background_tasks: Set = set()
 
     def start_summarization(self, session: "ChatSession", model: str,
