@@ -74,6 +74,11 @@ class ChatController:
                 self.ui_orchestrator.display_error(result.error_message or "Failed to create session")
                 return
 
+            # Ensure we have valid session and model (should be guaranteed when success=True)
+            if result.session is None or result.model is None:
+                self.ui_orchestrator.display_error("Session creation succeeded but returned invalid data")
+                return
+
             session, model, preferences = result.session, result.model, result.preferences
 
             # Configure renderer with collected preferences
@@ -114,6 +119,11 @@ class ChatController:
 
             # Process commands
             if user_input.strip().startswith('/'):
+                # Ensure current session and model are not None before processing commands
+                if current_session is None or current_model is None:
+                    self.ui_orchestrator.display_error("Invalid session state")
+                    break
+
                 result = self.command_processor.process_command(
                     user_input, current_session, current_model
                 )
@@ -125,7 +135,11 @@ class ChatController:
                 if state_result.should_exit:
                     break
 
-                current_session, current_model = state_result.session, state_result.model
+                # Update session and model from state result
+                if state_result.session is not None:
+                    current_session = state_result.session
+                if state_result.model is not None:
+                    current_model = state_result.model
                 continue
 
             # Skip empty input
@@ -150,7 +164,7 @@ class ChatController:
 
         # Handle result
         if not message_result.success:
-            self.ui_orchestrator.display_error(message_result.error_message)
+            self.ui_orchestrator.display_error(message_result.error_message or "Failed to process message")
 
     def _on_summary_updated(self, summary: str) -> None:
         """Callback for summary updates."""
