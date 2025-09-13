@@ -125,27 +125,7 @@ class CommandProcessor:
             typer.secho(f"\n❌ Error changing system prompt: {e}", fg=typer.colors.RED)
             return CommandResult()
 
-    def _handle_markdown_command(self) -> CommandResult:
-        """Handle markdown toggle command."""
-        try:
-            self.renderer_manager.toggle_markdown()
-            status = "enabled" if self.renderer_manager.is_markdown_enabled() else "disabled"
-            typer.secho(f"\n✅ Markdown rendering {status}.\n", fg=typer.colors.GREEN, bold=True)
-            return CommandResult()
-        except Exception as e:
-            typer.secho(f"\n❌ Error toggling markdown: {e}", fg=typer.colors.RED)
-            return CommandResult()
 
-    def _handle_thinking_command(self) -> CommandResult:
-        """Handle thinking blocks toggle command."""
-        try:
-            self.renderer_manager.toggle_thinking()
-            status = "enabled" if self.renderer_manager.is_thinking_enabled() else "disabled"
-            typer.secho(f"\n✅ Thinking blocks {status}.\n", fg=typer.colors.GREEN, bold=True)
-            return CommandResult()
-        except Exception as e:
-            typer.secho(f"\n❌ Error toggling thinking blocks: {e}", fg=typer.colors.RED)
-            return CommandResult()
 
     def _handle_chats_command(self) -> CommandResult:
         """Handle the /chats command."""
@@ -187,7 +167,15 @@ class CommandProcessor:
         return result
 
     def _handle_markdown_command(self, session: "ChatSession") -> CommandResult:
-        """Handle the /markdown command."""
+        """
+        Handle the /markdown command to toggle markdown rendering.
+
+        Args:
+            session: Current chat session for re-rendering history
+
+        Returns:
+            CommandResult indicating success and any state changes
+        """
         # Toggle rendering mode
         new_mode = self.renderer_manager.toggle_markdown_mode()
 
@@ -199,7 +187,15 @@ class CommandProcessor:
         return CommandResult()
 
     def _handle_thinking_command(self, session: "ChatSession") -> CommandResult:
-        """Handle the /thinking command."""
+        """
+        Handle the /thinking command to toggle thinking blocks display.
+
+        Args:
+            session: Current chat session for re-rendering history
+
+        Returns:
+            CommandResult indicating success and any state changes
+        """
         if not self.renderer_manager.can_toggle_thinking():
             typer.secho("\n⚠️ Thinking blocks can only be toggled in markdown mode.", fg=typer.colors.YELLOW)
             typer.secho("Enable markdown first with '/markdown' command.\n", fg=typer.colors.YELLOW)
