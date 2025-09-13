@@ -41,6 +41,15 @@ class CommandProcessor:
             self.system_prompt_service
         )
 
+        # Initialize session creation services
+        from ..services import UserPreferenceService, SessionCreationService
+        self.user_preference_service = UserPreferenceService()
+        self.session_creation_service = SessionCreationService(
+            self.model_selector,
+            self.user_preference_service,
+            self.system_prompt_service
+        )
+
     def process_command(self, user_input: str, session: "ChatSession", selected_model: str) -> CommandResult:
         """
         Process a user command and return the result.
@@ -128,43 +137,60 @@ class CommandProcessor:
 
 
     def _handle_chats_command(self) -> CommandResult:
-        """Handle the /chats command."""
-        typer.secho("\n🔄 Switching chat sessions...\n", fg=typer.colors.BLUE, bold=True)
-        new_session, new_model, new_markdown_enabled, new_show_thinking = self.model_selector.select_session_or_new()
+        """Handle the /chats command with standardized session creation."""
+        from ..services.session_creation_types import (
+            SessionCreationContext, SessionCreationOptions, SessionCreationMode
+        )
 
-        if new_session is None and new_model is None:
+        typer.secho("\n🔄 Managing chat sessions...\n", fg=typer.colors.BLUE, bold=True)
+
+        # Use standardized session creation service
+        options = SessionCreationOptions(
+            context=SessionCreationContext.MENU_COMMAND,
+            mode=SessionCreationMode.AUTO_DETECT,
+            allow_system_prompt_selection=True,
+            collect_preferences=True,
+            show_welcome_message=False  # We're already in a session
+        )
+
+        result = self.session_creation_service.create_session(options)
+
+        if not result.success:
+            typer.secho(f"❌ {result.error_message}", fg=typer.colors.RED)
+            return CommandResult()
+
+        if result.session is None and result.model is None:
             # User cancelled - continue with current session
             typer.secho("Returning to current session.\n", fg=typer.colors.YELLOW)
             return CommandResult()
 
         # Update renderer settings with new preferences
-        self.renderer_manager.configure_renderer(new_markdown_enabled, new_show_thinking)
+        if result.preferences:
+            self.renderer_manager.configure_renderer(
+                result.preferences.markdown_enabled,
+                result.preferences.show_thinking
+            )
 
-        if new_session:
-            # Switched to existing session
-            self.model_selector.display_chat_history(new_session)
-            typer.secho(f"\n💬 Switched to session {new_session.session_id} with {new_session.metadata.model}",
-                       fg=typer.colors.BRIGHT_GREEN)
-            result = CommandResult(new_session=new_session, new_model=new_session.metadata.model)
-        elif new_model:
-            # Created new session with valid model
-            from ..chat import ChatSession
-            new_session = ChatSession(model=new_model)
-            typer.secho(f"\n💬 New chat started with {new_model}", fg=typer.colors.BRIGHT_GREEN)
-            typer.secho(f"Session ID: {new_session.session_id}", fg=typer.colors.CYAN)
-            result = CommandResult(new_session=new_session, new_model=new_model)
-        else:
-            # This shouldn't happen, but handle gracefully
-            typer.secho("Error: No session or model selected. Returning to current session.", fg=typer.colors.RED)
-            return CommandResult()
+            # Show updated preferences
+            if result.preferences.markdown_enabled:
+                typer.secho("✅ Markdown rendering enabled.", fg=typer.colors.CYAN)
+                if result.preferences.show_thinking:
+                    typer.secho("✅ Thinking blocks will be displayed.", fg=typer.colors.CYAN)
+            else:
+                typer.secho("✅ Plain text rendering enabled.", fg=typer.colors.CYAN)
 
-        # Show updated preferences
-        if new_markdown_enabled:
-            typer.secho("Markdown rendering is enabled.", fg=typer.colors.CYAN)
-            if new_show_thinking:
-                typer.secho("Thinking blocks will be displayed.", fg=typer.colors.CYAN)
+        # Display session history if we switched to an existing session
+        from ..services.session_creation_types import SessionCreationMode
+        if result.mode == SessionCreationMode.LOAD_EXISTING and result.session:
+            # Use re_render_chat_history to ensure proper rendering with updated settings
+            from ..utils import re_render_chat_history
+            re_render_chat_history(result.session, self.model_selector)
 
-        return result
+        return CommandResult(
+            should_continue=True,
+            new_session=result.session,
+            new_model=result.model
+        )
 
     def _handle_markdown_command(self, session: "ChatSession") -> CommandResult:
         """

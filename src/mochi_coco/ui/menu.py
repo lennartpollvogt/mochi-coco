@@ -223,7 +223,7 @@ class ModelSelector:
 
         self.menu_display.display_session_loaded(session.session_id, session.metadata.model)
         markdown_enabled, show_thinking = self._collect_user_preferences()
-        return session, None, markdown_enabled, show_thinking
+        return session, session.metadata.model, markdown_enabled, show_thinking
 
     def _collect_user_preferences(self) -> tuple[bool, bool]:
         """Collect user preferences for markdown and thinking display."""

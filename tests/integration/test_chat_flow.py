@@ -138,7 +138,7 @@ class TestCompleteChatFlow:
             except StopIteration:
                 raise EOFError()  # Simulate user ending input
 
-        with patch('mochi_coco.chat_controller.get_user_input', side_effect=mock_input):
+        with patch('mochi_coco.ui.chat_ui_orchestrator.get_user_input', side_effect=mock_input):
             yield inputs
 
     def test_complete_new_chat_session_flow(
@@ -249,7 +249,7 @@ class TestCompleteChatFlow:
             MockSelector.return_value = mock_selector
 
             # Mock single user input followed by exit
-            with patch('mochi_coco.chat_controller.get_user_input', side_effect=["Continue chat", "/exit"]):
+            with patch('mochi_coco.ui.chat_ui_orchestrator.get_user_input', side_effect=["Continue chat", "/exit"]):
                 controller = ChatController()
 
                 # Mock the system prompt service to avoid real file system interactions
@@ -361,7 +361,7 @@ class TestCompleteChatFlow:
         mock_ollama_client_integration.chat_stream.side_effect = None
         mock_ollama_client_integration.chat_stream.return_value = markdown_stream()
 
-        with patch('mochi_coco.chat_controller.get_user_input', side_effect=["Show me some code", "/exit"]):
+        with patch('mochi_coco.ui.chat_ui_orchestrator.get_user_input', side_effect=["Hello markdown test", "/exit"]):
             controller = ChatController()
 
             # Mock the system prompt service to avoid real file system interactions
@@ -445,7 +445,7 @@ class TestCompleteChatFlow:
             mock_ollama_client_integration.chat_stream.side_effect = None
             mock_ollama_client_integration.chat_stream.return_value = thinking_stream()
 
-            with patch('mochi_coco.chat_controller.get_user_input', side_effect=["What should I think about?", "/exit"]):
+            with patch('mochi_coco.ui.chat_ui_orchestrator.get_user_input', side_effect=["Show thinking", "/exit"]):
                 controller = ChatController()
 
                 # Mock the system prompt service to avoid real file system interactions
@@ -486,7 +486,7 @@ class TestCompleteChatFlow:
             "/exit"
         ]
 
-        with patch('mochi_coco.chat_controller.get_user_input', side_effect=user_inputs):
+        with patch('mochi_coco.ui.chat_ui_orchestrator.get_user_input', side_effect=user_inputs):
             controller = ChatController()
 
             # Mock the system prompt service to avoid real file system interactions

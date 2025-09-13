@@ -218,7 +218,12 @@ class MenuDisplay:
                     expand=False
                 )
                 self.console.print(user_header)
-                self.console.print(message.content)
+
+                # Use renderer if available, otherwise print raw content
+                if self.renderer:
+                    self.renderer.render_static_text(message.content)
+                else:
+                    self.console.print(message.content)
 
             elif message.role == "assistant":
                 # Compact assistant header
@@ -230,7 +235,12 @@ class MenuDisplay:
                     expand=False
                 )
                 self.console.print(assistant_header)
-                self.console.print(message.content)
+
+                # Use renderer if available, otherwise print raw content
+                if self.renderer:
+                    self.renderer.render_static_text(message.content)
+                else:
+                    self.console.print(message.content)
 
             # Add spacing between messages
             self.console.print()
