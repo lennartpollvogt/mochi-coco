@@ -74,6 +74,7 @@ class SessionMetadata:
     updated_at: str
     message_count: int = 0
     summary: Optional[Dict[str, Any]] = None
+    summary_model: Optional[str] = None
 
 
 class ChatSession:

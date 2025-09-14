@@ -15,7 +15,8 @@ from .rendering import MarkdownRenderer, RenderingMode
 from .commands import CommandProcessor
 from .services import (
     SessionManager, RendererManager, BackgroundServiceManager,
-    SystemPromptService, UserPreferenceService, SessionCreationService
+    SystemPromptService, UserPreferenceService, SessionCreationService,
+    SummaryModelManager
 )
 from .services.session_creation_types import (
     SessionCreationContext, SessionCreationMode, SessionCreationOptions
@@ -56,7 +57,13 @@ class ChatController:
         self.ui_orchestrator = ChatUIOrchestrator()
         self.session_controller = SessionController(self.session_manager, self.client)
         self.command_result_handler = CommandResultHandler(self.ui_orchestrator)
-        self.background_service_manager = BackgroundServiceManager(event_loop, self.instructor_client)
+
+        # Initialize summary model manager
+        self.summary_model_manager = SummaryModelManager(self.model_selector, self.ui_orchestrator)
+
+        self.background_service_manager = BackgroundServiceManager(
+            event_loop, self.instructor_client, self.summary_model_manager
+        )
 
     def run(self) -> None:
         """Run the main chat application with standardized session creation."""

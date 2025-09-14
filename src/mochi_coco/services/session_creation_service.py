@@ -50,7 +50,7 @@ class SessionCreationService:
                 self.ui.display_welcome(options.context)
 
             # Show session creation start message
-            self.ui.display_session_creation_start(options.context)
+            #self.ui.display_session_creation_start(options.context)
 
             # Handle different creation modes
             if options.mode == SessionCreationMode.NEW_SESSION:

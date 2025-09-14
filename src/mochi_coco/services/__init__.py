@@ -9,6 +9,7 @@ from .system_prompt_service import SystemPromptService
 from .background_service_manager import BackgroundServiceManager
 from .user_preference_service import UserPreferenceService
 from .session_creation_service import SessionCreationService
+from .summary_model_manager import SummaryModelManager
 
 __all__ = [
     "SessionManager",
@@ -17,5 +18,6 @@ __all__ = [
     "SystemPromptService",
     "BackgroundServiceManager",
     "UserPreferenceService",
-    "SessionCreationService"
+    "SessionCreationService",
+    "SummaryModelManager"
 ]

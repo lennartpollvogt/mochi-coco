@@ -227,3 +227,52 @@ class ModelMenuHandler:
         self.user_interaction.display_info("Please select a new model:")
 
         return self.select_model(context=ModelSelectionContext.FROM_SESSION_MENU)
+
+    def select_summary_model(self) -> Optional[str]:
+        """
+        Display model selection menu specifically for summary models (excludes unsupported models).
+
+        Returns:
+            Selected model name or None if cancelled/failed
+        """
+        self.menu_display.display_model_selection_header()
+
+        # Load available models
+        models = self._load_available_models()
+        if not models:
+            return None
+
+        # Filter out models that don't support structured summaries
+        supported_models = self._filter_summary_supported_models(models)
+        if not supported_models:
+            self.user_interaction.display_error("No models available for summarization. Please install compatible models.")
+            return None
+
+        # Validate filtered models have required data
+        if not self._validate_model_availability(supported_models):
+            self.user_interaction.display_error("No valid summary models available.")
+            return None
+
+        # Display filtered models table
+        self.menu_display.display_models_table(supported_models, self.client)
+
+        # Handle user selection with summary context
+        return self._handle_model_selection_loop(supported_models, "summary_selection")
+
+    def _filter_summary_supported_models(self, models: List[ModelInfo]) -> List[ModelInfo]:
+        """
+        Filter models to only include those that support structured summaries.
+
+        Args:
+            models: List of all available models
+
+        Returns:
+            List of models that support structured summaries
+        """
+        # Models that don't support structured output
+        unsupported_models = {'gpt-oss:20b', 'gpt-oss:120b'}
+
+        return [
+            model for model in models
+            if model.name not in unsupported_models
+        ]

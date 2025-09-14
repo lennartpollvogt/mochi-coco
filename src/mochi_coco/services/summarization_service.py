@@ -31,13 +31,16 @@ class SummarizationService:
         self._task: Optional[asyncio.Task] = None
         self._last_message_count = 0
 
-    async def start_monitoring(self, session: ChatSession, chat_model: str, update_callback: Optional[Callable[[str], None]] = None):
+    async def start_monitoring(self, session: ChatSession, chat_model: str,
+                             summary_model: Optional[str] = None,
+                             update_callback: Optional[Callable[[str], None]] = None):
         """
         Start background monitoring of the chat session for summarization.
 
         Args:
             session: The chat session to monitor
             chat_model: The model being used for chat (used as fallback if no specific model set)
+            summary_model: Optional model to use specifically for summaries
             update_callback: Optional callback function called when summary is updated
         """
         if self.running:
@@ -47,13 +50,13 @@ class SummarizationService:
         self.running = True
         self._last_message_count = len(session.messages)
 
-        # Use specified model or fallback to chat model
-        summary_model = self.model or chat_model
+        # Determine effective model: summary_model > self.model > chat_model
+        effective_model = summary_model or self.model or chat_model
 
         self._task = asyncio.create_task(
-            self._monitor_session(session, summary_model, update_callback)
+            self._monitor_session(session, chat_model, effective_model, update_callback)
         )
-        logger.info(f"Started summarization monitoring using model: {summary_model}")
+        logger.info(f"Started summarization monitoring using model: {effective_model}")
 
     async def stop_monitoring(self):
         """Stop the background monitoring."""
@@ -69,30 +72,35 @@ class SummarizationService:
                 logger.info("Summarization monitoring stopped")
                 pass
 
-    async def generate_summary_now(self, session: ChatSession, model: str) -> Optional[dict]:
+    async def generate_summary_now(self, session: ChatSession, chat_model: str,
+                                 summary_model: Optional[str] = None) -> Optional[dict]:
         """
         Generate a summary immediately for the current conversation.
 
         Args:
             session: The chat session to summarize
-            model: The model to use for summarization
+            chat_model: The model being used for chat
+            summary_model: Optional model to use specifically for summaries
 
         Returns:
             Generated summary dict or None if generation failed
         """
         try:
-            return await self._generate_summary(session, model)
+            effective_model = summary_model or self.model or chat_model
+            return await self._generate_summary(session, effective_model)
         except Exception as e:
             logger.error(f"Failed to generate summary: {e}")
             return None
 
-    async def _monitor_session(self, session: ChatSession, model: str, update_callback: Optional[Callable[[str], None]]):
+    async def _monitor_session(self, session: ChatSession, chat_model: str, summary_model: str,
+                             update_callback: Optional[Callable[[str], None]]):
         """
         Monitor session for changes and update summaries.
 
         Args:
             session: The chat session to monitor
-            model: The model to use for summarization
+            chat_model: The model being used for chat
+            summary_model: The model to use for summarization
             update_callback: Optional callback for summary updates
         """
         while self.running:
@@ -105,7 +113,7 @@ class SummarizationService:
                     self._should_update_summary(session)):
 
                     logger.debug(f"Generating summary for {current_count} messages")
-                    summary = await self._generate_summary(session, model)
+                    summary = await self._generate_summary(session, summary_model)
 
                     if summary:
                         # Update session metadata
@@ -162,13 +170,13 @@ class SummarizationService:
         last_message = session.messages[-1]
         return hasattr(last_message, 'role') and last_message.role == 'assistant'
 
-    async def _generate_summary(self, session: ChatSession, model: str) -> Optional[dict]:
+    async def _generate_summary(self, session: ChatSession, summary_model: str) -> Optional[dict]:
         """
         Generate a summary of the current conversation.
 
         Args:
             session: The chat session to summarize
-            model: The model to use for summarization
+            summary_model: The model to use for summarization
 
         Returns:
             Generated summary dict or None if generation failed
@@ -177,10 +185,6 @@ class SummarizationService:
             # Check if instructor client is available
             if self.instructor_client is None:
                 logger.error("AsyncInstructorOllamaClient is not available for structured summarization")
-                return None
-
-            if model == 'gpt-oss:20b' or model == 'gpt-oss:120b':
-                logger.info(f"Model {model} not supported for structured summarization")
                 return None
 
             messages = session.get_messages_for_api()
@@ -199,7 +203,7 @@ class SummarizationService:
                 }
             ]
             # Generate summary using single (non-streaming) request
-            response = await self.instructor_client.structured_response(model, summary_prompt, format=ConversationSummary)
+            response = await self.instructor_client.structured_response(summary_model, summary_prompt, format=ConversationSummary)
 
             if response and response.message and response.message.content:
                 parsed_summary: Dict[str, Any] = json.loads(response.message.content)

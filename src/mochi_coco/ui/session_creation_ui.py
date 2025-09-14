@@ -37,16 +37,10 @@ class SessionCreationUI:
 
     def _display_startup_welcome(self) -> None:
         """Display welcome message for application startup."""
-        welcome_text = """🍡 Welcome to Mochi-Coco!
-
-                                .-===-.
-                                |[:::]|
-                                `-----´
-
-                        🤖 AI Chat with Style"""
+        welcome_test_1 = """🤖 AI Chat with Style"""
 
         panel = Panel(
-            welcome_text,
+            welcome_test_1,
             style="bright_green",
             padding=(1, 2),
             title="🍡 Welcome to Mochi-Coco!",
@@ -70,7 +64,7 @@ class SessionCreationUI:
 
     def display_existing_sessions(self, sessions: List["ChatSession"]) -> None:
         """Display table of existing sessions."""
-        table = Table(title="💬 Previous Sessions")
+        table = Table() #title="💬 Previous Sessions")
         table.add_column("#", style="cyan", width=3)
         table.add_column("Session ID", style="magenta", width=12)
         table.add_column("Model", style="green", width=20)
