@@ -214,7 +214,7 @@ class SummaryModelManager:
             # Filter out unsupported models
             supported_models = [
                 model for model in all_models
-                if self.is_model_supported_for_summaries(model.name)
+                if model.name and self.is_model_supported_for_summaries(model.name)
             ]
 
             return supported_models
