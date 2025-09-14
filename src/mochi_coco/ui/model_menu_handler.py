@@ -6,6 +6,7 @@ from typing import List, Optional
 from ..ollama.client import OllamaClient, ModelInfo
 from .menu_display import MenuDisplay
 from .user_interaction import UserInteraction
+from ..constants import SUMMARY_UNSUPPORTED_MODELS
 
 
 class ModelSelectionContext:
@@ -269,10 +270,7 @@ class ModelMenuHandler:
         Returns:
             List of models that support structured summaries
         """
-        # Models that don't support structured output
-        unsupported_models = {'gpt-oss:20b', 'gpt-oss:120b'}
-
         return [
             model for model in models
-            if model.name not in unsupported_models
+            if model.name not in SUMMARY_UNSUPPORTED_MODELS
         ]

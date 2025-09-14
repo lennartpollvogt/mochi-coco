@@ -8,6 +8,8 @@ prompting users to select an appropriate model, and storing their choice per ses
 import logging
 from typing import Optional, List, TYPE_CHECKING
 
+from ..constants import is_model_supported_for_summaries
+
 if TYPE_CHECKING:
     from ..chat import ChatSession
     from ..ui import ModelSelector
@@ -22,9 +24,6 @@ class SummaryModelManager:
     Manages summary model selection and storage for sessions where the chat model
     doesn't support structured output.
     """
-
-    # Models that don't support structured output for summaries
-    UNSUPPORTED_MODELS = {'gpt-oss:20b', 'gpt-oss:120b', 'qwen3:14b', 'qwen3:30b'}
 
     def __init__(self, model_selector: "ModelSelector", ui_orchestrator: "ChatUIOrchestrator"):
         """
@@ -51,7 +50,7 @@ class SummaryModelManager:
         logger.debug(f"Checking if summary model selection needed for chat_model: {chat_model}")
 
         # If chat model supports summaries, no need for separate model
-        supports_summaries = self.is_model_supported_for_summaries(chat_model)
+        supports_summaries = is_model_supported_for_summaries(chat_model)
         logger.debug(f"Chat model supports summaries: {supports_summaries}")
         if supports_summaries:
             return False
@@ -139,7 +138,7 @@ class SummaryModelManager:
         logger.debug(f"Getting effective summary model for chat_model: {chat_model}")
 
         # If chat model supports summaries, use it
-        supports_summaries = self.is_model_supported_for_summaries(chat_model)
+        supports_summaries = is_model_supported_for_summaries(chat_model)
         logger.debug(f"Chat model supports summaries: {supports_summaries}")
         if supports_summaries:
             logger.debug(f"Using chat model for summaries: {chat_model}")
@@ -170,7 +169,7 @@ class SummaryModelManager:
         Returns:
             True if model supports structured summaries, False otherwise
         """
-        return model not in self.UNSUPPORTED_MODELS
+        return is_model_supported_for_summaries(model)
 
     def reset_summary_model(self, session: "ChatSession") -> None:
         """
@@ -214,7 +213,7 @@ class SummaryModelManager:
             # Filter out unsupported models
             supported_models = [
                 model for model in all_models
-                if model.name and self.is_model_supported_for_summaries(model.name)
+                if model.name and is_model_supported_for_summaries(model.name)
             ]
 
             return supported_models
