@@ -245,15 +245,6 @@ class MenuDisplay:
             # Add spacing between messages
             self.console.print()
 
-    def display_model_selection_header(self) -> None:
-        """Display header for model selection."""
-        header_panel = Panel(
-            "🤖 Select your AI model",
-            style=self.colors['primary'],
-            box=ROUNDED
-        )
-        self.console.print(header_panel)
-
     def display_model_selection_prompt(self, model_count: int) -> None:
         """Display prompt for model selection using Rich styling.
 

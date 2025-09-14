@@ -136,9 +136,10 @@ class SessionCreationUI:
                                        context: SessionCreationContext) -> None:
         """Display successful session creation/loading."""
         if context == SessionCreationContext.APPLICATION_STARTUP:
-            self.chat_interface.print_success_message(
-                f"Session ready! Using {model} (ID: {session.session_id})"
-            )
+            #self.chat_interface.print_success_message(
+            #    f"Session ready! Using {model} (ID: {session.session_id})"
+            #)
+            pass
         else:
             self.chat_interface.print_success_message(
                 f"Switched to session {session.session_id} with {model}"

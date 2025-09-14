@@ -154,12 +154,3 @@ class ChatInterface:
             title_align="left"
         )
         self.console.print(panel)
-
-    def print_command_help(self) -> None:
-        """Print available commands in a styled panel.
-
-        Note: This method is now integrated into print_session_info()
-        and kept for backward compatibility only.
-        """
-        # Method functionality moved to print_session_info()
-        pass

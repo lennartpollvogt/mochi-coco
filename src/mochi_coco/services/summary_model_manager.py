@@ -229,11 +229,6 @@ class SummaryModelManager:
         Returns:
             Selected model name or None if cancelled
         """
-        # Display header explaining this is for summaries
-        self.ui_orchestrator.display_info_message(
-            "📝 Select a model for conversation summaries:"
-        )
-
         # Use the enhanced model selector that filters out unsupported models
         selected_model = self.model_selector.model_menu_handler.select_summary_model()
 

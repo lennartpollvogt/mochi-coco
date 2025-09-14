@@ -41,8 +41,6 @@ class ModelMenuHandler:
         Returns:
             Selected model name or None if cancelled/failed
         """
-        self.menu_display.display_model_selection_header()
-
         # Load available models
         models = self._load_available_models()
         if not models:
@@ -236,8 +234,6 @@ class ModelMenuHandler:
         Returns:
             Selected model name or None if cancelled/failed
         """
-        self.menu_display.display_model_selection_header()
-
         # Load available models
         models = self._load_available_models()
         if not models:
