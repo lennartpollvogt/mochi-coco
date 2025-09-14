@@ -9,6 +9,7 @@ from typing import List
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from .chat_interface import ChatInterface
 from ..services.session_creation_types import SessionCreationContext
@@ -63,8 +64,8 @@ class SessionCreationUI:
         )
 
     def display_existing_sessions(self, sessions: List["ChatSession"]) -> None:
-        """Display table of existing sessions."""
-        table = Table() #title="💬 Previous Sessions")
+        """Display table of existing sessions with integrated options."""
+        table = Table()
         table.add_column("#", style="cyan", width=3)
         table.add_column("Session ID", style="magenta", width=12)
         table.add_column("Model", style="green", width=20)
@@ -81,20 +82,24 @@ class SessionCreationUI:
                 str(session.metadata.message_count)
             )
 
-        panel = Panel(table, title="💬 Previous Sessions", padding=(1, 1))
+        # Create options text
+        session_count = len(sessions)
+        options_text = Text()
+        options_text.append("\n💡 Options:\n", style="bold bright_yellow")
+        options_text.append(f"• 📝 Select session (1-{session_count})\n", style="white")
+        options_text.append("• 🆕 Type 'new' for new chat\n", style="white")
+        options_text.append("• 🗑️ Type '/delete <number>' to delete session\n", style="white")
+        options_text.append("• 👋 Type 'q' to quit", style="white")
+
+        # Combine table and options
+        from rich.console import Group
+        combined_content = Group(table, options_text)
+
+        panel = Panel(combined_content, title="💬 Previous Sessions", padding=(1, 1))
         self.console.print(panel)
 
     def get_session_choice(self, session_count: int) -> str:
         """Get user's session selection choice."""
-        options_text = f"""💡 Options:
-• 📝 Select session (1-{session_count})
-• 🆕 Type 'new' for new chat
-• 🗑️ Type '/delete <number>' to delete session
-• 👋 Type 'q' to quit"""
-
-        panel = Panel(options_text, style="cyan", padding=(0, 1))
-        self.console.print(panel)
-
         choice = input("Enter your choice: ").strip()
 
         # Handle delete command
