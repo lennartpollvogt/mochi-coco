@@ -166,15 +166,6 @@ class MenuDisplay:
         )
         self.console.print(sessions_panel)
 
-    def display_menu_help(self, session_count: int) -> None:
-        """Display help text for menu options using Rich panels.
-
-        Note: This method is now integrated into display_sessions_table()
-        and kept for backward compatibility only.
-        """
-        # Method functionality moved to display_sessions_table()
-        pass
-
     def display_welcome_message(self) -> None:
         """Display the welcome message using Rich styling."""
         # ASCII art in a text object for better control
