@@ -10,6 +10,7 @@ from .background_service_manager import BackgroundServiceManager
 from .user_preference_service import UserPreferenceService
 from .session_creation_service import SessionCreationService
 from .summary_model_manager import SummaryModelManager
+from .session_setup_helper import SessionSetupHelper
 
 __all__ = [
     "SessionManager",
@@ -19,5 +20,6 @@ __all__ = [
     "BackgroundServiceManager",
     "UserPreferenceService",
     "SessionCreationService",
-    "SummaryModelManager"
+    "SummaryModelManager",
+    "SessionSetupHelper"
 ]

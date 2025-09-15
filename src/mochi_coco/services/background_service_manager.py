@@ -61,10 +61,12 @@ class BackgroundServiceManager:
         # Stop summarization service
         if self.summarization_service and self.summarization_service.is_running and self.event_loop:
             try:
-                asyncio.run_coroutine_threadsafe(
+                future = asyncio.run_coroutine_threadsafe(
                     self.summarization_service.stop_monitoring(),
                     self.event_loop
                 )
+                # Wait for the service to stop completely before proceeding
+                future.result(timeout=10.0)
             except Exception as e:
                 logger.error(f"Error stopping summarization: {e}")
 

@@ -16,7 +16,7 @@ from .commands import CommandProcessor
 from .services import (
     SessionManager, RendererManager, BackgroundServiceManager,
     SystemPromptService, UserPreferenceService, SessionCreationService,
-    SummaryModelManager
+    SummaryModelManager, SessionSetupHelper
 )
 from .services.session_creation_types import (
     SessionCreationContext, SessionCreationMode, SessionCreationOptions
@@ -51,7 +51,9 @@ class ChatController:
             self.system_prompt_service
         )
 
-        self.command_processor = CommandProcessor(self.model_selector, self.renderer_manager)
+        # Note: CommandProcessor needs to be initialized after SessionSetupHelper
+        # We'll initialize it later after all dependencies are ready
+        self.command_processor = None
 
         # Initialize specialized controllers and orchestrators
         self.ui_orchestrator = ChatUIOrchestrator()
@@ -63,6 +65,16 @@ class ChatController:
 
         self.background_service_manager = BackgroundServiceManager(
             event_loop, self.instructor_client, self.summary_model_manager
+        )
+
+        # Initialize session setup helper
+        self.session_setup_helper = SessionSetupHelper(
+            self.ui_orchestrator, self.background_service_manager
+        )
+
+        # Initialize command processor with session setup helper
+        self.command_processor = CommandProcessor(
+            self.model_selector, self.renderer_manager, self.session_setup_helper
         )
 
     def run(self) -> None:
@@ -96,19 +108,17 @@ class ChatController:
                     preferences.show_thinking
                 )
 
-            # Handle summary model selection before displaying session info
-            markdown_enabled = preferences.markdown_enabled if preferences else True
-            show_thinking = preferences.show_thinking if preferences else False
-            self._handle_summary_model_setup(session, model)
+            # Handle session setup using the centralized helper
+            setup_success = self.session_setup_helper.setup_session(
+                session, model, preferences, show_session_info=True, summary_callback=self._on_summary_updated
+            )
 
-            # Display session info and start services
-            self.ui_orchestrator.display_session_setup(
-                session, model, markdown_enabled, show_thinking
-            )
+            if not setup_success:
+                self.ui_orchestrator.display_error("Session setup was cancelled or failed")
+                return
+
+            # Display chat history if needed
             self.ui_orchestrator.display_chat_history_if_needed(session, self.model_selector)
-            self.background_service_manager.start_summarization(
-                session, model, self._on_summary_updated
-            )
 
             # Run main chat loop
             self._run_chat_loop(session, model)
@@ -133,6 +143,10 @@ class ChatController:
                 # Ensure current session and model are not None before processing commands
                 if current_session is None or current_model is None:
                     self.ui_orchestrator.display_error("Invalid session state")
+                    break
+
+                if self.command_processor is None:
+                    self.ui_orchestrator.display_error("Command processor not initialized")
                     break
 
                 result = self.command_processor.process_command(
@@ -177,20 +191,7 @@ class ChatController:
         if not message_result.success:
             self.ui_orchestrator.display_error(message_result.error_message or "Failed to process message")
 
-    def _handle_summary_model_setup(self, session, model: str) -> None:
-        """Handle summary model selection before displaying session info."""
-        if not self.background_service_manager.summary_model_manager:
-            return
 
-        # Check if we need to prompt for summary model selection
-        needs_selection = self.background_service_manager.summary_model_manager.needs_summary_model_selection(model, session)
-
-        if needs_selection:
-            # Prompt user to select a summary model
-            selected_model = self.background_service_manager.summary_model_manager.prompt_for_summary_model(session, model)
-            if not selected_model:
-                # User cancelled or error occurred - summarization will be disabled
-                logger.info("Summary model selection cancelled, summarization will be disabled")
 
     def _on_summary_updated(self, summary: str) -> None:
         """Callback for summary updates."""

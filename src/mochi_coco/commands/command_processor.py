@@ -12,7 +12,7 @@ from ..utils import re_render_chat_history
 if TYPE_CHECKING:
     from ..chat import ChatSession
     from ..ui import ModelSelector
-    from ..services import RendererManager
+    from ..services import RendererManager, SessionSetupHelper
 
 
 class CommandResult:
@@ -29,9 +29,11 @@ class CommandResult:
 class CommandProcessor:
     """Handles processing of special commands in the chat interface."""
 
-    def __init__(self, model_selector: "ModelSelector", renderer_manager: "RendererManager"):
+    def __init__(self, model_selector: "ModelSelector", renderer_manager: "RendererManager",
+                 session_setup_helper: Optional["SessionSetupHelper"] = None):
         self.model_selector = model_selector
         self.renderer_manager = renderer_manager
+        self.session_setup_helper = session_setup_helper
 
         # Initialize system prompt services
         from ..services import SystemPromptService
@@ -50,7 +52,7 @@ class CommandProcessor:
             self.system_prompt_service
         )
 
-    def process_command(self, user_input: str, session: "ChatSession", selected_model: str) -> CommandResult:
+    def process_command(self, user_input: str, session: "ChatSession", model: str) -> CommandResult:
         """
         Process a user command and return the result.
 
@@ -136,7 +138,7 @@ class CommandProcessor:
 
 
 
-    def _handle_chats_command(self) -> CommandResult:
+    def _handle_chats_command(self, current_session: Optional["ChatSession"] = None) -> CommandResult:
         """Handle the /chats command with standardized session creation."""
         from ..services.session_creation_types import (
             SessionCreationContext, SessionCreationOptions, SessionCreationMode
@@ -179,12 +181,34 @@ class CommandProcessor:
             else:
                 typer.secho("✅ Plain text rendering enabled.", fg=typer.colors.CYAN)
 
-        # Display session history if we switched to an existing session
-        from ..services.session_creation_types import SessionCreationMode
-        if result.mode == SessionCreationMode.LOAD_EXISTING and result.session:
-            # Use re_render_chat_history to ensure proper rendering with updated settings
-            from ..utils import re_render_chat_history
-            re_render_chat_history(result.session, self.model_selector)
+        # Handle session setup using SessionSetupHelper if available and we have a new session
+        if self.session_setup_helper and result.session and result.model:
+            # Determine if this is an existing session being loaded or a new session
+            from ..services.session_creation_types import SessionCreationMode
+            is_existing_session = result.mode == SessionCreationMode.LOAD_EXISTING
+
+            # Both Flow 3 (new session) and Flow 4 (existing session) involve switching from an old session,
+            # so we need to use handle_session_switch to properly stop old services and start new ones
+            setup_success = self.session_setup_helper.handle_session_switch(
+                old_session=current_session,  # The session we're switching away from
+                new_session=result.session,  # The session we're switching to
+                new_model=result.model,
+                preferences=result.preferences,
+                display_history=is_existing_session,  # Only show history for existing sessions
+                summary_callback=None  # Will use default callback
+            )
+
+            if not setup_success:
+                typer.secho("❌ Session setup was cancelled or failed", fg=typer.colors.RED)
+                return CommandResult()
+
+            # Display session history if we switched to an existing session
+            if is_existing_session and result.session.messages:
+                from ..utils import re_render_chat_history
+                re_render_chat_history(result.session, self.model_selector)
+
+        # Note: All session setup now goes through session_setup_helper.handle_session_switch()
+        # so the fallback path is no longer needed
 
         return CommandResult(
             should_continue=True,
@@ -365,7 +389,7 @@ class CommandProcessor:
             # Process menu selection
             if choice == "1":
                 # Handle chats command
-                result = self._handle_chats_command()
+                result = self._handle_chats_command(session)
                 if result.should_exit or (result.new_session or result.new_model):
                     return result
                 # If user cancelled, continue menu loop

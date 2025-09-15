@@ -63,7 +63,13 @@ class SummaryModelManager:
             stored_model = session.metadata.summary_model
             logger.debug(f"Stored summary model: {stored_model}")
             if stored_model:
-                return False
+                # Check if the stored summary model is still supported
+                stored_model_supported = is_model_supported_for_summaries(stored_model)
+                logger.debug(f"Stored summary model supported: {stored_model_supported}")
+                if stored_model_supported:
+                    return False
+                else:
+                    logger.debug(f"Stored summary model '{stored_model}' is not supported, selection needed")
 
         # Chat model is unsupported and no summary model is stored
         logger.debug("Summary model selection needed")
@@ -152,8 +158,14 @@ class SummaryModelManager:
             stored_model = session.metadata.summary_model
             logger.debug(f"Stored summary model: {stored_model}")
             if stored_model:
-                logger.debug(f"Using stored summary model: {stored_model}")
-                return stored_model
+                # Check if the stored summary model is still supported
+                stored_model_supported = is_model_supported_for_summaries(stored_model)
+                logger.debug(f"Stored summary model supported: {stored_model_supported}")
+                if stored_model_supported:
+                    logger.debug(f"Using stored summary model: {stored_model}")
+                    return stored_model
+                else:
+                    logger.debug(f"Stored summary model '{stored_model}' is not supported, ignoring it")
 
         # No suitable model available
         logger.debug("No suitable model available for summaries")
