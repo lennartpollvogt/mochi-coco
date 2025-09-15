@@ -96,9 +96,12 @@ class ChatController:
                     preferences.show_thinking
                 )
 
-            # Display session info and start services
+            # Handle summary model selection before displaying session info
             markdown_enabled = preferences.markdown_enabled if preferences else True
             show_thinking = preferences.show_thinking if preferences else False
+            self._handle_summary_model_setup(session, model)
+
+            # Display session info and start services
             self.ui_orchestrator.display_session_setup(
                 session, model, markdown_enabled, show_thinking
             )
@@ -173,6 +176,21 @@ class ChatController:
         # Handle result
         if not message_result.success:
             self.ui_orchestrator.display_error(message_result.error_message or "Failed to process message")
+
+    def _handle_summary_model_setup(self, session, model: str) -> None:
+        """Handle summary model selection before displaying session info."""
+        if not self.background_service_manager.summary_model_manager:
+            return
+
+        # Check if we need to prompt for summary model selection
+        needs_selection = self.background_service_manager.summary_model_manager.needs_summary_model_selection(model, session)
+
+        if needs_selection:
+            # Prompt user to select a summary model
+            selected_model = self.background_service_manager.summary_model_manager.prompt_for_summary_model(session, model)
+            if not selected_model:
+                # User cancelled or error occurred - summarization will be disabled
+                logger.info("Summary model selection cancelled, summarization will be disabled")
 
     def _on_summary_updated(self, summary: str) -> None:
         """Callback for summary updates."""

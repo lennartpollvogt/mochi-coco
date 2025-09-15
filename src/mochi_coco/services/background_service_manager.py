@@ -79,6 +79,8 @@ class BackgroundServiceManager:
         """
         Determine which model to use for summaries.
 
+        Note: Summary model selection should have been handled before this is called.
+
         Args:
             session: Chat session
             chat_model: Current chat model
@@ -90,23 +92,9 @@ class BackgroundServiceManager:
             # Fallback: use chat model if no manager available
             return chat_model
 
-        # Check if we need to prompt for summary model selection
-        needs_selection = self.summary_model_manager.needs_summary_model_selection(chat_model, session)
-        logger.debug(f"Needs summary model selection: {needs_selection}")
-
-        if needs_selection:
-            # Prompt user to select a summary model
-            logger.debug("Prompting user for summary model selection")
-            selected_model = self.summary_model_manager.prompt_for_summary_model(session, chat_model)
-            logger.debug(f"User selected summary model: {selected_model}")
-            if not selected_model:
-                # User cancelled or error occurred
-                logger.info("Summary model selection cancelled, disabling summarization")
-                return None
-
-        # Get the effective summary model (could be chat model or stored summary model)
+        # Get the effective summary model (summary model selection should have been handled earlier)
         effective_model = self.summary_model_manager.get_effective_summary_model(session, chat_model)
-        logger.debug(f"Final effective summary model: {effective_model}")
+        logger.debug(f"Effective summary model: {effective_model}")
         return effective_model
 
     @property
