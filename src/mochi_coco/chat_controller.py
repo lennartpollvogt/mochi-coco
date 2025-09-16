@@ -36,6 +36,10 @@ class ChatController:
         self.async_client = AsyncOllamaClient(host=host)
         self.instructor_client = AsyncInstructorOllamaClient(host=host)
 
+        # Instance attributes for test compatibility
+        self.session = None
+        self.selected_model = None
+
         # Initialize core services
         self.renderer = MarkdownRenderer(mode=RenderingMode.PLAIN, show_thinking=False)
         self.model_selector = ModelSelector(self.client, self.renderer)
@@ -101,6 +105,10 @@ class ChatController:
 
             session, model, preferences = result.session, result.model, result.preferences
 
+            # Store for test compatibility
+            self.session = session
+            self.selected_model = model
+
             # Configure renderer with collected preferences
             if preferences:
                 self.renderer_manager.configure_renderer(
@@ -163,8 +171,10 @@ class ChatController:
                 # Update session and model from state result
                 if state_result.session is not None:
                     current_session = state_result.session
+                    self.session = current_session  # Update instance attribute
                 if state_result.model is not None:
                     current_model = state_result.model
+                    self.selected_model = current_model  # Update instance attribute
                 continue
 
             # Skip empty input

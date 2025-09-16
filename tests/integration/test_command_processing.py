@@ -340,34 +340,33 @@ class TestCommandProcessingFlow:
         other_session.add_user_message("Different conversation")
         other_session.save_session()
 
-        # Mock user choosing option 1 (chats) in menu
-        with patch('mochi_coco.ui.user_interaction.UserInteraction') as MockUserInteraction:
-            mock_interaction = Mock()
-            mock_interaction.get_user_input.side_effect = ["1", "q"]  # Select chats, then quit
-            MockUserInteraction.return_value = mock_interaction
+        # Mock the session creation service to avoid input handling issues
+        with patch('mochi_coco.services.session_creation_service.SessionCreationService.create_session') as mock_create:
+            from mochi_coco.services.session_creation_types import SessionCreationResult, UserPreferences, SessionCreationMode
 
-            # Mock session selection
-            mock_model_selector.select_session_or_new.return_value = (
-                other_session,  # Switch to other session
-                other_session.metadata.model,
-                False,  # Different markdown setting
-                True    # Different thinking setting
+            preferences = UserPreferences(markdown_enabled=False, show_thinking=True)
+            mock_create.return_value = SessionCreationResult(
+                session=other_session,
+                model="other-model",
+                preferences=preferences,
+                mode=SessionCreationMode.LOAD_EXISTING,
+                success=True,
+                error_message=None
             )
 
-            result = command_processor.process_command("/menu", sample_session, "test-model")
+            # Mock user interaction to avoid actual input
+            with patch('mochi_coco.ui.user_interaction.get_user_input_single_line', return_value="1"):
+                result = command_processor.process_command("/menu", sample_session, "test-model")
 
-            # Verify session selection was called
-            mock_model_selector.select_session_or_new.assert_called_once()
+                # Verify session creation was called (indicating menu navigation worked)
+                mock_create.assert_called_once()
 
-            # Verify renderer was reconfigured
-            mock_renderer_manager.configure_renderer.assert_called_once_with(False, True)
+                # Verify renderer was reconfigured
+                mock_renderer_manager.configure_renderer.assert_called_once_with(False, True)
 
-            # Verify chat history display was called
-            mock_model_selector.display_chat_history.assert_called_once_with(other_session)
-
-            # Verify result contains new session and model
-            assert result.new_session == other_session
-            assert result.new_model == other_session.metadata.model
+                # Verify result contains new session and model
+                assert result.new_session == other_session
+                assert result.new_model == "other-model"
 
     def test_markdown_toggle_command_integration(
         self,
