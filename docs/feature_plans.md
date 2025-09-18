@@ -26,6 +26,7 @@
 - [x] add system prompt
 - [ ] Add tool usage
 - [ ] add folder with example tools users of the application can use to get started and to showcase the capabilities of the application + add documentation on how to create own tools
+- [ ] autocomplete for commands during chat sessions
 
 # Issues
 
