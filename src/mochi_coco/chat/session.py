@@ -6,6 +6,7 @@ from typing import List, Optional, Any, Mapping, Tuple, Dict
 from dataclasses import dataclass, asdict
 
 from ollama import ChatResponse
+from ..tools.config import ToolSettings
 
 @dataclass
 class UserMessage:
@@ -75,6 +76,7 @@ class SessionMetadata:
     message_count: int = 0
     summary: Optional[Dict[str, Any]] = None
     summary_model: Optional[str] = None
+    tool_settings: Optional[ToolSettings] = None
 
 
 class ChatSession:
@@ -196,8 +198,13 @@ class ChatSession:
 
     def save_session(self) -> None:
         """Save the current session to a JSON file."""
+        # Handle tool_settings serialization
+        metadata_dict = asdict(self.metadata)
+        if self.metadata.tool_settings:
+            metadata_dict['tool_settings'] = self.metadata.tool_settings.to_dict()
+
         session_data = {
-            "metadata": asdict(self.metadata),
+            "metadata": metadata_dict,
             "messages": [asdict(msg) for msg in self.messages]
         }
 
@@ -215,6 +222,12 @@ class ChatSession:
 
             # Load metadata
             metadata_dict = session_data.get("metadata", {})
+
+            # Handle tool_settings deserialization
+            if 'tool_settings' in metadata_dict and metadata_dict['tool_settings'] is not None:
+                tool_settings_data = metadata_dict['tool_settings']
+                metadata_dict['tool_settings'] = ToolSettings.from_dict(tool_settings_data)
+
             self.metadata = SessionMetadata(**metadata_dict)
 
             # Load messages - handle UserMessage, SessionMessage, and SystemMessage types
