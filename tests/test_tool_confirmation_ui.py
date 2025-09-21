@@ -6,7 +6,7 @@ testing user interaction, display functionality, and error handling.
 """
 
 import pytest
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import patch
 from io import StringIO
 
 from mochi_coco.ui.tool_confirmation_ui import ToolConfirmationUI

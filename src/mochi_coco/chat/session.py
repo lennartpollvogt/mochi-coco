@@ -79,7 +79,22 @@ class SessionMetadata:
     message_count: int = 0
     summary: Optional[Dict[str, Any]] = None
     summary_model: Optional[str] = None
+    # Add version for backward compatibility
+    format_version: str = "1.1"
+    # Add tools settings
     tool_settings: Optional[ToolSettings] = None
+
+    def migrate_from_legacy(self):
+        """Migrate from older session format."""
+        # Handle old sessions without format_version
+        if not hasattr(self, 'format_version'):
+            self.format_version = "1.0"
+
+        # Migrate from 1.0 to 1.1 (add tools support)
+        if self.format_version == "1.0":
+            if not hasattr(self, 'tool_settings'):
+                self.tool_settings = None
+            self.format_version = "1.1"
 
 
 class ChatSession:
@@ -242,6 +257,9 @@ class ChatSession:
                 metadata_dict['tool_settings'] = ToolSettings.from_dict(tool_settings_data)
 
             self.metadata = SessionMetadata(**metadata_dict)
+
+            # Migrate legacy sessions
+            self.metadata.migrate_from_legacy()
 
             # Load messages - handle UserMessage, SessionMessage, and SystemMessage types
             messages_data = session_data.get("messages", [])

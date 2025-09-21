@@ -380,9 +380,11 @@ class MenuDisplay:
         )
         self.console.print(prompt_panel)
 
-    def display_command_menu(self, has_system_prompts: bool = False) -> None:
-        """Display the chat menu using Rich panels with integrated options."""
-        # Create command options
+    def display_command_menu(self, has_system_prompts: bool = False,
+                            has_tools: bool = False,
+                            tool_settings=None) -> None:
+        """Enhanced command menu with dynamic tool options."""
+
         commands = [
             ("1", "💬 Switch Sessions", "Change to different chat session"),
             ("2", "🤖 Change Model", "Select a different AI model"),
@@ -390,39 +392,65 @@ class MenuDisplay:
             ("4", "🤔 Toggle Thinking", "Show/hide thinking blocks")
         ]
 
-        # Add system prompt option if prompts are available
+        # Dynamic command numbering
+        next_num = 5
+
+        if has_tools:
+            # Tool-related commands
+            if tool_settings:
+                from ..tools.config import ToolExecutionPolicy
+                if hasattr(tool_settings, 'execution_policy'):
+                    policy_status = tool_settings.execution_policy.value.replace('_', ' ').title()
+                else:
+                    policy_status = "Never Confirm"
+                commands.append((str(next_num), "🛠️ Tool Policy", f"Current: {policy_status}"))
+                next_num += 1
+
+                if tool_settings.is_enabled():
+                    active_count = len(tool_settings.tools) if tool_settings.tools else 0
+                    if tool_settings.tool_group:
+                        status = f"Group: {tool_settings.tool_group}"
+                    else:
+                        status = f"{active_count} tool(s) selected"
+                    commands.append((str(next_num), "📂 Change Tools", status))
+                else:
+                    commands.append((str(next_num), "📂 Select Tools", "No tools selected"))
+                next_num += 1
+            else:
+                commands.append((str(next_num), "📂 Enable Tools", "Select tools to use"))
+                next_num += 1
+
         if has_system_prompts:
-            commands.append(("5", "🔧 Change System Prompt", "Select different system prompt"))
+            commands.append((str(next_num), "🔧 Change System", "Select different system prompt"))
+            next_num += 1
 
-        # Create table for commands
-        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
-        table.add_column("#", style=self.colors['secondary'], width=3)
-        table.add_column("Command", style="bold", width=20)
-        table.add_column("Description", style="white", min_width=30)
+        # Display the menu
+        table = Table(box=ROUNDED, show_header=False, padding=(0, 2))
+        table.add_column("Shortcut", style=self.colors['secondary'], width=10)
+        table.add_column("Action", style="bold", width=20)
+        table.add_column("Description", style="white")
 
-        for number, command, description in commands:
-            table.add_row(number, command, description)
+        for cmd, action, desc in commands:
+            # Special formatting for shortcuts
+            if cmd.isdigit():
+                shortcut = f"/{cmd}"
+            else:
+                shortcut = f"/{cmd}"
+            table.add_row(shortcut, action, desc)
 
-        # Create options text
-        max_option = 5 if has_system_prompts else 4
-        options_text = Text()
-        options_text.append("\n💡 Options:\n", style="bold bright_yellow")
-        options_text.append(f"• Select an option (1-{max_option})\n", style="white")
-        options_text.append("• Type 'q' to cancel", style="white")
+        # Add help commands
+        table.add_row("/help", "📚 Help", "Show all available commands", style="dim")
+        table.add_row("/quit", "👋 Exit", "Exit the application", style="dim")
 
-        # Combine table and options
-        from rich.console import Group
-        combined_content = Group(table, options_text)
-
-        # Wrap in panel
-        menu_panel = Panel(
-            combined_content,
-            title="⚙️  Chat Menu",
+        panel = Panel(
+            table,
+            title="⌨️  Available Commands",
             title_align="left",
             style=self.colors['info'],
             box=ROUNDED
         )
-        self.console.print(menu_panel)
+
+        self.console.print(panel)
 
     def display_confirmation_prompt(self, message: str, style: str = "warning") -> None:
         """Display a confirmation prompt with Rich styling."""

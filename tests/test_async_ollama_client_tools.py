@@ -1,6 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
-from ollama import Tool, ChatResponse
+from unittest.mock import patch, MagicMock, AsyncMock
 import anyio
 
 from mochi_coco.ollama.async_client import AsyncOllamaClient

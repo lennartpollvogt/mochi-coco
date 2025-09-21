@@ -2,9 +2,10 @@
 Command processor for handling special commands in the chat interface.
 """
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict
 import typer
 from datetime import datetime
+from pathlib import Path
 
 from ..rendering import RenderingMode
 from ..utils import re_render_chat_history
@@ -54,7 +55,7 @@ class CommandProcessor:
 
     def process_command(self, user_input: str, session: "ChatSession", model: str) -> CommandResult:
         """
-        Process a user command and return the result.
+        Enhanced command processing with tool commands.
 
         Args:
             user_input: The user's input string
@@ -64,22 +65,46 @@ class CommandProcessor:
         Returns:
             CommandResult indicating what action to take
         """
-        command = user_input.strip()
+        command = user_input.strip().lower()
 
         # Exit commands
-        if command.lower() in {"/exit", "/quit", "/q"}:
+        if command in {"/exit", "/quit", "/q"}:
             typer.secho("Goodbye.", fg=typer.colors.YELLOW)
             return CommandResult(should_continue=False, should_exit=True)
 
+        # Parse command and arguments
+        parts = command.split(maxsplit=1)
+        cmd = parts[0]
+        args = parts[1] if len(parts) > 1 else ""
+
         # Menu command
-        if command == "/menu":
+        if cmd == "/menu":
             return self._handle_menu_command(session)
 
         # Edit command
-        if command == "/edit":
+        if cmd == "/edit":
             return self._handle_edit_command(session)
 
-        # Not a recognized command
+        # Static commands
+        if cmd in ['/1', '/chats']:
+            return self._handle_chats_command(session)
+        elif cmd in ['/2', '/models']:
+            return self._handle_models_command(session)
+        elif cmd in ['/3', '/markdown']:
+            return self._handle_markdown_command(session)
+        elif cmd in ['/4', '/thinking']:
+            return self._handle_thinking_command(session)
+
+        # Dynamic tool commands (check if number corresponds to tool command)
+        command_map = self._build_dynamic_command_map(session)
+        if cmd in command_map:
+            handler_name = command_map[cmd]
+            handler = getattr(self, handler_name, None)
+            if handler:
+                return handler(session, args)
+
+        # Unknown command
+        typer.secho(f"Unknown command: {command}", fg=typer.colors.RED)
         return CommandResult(should_continue=False)
 
     def _handle_models_command(self, session: "ChatSession") -> CommandResult:
@@ -366,16 +391,231 @@ class CommandProcessor:
             typer.secho(f"Error getting LLM response: {e}", fg=typer.colors.RED)
             typer.secho("You can continue chatting normally.", fg=typer.colors.YELLOW)
 
+    def _build_dynamic_command_map(self, session: "ChatSession") -> Dict[str, str]:
+        """Build dynamic command mapping based on available features."""
+        command_map = {
+            '/1': '_handle_chats_command',
+            '/2': '_handle_models_command',
+            '/3': '_handle_markdown_command',
+            '/4': '_handle_thinking_command',
+            '/chats': '_handle_chats_command',
+            '/models': '_handle_models_command',
+            '/markdown': '_handle_markdown_command',
+            '/thinking': '_handle_thinking_command',
+        }
+
+        next_num = 5
+
+        # Check if tools are available
+        if self._are_tools_available():
+            tool_settings = session.get_tool_settings()
+
+            if tool_settings and tool_settings.is_enabled():
+                # Tool policy command
+                command_map[f'/{next_num}'] = '_handle_tool_policy_command'
+                command_map['/policy'] = '_handle_tool_policy_command'
+                next_num += 1
+
+            # Tool selection command
+            command_map[f'/{next_num}'] = '_handle_tools_command'
+            command_map['/tools'] = '_handle_tools_command'
+            next_num += 1
+
+        # System prompt command
+        if self._are_system_prompts_available():
+            command_map[f'/{next_num}'] = '_handle_system_prompt_command'
+            command_map['/system'] = '_handle_system_prompt_command'
+            next_num += 1
+
+        return command_map
+
+    def _are_tools_available(self) -> bool:
+        """Check if tools directory exists and has tools."""
+        tools_dir = Path("./tools")
+        return tools_dir.exists() and (tools_dir / "__init__.py").exists()
+
+    def _are_system_prompts_available(self) -> bool:
+        """Check if system prompts are available."""
+        return hasattr(self, 'system_prompt_service') and self.system_prompt_service is not None
+
+    def _handle_tool_policy_command(self, session: "ChatSession", args: str = "") -> CommandResult:
+        """Handle changing tool execution policy."""
+        from ..tools.config import ToolSettings, ToolExecutionPolicy
+
+        tool_settings = session.get_tool_settings()
+        if not tool_settings:
+            tool_settings = ToolSettings()
+
+        # Cycle through policies
+        policies = list(ToolExecutionPolicy)
+        current_index = policies.index(tool_settings.execution_policy)
+        next_index = (current_index + 1) % len(policies)
+        tool_settings.execution_policy = policies[next_index]
+
+        # Update session
+        if not hasattr(session.metadata, 'tools_settings'):
+            session.metadata.tools_settings = {}
+        session.metadata.tool_settings = tool_settings
+        session.save_session()
+
+        # Display confirmation
+        policy_name = tool_settings.execution_policy.value.replace('_', ' ').title()
+        typer.secho(f"\n✅ Tool execution policy set to: {policy_name}\n",
+                    fg=typer.colors.GREEN, bold=True)
+
+        return CommandResult()
+
+    def _handle_tools_command(self, session: "ChatSession", args: str = "") -> CommandResult:
+        """Handle tool selection command."""
+        from ..tools.discovery_service import ToolDiscoveryService
+        from ..tools.schema_service import ToolSchemaService
+        from ..ui.tool_selection_ui import ToolSelectionUI
+        from ..tools.config import ToolSettings
+
+        # Initialize services
+        discovery = ToolDiscoveryService()
+        schema_service = ToolSchemaService()
+        ui = ToolSelectionUI()
+
+        # Handle reload argument
+        if args.strip().lower() == 'reload':
+            functions, groups = discovery.reload_tools()
+            typer.secho("✅ Tools reloaded", fg=typer.colors.GREEN)
+        else:
+            functions, groups = discovery.discover_tools()
+
+        if not functions and not groups:
+            typer.secho("\n❌ No tools found. Place Python functions in ./tools/__init__.py\n",
+                       fg=typer.colors.RED)
+
+            # Create example file if requested
+            if args.strip().lower() == 'init':
+                self._create_example_tools_file()
+                typer.secho("✅ Created example ./tools/__init__.py", fg=typer.colors.GREEN)
+                typer.secho("Reload tools with '/tools reload' to use them", fg=typer.colors.YELLOW)
+
+            return CommandResult()
+
+        # Get current selection
+        tool_settings = session.get_tool_settings() or ToolSettings()
+        current_selection = (tool_settings.tools, tool_settings.tool_group)
+
+        # Get tool descriptions
+        descriptions = schema_service.get_tool_descriptions(functions)
+
+        # Display selection menu
+        while True:
+            ui.display_tool_selection_menu(descriptions, groups, current_selection)
+
+            # Get selection
+            result = ui.get_tool_selection(len(functions), len(groups))
+
+            if result is None:
+                # Cancelled
+                typer.secho("Tool selection cancelled.", fg=typer.colors.YELLOW)
+                return CommandResult()
+
+            selected_indices, is_group, special = result
+
+            # Handle special commands
+            if special == "reload":
+                functions, groups = discovery.reload_tools()
+                descriptions = schema_service.get_tool_descriptions(functions)
+                typer.secho("✅ Tools reloaded", fg=typer.colors.GREEN)
+                continue
+            elif special == "keep":
+                typer.secho("✅ Keeping current selection", fg=typer.colors.GREEN)
+                return CommandResult()
+
+            # Process selection
+            if is_group and selected_indices:
+                # Group selection
+                group_names = list(groups.keys())
+                group_name = group_names[selected_indices[0]]
+                tool_settings.tool_group = group_name
+                tool_settings.tools = []
+                typer.secho(f"\n✅ Tool group '{group_name}' selected\n", fg=typer.colors.GREEN)
+            elif selected_indices:
+                # Individual tools selection
+                tool_names = list(functions.keys())
+                selected_tools = [tool_names[i] for i in selected_indices]
+                tool_settings.tools = selected_tools
+                tool_settings.tool_group = None
+                typer.secho(f"\n✅ Selected tools: {', '.join(selected_tools)}\n", fg=typer.colors.GREEN)
+            else:
+                # Clear selection
+                tool_settings.tools = []
+                tool_settings.tool_group = None
+                typer.secho("\n✅ Tool selection cleared\n", fg=typer.colors.GREEN)
+
+            # Update session
+            session.metadata.tool_settings = tool_settings
+            session.save_session()
+
+            return CommandResult()
+
+    def _create_example_tools_file(self):
+        """Create an example tools file."""
+        tools_dir = Path("./tools")
+        tools_dir.mkdir(exist_ok=True)
+
+        example_content = '''"""
+User-defined tools for mochi-coco.
+
+Add your tool functions here and include them in __all__ to make them available.
+Tool functions should have docstrings and type hints for best results.
+"""
+
+def get_current_time() -> str:
+    """
+    Get the current time in a readable format.
+
+    Returns:
+        str: Current time as a string
+    """
+    from datetime import datetime
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def calculate_sum(a: float, b: float) -> float:
+    """
+    Calculate the sum of two numbers.
+
+    Args:
+        a: First number
+        b: Second number
+
+    Returns:
+        float: Sum of a and b
+    """
+    return a + b
+
+# Export tools for use
+__all__ = ['get_current_time', 'calculate_sum']
+
+# Optional: Define tool groups
+__math__ = ['calculate_sum']
+__time__ = ['get_current_time']
+'''
+
+        init_file = tools_dir / "__init__.py"
+        init_file.write_text(example_content)
+
     def _handle_menu_command(self, session: "ChatSession") -> CommandResult:
         """Handle the /menu command by displaying menu options and processing selection."""
         from ..ui.user_interaction import UserInteraction
 
         while True:
-            # Check if system prompts are available
-            has_system_prompts = self.system_prompt_service.has_system_prompts()
+            # Check if features are available
+            has_system_prompts = self._are_system_prompts_available()
+            has_tools = self._are_tools_available()
+            tool_settings = session.get_tool_settings()
 
-            # Display the menu
-            self.model_selector.menu_display.display_command_menu(has_system_prompts)
+            # Display the enhanced menu
+            self.model_selector.menu_display.display_command_menu(
+                has_system_prompts=has_system_prompts,
+                has_tools=has_tools,
+                tool_settings=tool_settings
+            )
 
             # Get user selection
             user_interaction = UserInteraction()
@@ -386,34 +626,23 @@ class CommandProcessor:
                 typer.secho("Returning to chat.", fg=typer.colors.YELLOW)
                 return CommandResult()
 
-            # Process menu selection
-            if choice == "1":
-                # Handle chats command
-                result = self._handle_chats_command(session)
-                if result.should_exit or (result.new_session or result.new_model):
-                    return result
-                # If user cancelled, continue menu loop
-                continue
-            elif choice == "2":
-                # Handle models command
-                result = self._handle_models_command(session)
-                if result.new_model:
-                    return result
-                # If user cancelled, continue menu loop
-                continue
-            elif choice == "3":
-                # Handle markdown command
-                result = self._handle_markdown_command(session)
-                return result  # Always return after markdown toggle
-            elif choice == "4":
-                # Handle thinking command
-                result = self._handle_thinking_command(session)
-                return result  # Always return after thinking toggle
-            elif choice == "5" and has_system_prompts:
-                # Handle system prompt command
-                result = self._handle_system_prompt_command(session)
-                return result  # Always return after system prompt change
+            # Process dynamic menu selection
+            command_map = self._build_dynamic_command_map(session)
+            cmd_key = f"/{choice}"
+
+            if cmd_key in command_map:
+                handler_name = command_map[cmd_key]
+                handler = getattr(self, handler_name, None)
+                if handler:
+                    result = handler(session)
+                    if result.should_exit or result.new_session or result.new_model:
+                        return result
+                    # For toggles, return immediately
+                    if handler_name in ['_handle_markdown_command', '_handle_thinking_command',
+                                      '_handle_system_prompt_command', '_handle_tool_policy_command']:
+                        return result
+                    # For selection menus, continue loop if cancelled
+                    continue
             else:
-                max_option = 5 if has_system_prompts else 4
-                typer.secho(f"Please enter 1-{max_option} or 'q'", fg=typer.colors.RED)
+                typer.secho(f"Invalid option: {choice}", fg=typer.colors.RED)
                 continue

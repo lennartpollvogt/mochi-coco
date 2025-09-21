@@ -6,8 +6,8 @@ execution, confirmation, and continuation during streaming responses.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch, call
-from typing import Iterator, Dict, Any, List
+from unittest.mock import Mock, patch
+from typing import Dict, Any, List
 from dataclasses import dataclass
 
 from mochi_coco.rendering.tool_aware_renderer import ToolAwareRenderer

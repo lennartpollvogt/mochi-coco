@@ -5,8 +5,7 @@ This module contains comprehensive tests for the ToolExecutionService class,
 testing all execution scenarios, error handling, and policy enforcement.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 import time
 
 from mochi_coco.tools.execution_service import ToolExecutionService, ToolExecutionResult

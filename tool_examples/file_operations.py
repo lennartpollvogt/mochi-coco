@@ -6,9 +6,7 @@ by LLMs during chat sessions. These demonstrate how to create well-documented
 tools with proper error handling.
 """
 
-import os
 from pathlib import Path
-from typing import Union
 
 
 def read_file(file_path: str) -> str:

@@ -5,11 +5,7 @@ Tests the tool discovery service, schema service, configuration, and UI componen
 that form the foundation of the custom tools feature.
 """
 
-import pytest
-from pathlib import Path
-import tempfile
-import json
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from mochi_coco.tools.discovery_service import ToolDiscoveryService
 from mochi_coco.tools.schema_service import ToolSchemaService

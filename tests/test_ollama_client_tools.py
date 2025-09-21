@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from ollama import Tool, ChatResponse
 
 from mochi_coco.ollama.client import OllamaClient
 

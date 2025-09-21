@@ -82,9 +82,9 @@ class ToolSelectionUI:
         options_text = Text()
         options_text.append("\n💡 Options:\n", style="bold bright_yellow")
         if individual_tools:
-            options_text.append(f"• 🔢 Select tools by numbers (e.g., 1,3,4 or 1-3)\n", style="white")
+            options_text.append("• 🔢 Select tools by numbers (e.g., 1,3,4 or 1-3)\n", style="white")
         if tool_groups:
-            options_text.append(f"• 📂 Select a group by letter (e.g., a)\n", style="white")
+            options_text.append("• 📂 Select a group by letter (e.g., a)\n", style="white")
         options_text.append("• ❌ Type 'none' to clear selection\n", style="white")
         options_text.append("• 🔄 Type 'reload' to refresh tools\n", style="white")
         options_text.append("• ↩️  Press Enter to keep current selection\n", style="white")

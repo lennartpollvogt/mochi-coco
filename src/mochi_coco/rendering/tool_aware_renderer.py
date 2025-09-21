@@ -5,7 +5,7 @@ This module provides the ToolAwareRenderer class which wraps existing renderers
 to add tool call detection, execution, and continuation during streaming responses.
 """
 
-from typing import Iterator, Dict, Callable, List, Optional, Any, TYPE_CHECKING
+from typing import Iterator, Dict, List, Optional, Any, TYPE_CHECKING
 from ollama import ChatResponse, Message, Tool
 from ..tools.execution_service import ToolExecutionService, ToolExecutionResult
 from ..ui.tool_confirmation_ui import ToolConfirmationUI
@@ -75,7 +75,7 @@ class ToolAwareRenderer:
         self.tool_call_depth += 1
         if self.tool_call_depth > self.max_tool_call_depth:
             logger.error(f"Max tool call depth ({self.max_tool_call_depth}) exceeded")
-            print(f"\n[Error: Maximum tool call depth exceeded]")
+            print("\n[Error: Maximum tool call depth exceeded]")
             self.tool_call_depth -= 1
             return None
 

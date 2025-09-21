@@ -153,7 +153,7 @@ class ToolConfirmationUI:
         if result:
             # Truncate long results
             display_result = result if len(result) <= 500 else result[:497] + "..."
-            content.append(f"\n\nOutput:\n", style="bold")
+            content.append("\n\nOutput:\n", style="bold")
             content.append(display_result, style="white")
 
         # Show in panel
@@ -176,7 +176,7 @@ class ToolConfirmationUI:
             content.append(f" ({execution_time:.2f}s)", style="dim")
 
         if error:
-            content.append(f"\n\nError:\n", style="bold")
+            content.append("\n\nError:\n", style="bold")
             content.append(error, style="white")
 
         # Show in panel

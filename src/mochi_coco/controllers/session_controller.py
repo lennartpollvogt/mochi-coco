@@ -10,10 +10,7 @@ import logging
 from ..chat import ChatSession
 from ..services import SessionManager
 from ..ollama import OllamaClient
-from ..tools.config import ToolSettings
 from ..rendering.tool_aware_renderer import ToolAwareRenderer
-from ..tools.execution_service import ToolExecutionService
-from ..tools.schema_service import ToolSchemaService
 
 logger = logging.getLogger(__name__)
 
