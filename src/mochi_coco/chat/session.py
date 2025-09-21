@@ -56,6 +56,9 @@ class SessionMessage:
     timestamp: Optional[str] = None
     eval_count: Optional[int] = None
     prompt_eval_count: Optional[int] = None
+    # Add optional tool-related fields
+    tool_calls: Optional[List[Dict[str, Any]]] = None
+    tool_name: Optional[str] = None
 
     def __post_init__(self):
         if self.message_id is None:
@@ -189,10 +192,20 @@ class ChatSession:
         """Get messages in format suitable for API calls."""
         messages = []
         for message in self.messages:
-            messages.append({
+            msg_dict = {
                 "role": message.role,
                 "content": message.content
-            })
+            }
+
+            # Add tool_calls if present
+            if hasattr(message, 'tool_calls') and message.tool_calls:
+                msg_dict['tool_calls'] = message.tool_calls
+
+            # Add tool_name for tool responses
+            if hasattr(message, 'tool_name') and message.tool_name:
+                msg_dict['tool_name'] = message.tool_name
+
+            messages.append(msg_dict)
 
         return messages
 
@@ -354,3 +367,23 @@ class ChatSession:
 
         # Save the session
         self.save_session()
+
+    def has_tools_enabled(self) -> bool:
+        """Check if session has tools enabled."""
+        if hasattr(self.metadata, 'tool_settings'):
+            settings = self.metadata.tool_settings
+            if isinstance(settings, ToolSettings):
+                return settings.is_enabled()
+            elif isinstance(settings, dict):
+                # Check for tools or tool_group
+                return bool(settings.get('tools') or settings.get('tool_group'))
+        return False
+
+    def get_tool_settings(self) -> Optional[ToolSettings]:
+        """Get tool settings for this session."""
+        if hasattr(self.metadata, 'tool_settings') and self.metadata.tool_settings:
+            if isinstance(self.metadata.tool_settings, ToolSettings):
+                return self.metadata.tool_settings
+            elif isinstance(self.metadata.tool_settings, dict):
+                return ToolSettings.from_dict(self.metadata.tool_settings)
+        return None

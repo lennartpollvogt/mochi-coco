@@ -5,11 +5,15 @@ This module extracts session management logic from ChatController to improve
 separation of concerns and provide focused session operations.
 """
 
-from typing import Optional, NamedTuple, List, Mapping, Any, TYPE_CHECKING
+from typing import Optional, NamedTuple, List, Mapping, Any, TYPE_CHECKING, Dict
 import logging
 from ..chat import ChatSession
 from ..services import SessionManager
 from ..ollama import OllamaClient
+from ..tools.config import ToolSettings
+from ..rendering.tool_aware_renderer import ToolAwareRenderer
+from ..tools.execution_service import ToolExecutionService
+from ..tools.schema_service import ToolSchemaService
 
 logger = logging.getLogger(__name__)
 
@@ -66,19 +70,60 @@ class SessionController:
             return SessionInitResult(None, None, False, False, False)
 
     def process_user_message(self, session: ChatSession, model: str,
-                           user_input: str, renderer) -> MessageProcessResult:
-        """Process a regular user message and get LLM response."""
+                           user_input: str, renderer,
+                           tool_context: Optional[Dict[str, Any]] = None) -> MessageProcessResult:
+        """
+        Process a regular user message and get LLM response.
+
+        Args:
+            session: Current chat session
+            model: Model to use
+            user_input: User's input message
+            renderer: Renderer to use for output
+            tool_context: Optional dict with tool-related context
+        """
         try:
             # Add user message to session
             session.add_user_message(content=user_input)
 
-            # Get messages for API and stream response
+            # Get messages for API
             messages: List[Mapping[str, Any]] = session.get_messages_for_api()
-            text_stream = self.client.chat_stream(model, messages)
-            final_chunk = renderer.render_streaming_response(text_stream)
+
+            # Check if tools are enabled
+            if tool_context and tool_context.get('tools_enabled'):
+                # Stream with tool support
+                tools = tool_context.get('tools', [])
+                text_stream = self.client.chat_stream(model, messages, tools=tools)
+
+                # Create tool-aware renderer if needed
+                if not isinstance(renderer, ToolAwareRenderer):
+                    tool_execution_service = tool_context.get('tool_execution_service')
+                    renderer = ToolAwareRenderer(renderer, tool_execution_service)
+
+                # Add required context for tool handling
+                tool_context.update({
+                    'session': session,
+                    'model': model,
+                    'client': self.client,
+                    'available_tools': tools
+                })
+
+                final_chunk = renderer.render_streaming_response(text_stream, tool_context)
+            else:
+                # Regular streaming without tools
+                text_stream = self.client.chat_stream(model, messages)
+                final_chunk = renderer.render_streaming_response(text_stream)
 
             if final_chunk:
-                session.add_message(chunk=final_chunk)
+                # Only add non-tool messages (tool messages are added by renderer)
+                # If no tools are enabled, always add the message
+                # If tools are enabled, only add if message doesn't have tool_calls
+                if not tool_context or not tool_context.get('tools_enabled'):
+                    # No tools enabled, always add message
+                    session.add_message(chunk=final_chunk)
+                elif not (hasattr(final_chunk.message, 'tool_calls') and final_chunk.message.tool_calls):
+                    # Tools enabled but this message has no tool calls, add it
+                    session.add_message(chunk=final_chunk)
                 return MessageProcessResult(True, final_chunk)
             else:
                 return MessageProcessResult(False, None, "No response received")
