@@ -1,7 +1,7 @@
-from typing import Iterator, List, Optional, Sequence, Mapping, Any
+from typing import Iterator, List, Optional, Sequence, Mapping, Any, Union, Callable
 from dataclasses import dataclass
 
-from ollama import Client, list as ollama_list, ListResponse, ChatResponse, Message, ShowResponse
+from ollama import Client, list as ollama_list, ListResponse, ChatResponse, Message, ShowResponse, Tool
 
 @dataclass
 class ChatMessage:
@@ -82,17 +82,36 @@ class OllamaClient:
         except Exception as e:
             raise Exception(f"Failed to show model details: {e}")
 
-    def chat_stream(self, model: str, messages: Sequence[Mapping[str, Any] | Message]) -> Iterator[ChatResponse]:
+    def chat_stream(self, model: str, messages: Sequence[Mapping[str, Any] | Message],
+                    tools: Optional[Sequence[Union[Tool, Callable]]] = None,
+                    think: Optional[bool] = None) -> Iterator[ChatResponse]:
         """
-        Stream chat responses from the model.
-        Yields tuples of (content, context_window) where context_window is None until the final chunk.
+        Stream chat responses from the model with optional tool support.
+
+        Args:
+            model: Model name to use for generation
+            messages: Sequence of chat messages
+            tools: Optional list of Tool objects or callable functions
+            think: Enable thinking mode for supported models
+
+        Yields:
+            ChatResponse chunks during streaming
         """
         try:
-            response_stream: Iterator[ChatResponse] = self.client.chat(
-                model=model,
-                messages=messages,
-                stream=True
-            )
+            # Build kwargs dynamically to maintain backward compatibility
+            kwargs = {
+                "model": model,
+                "messages": messages,
+                "stream": True
+            }
+
+            # Only add optional parameters if provided
+            if tools is not None:
+                kwargs["tools"] = tools
+            if think is not None:
+                kwargs["think"] = think
+
+            response_stream: Iterator[ChatResponse] = self.client.chat(**kwargs)
 
             for chunk in response_stream:
                 if chunk.message and chunk.message.content:
@@ -105,5 +124,37 @@ class OllamaClient:
                    #yield ChatResponse(message=chunk.message, eval_count=chunk.eval_count, prompt_eval_count=chunk.prompt_eval_count)
                     yield chunk
                     #yield "", chunk.prompt_eval_count
+        except Exception as e:
+            raise Exception(f"Chat failed: {e}")
+
+    def chat(self, model: str, messages: Sequence[Mapping[str, Any] | Message],
+             tools: Optional[Sequence[Union[Tool, Callable]]] = None,
+             think: Optional[bool] = None) -> ChatResponse:
+        """
+        Non-streaming chat with optional tool support.
+
+        Args:
+            model: Model name to use for generation
+            messages: Sequence of chat messages
+            tools: Optional list of Tool objects or callable functions
+            think: Enable thinking mode for supported models
+
+        Returns:
+            Complete ChatResponse
+        """
+        try:
+            kwargs = {
+                "model": model,
+                "messages": messages,
+                "stream": False
+            }
+
+            if tools is not None:
+                kwargs["tools"] = tools
+            if think is not None:
+                kwargs["think"] = think
+
+            return self.client.chat(**kwargs)
+
         except Exception as e:
             raise Exception(f"Chat failed: {e}")
