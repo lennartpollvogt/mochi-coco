@@ -90,7 +90,7 @@ class SessionController:
             if tool_context and tool_context.get('tools_enabled'):
                 # Stream with tool support
                 tools = tool_context.get('tools', [])
-                text_stream = self.client.chat_stream(model, messages, tools=tools)
+                text_stream = self.client.chat_stream(model=model, messages=messages, tools=tools)
 
                 # Create tool-aware renderer if needed
                 if not isinstance(renderer, ToolAwareRenderer):
@@ -108,7 +108,7 @@ class SessionController:
                 final_chunk = renderer.render_streaming_response(text_stream, tool_context)
             else:
                 # Regular streaming without tools
-                text_stream = self.client.chat_stream(model, messages)
+                text_stream = self.client.chat_stream(model=model, messages=messages)
                 final_chunk = renderer.render_streaming_response(text_stream)
 
             if final_chunk:
