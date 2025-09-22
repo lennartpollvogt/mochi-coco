@@ -3,12 +3,14 @@ Menu display utilities using Rich for consistent and beautiful formatting.
 """
 
 from typing import List, Optional
-from rich.console import Console
+import json
+from rich.console import Console, Group
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 from rich.box import ROUNDED, HEAVY
 from rich.align import Align
+from rich.syntax import Syntax
 
 from ..ollama import OllamaClient, ModelInfo
 from ..chat import ChatSession
@@ -217,24 +219,136 @@ class MenuDisplay:
                     self.console.print(message.content)
 
             elif message.role == "assistant":
-                # Compact assistant header
-                assistant_header = Panel(
-                    "🤖 Assistant",
-                    style="bright_magenta",
-                    box=ROUNDED,
-                    padding=(0, 1),
-                    expand=False
-                )
-                self.console.print(assistant_header)
+                # Modified assistant handling
+                self._render_assistant_message(message, i, session)
 
-                # Use renderer if available, otherwise print raw content
-                if self.renderer:
-                    self.renderer.render_static_text(message.content)
-                else:
-                    self.console.print(message.content)
+            elif message.role == "tool":
+                # New tool response handling
+                self._render_tool_response(message)
 
             # Add spacing between messages
             self.console.print()
+
+    def _render_assistant_message(self, message, index, session):
+        """Render assistant message, checking for tool calls."""
+
+        # Display assistant header
+        assistant_header = Panel(
+            "🤖 Assistant",
+            style="bright_magenta",
+            box=ROUNDED,
+            padding=(0, 1),
+            expand=False
+        )
+        self.console.print(assistant_header)
+
+        # Check for tool calls
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            # Render each tool call
+            for tool_call in message.tool_calls:
+                self._render_tool_request(tool_call)
+
+            # If message has no content after tool call, skip content rendering
+            if not message.content:
+                return
+
+        # Render content if present
+        if message.content:
+            if self.renderer:
+                self.renderer.render_static_text(message.content)
+            else:
+                self.console.print(message.content)
+
+    def _render_tool_request(self, tool_call):
+        """Render a tool request panel (without confirmation)."""
+        try:
+            content = []
+
+            # Tool name section
+            tool_text = Text()
+            tool_text.append("Tool: ", style="bold")
+            tool_name = tool_call.get('function', {}).get('name', 'Unknown')
+            tool_text.append(tool_name, style="bold cyan")
+            content.append(tool_text)
+
+            # Arguments section
+            arguments = tool_call.get('function', {}).get('arguments', {})
+            if arguments:
+                content.append(Text())  # Spacing
+                content.append(Text("Arguments:", style="bold"))
+
+                # Format arguments as JSON
+                args_json = json.dumps(arguments, indent=2, ensure_ascii=False)
+                syntax = Syntax(
+                    args_json,
+                    "json",
+                    theme="monokai",
+                    line_numbers=False,
+                    background_color="default"
+                )
+                content.append(syntax)
+            else:
+                content.append(Text("\nNo arguments", style="dim"))
+
+            # Create panel (similar to ToolConfirmationUI but without interaction)
+            content_group = Group(*content)
+            panel = Panel(
+                content_group,
+                title="🤖 AI Tool Request",
+                title_align="left",
+                style="yellow",  # Same as live tool requests
+                box=ROUNDED,
+                expand=False,
+                padding=(1, 2)
+            )
+
+            self.console.print()  # Add spacing before panel
+            self.console.print(panel)
+
+        except (KeyError, TypeError, json.JSONDecodeError) as e:
+            # Fallback rendering for malformed data
+            error_panel = Panel(
+                f"[Tool Call - Error rendering details: {str(e)}]",
+                style="dim red",
+                expand=False
+            )
+            self.console.print(error_panel)
+
+    def _render_tool_response(self, message):
+        """Render a tool response panel."""
+        try:
+            # Get tool name from message
+            tool_name = getattr(message, 'tool_name', 'Unknown Tool')
+
+            # Build content
+            content = Text()
+            content.append(f"✓ Tool '{tool_name}' completed", style="bold green")
+
+            if message.content:
+                # Show tool output (truncate if too long)
+                display_result = message.content if len(message.content) <= 500 else message.content[:497] + "..."
+                content.append("\n\nOutput:\n", style="bold")
+                content.append(display_result, style="white")
+
+            # Create success panel
+            panel = Panel(
+                content,
+                style="green",
+                box=ROUNDED,
+                expand=False
+            )
+
+            self.console.print()  # Add spacing before panel
+            self.console.print(panel)
+
+        except Exception as e:
+            # Fallback rendering for errors
+            error_panel = Panel(
+                f"[Tool Response - Error rendering: {str(e)}]",
+                style="dim red",
+                expand=False
+            )
+            self.console.print(error_panel)
 
     def display_model_selection_prompt(self, model_count: int) -> None:
         """Display prompt for model selection using Rich styling.
