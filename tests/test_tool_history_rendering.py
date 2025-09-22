@@ -184,6 +184,48 @@ class TestToolHistoryRendering:
         # Should render with "Unknown Tool"
         assert menu_display.console.print.called
 
+    def test_render_tool_response_error_content(self, menu_display):
+        """Test tool response with error content shows red styling."""
+        message = SessionMessage(
+            role="tool",
+            content="Error: Tool execution denied by user",
+            message_id="tool1"
+        )
+        message.tool_name = "test_tool"
+
+        menu_display._render_tool_response(message)
+
+        # Should render with error styling
+        assert menu_display.console.print.called
+
+    def test_render_tool_response_failed_content(self, menu_display):
+        """Test tool response with 'failed' keyword shows red styling."""
+        message = SessionMessage(
+            role="tool",
+            content="Tool execution failed due to timeout",
+            message_id="tool1"
+        )
+        message.tool_name = "test_tool"
+
+        menu_display._render_tool_response(message)
+
+        # Should render with error styling
+        assert menu_display.console.print.called
+
+    def test_render_tool_response_denied_content(self, menu_display):
+        """Test tool response with 'denied' keyword shows red styling."""
+        message = SessionMessage(
+            role="tool",
+            content="Access denied for this operation",
+            message_id="tool1"
+        )
+        message.tool_name = "test_tool"
+
+        menu_display._render_tool_response(message)
+
+        # Should render with error styling
+        assert menu_display.console.print.called
+
     def test_render_assistant_message_with_tool_calls(self, menu_display, sample_session_with_tools):
         """Test assistant message rendering when it contains tool calls."""
         assistant_message = sample_session_with_tools.messages[1]  # Assistant with tool call

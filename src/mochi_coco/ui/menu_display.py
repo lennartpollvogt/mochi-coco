@@ -320,9 +320,18 @@ class MenuDisplay:
             # Get tool name from message
             tool_name = getattr(message, 'tool_name', 'Unknown Tool')
 
-            # Build content
+            # Check if the tool execution failed/was denied
+            is_error = (message.content and
+                       (message.content.startswith("Error:") or
+                        "denied" in message.content.lower() or
+                        "failed" in message.content.lower()))
+
+            # Build content based on success/failure
             content = Text()
-            content.append(f"✓ Tool '{tool_name}' completed", style="bold green")
+            if is_error:
+                content.append(f"✗ Tool '{tool_name}' failed", style="bold red")
+            else:
+                content.append(f"✓ Tool '{tool_name}' completed", style="bold green")
 
             if message.content:
                 # Show tool output (truncate if too long)
@@ -330,10 +339,11 @@ class MenuDisplay:
                 content.append("\n\nOutput:\n", style="bold")
                 content.append(display_result, style="white")
 
-            # Create success panel
+            # Create panel with appropriate styling
+            panel_style = "red" if is_error else "green"
             panel = Panel(
                 content,
-                style="green",
+                style=panel_style,
                 box=ROUNDED,
                 expand=False
             )
