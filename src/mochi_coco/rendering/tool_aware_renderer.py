@@ -12,6 +12,7 @@ from ..ui.tool_confirmation_ui import ToolConfirmationUI
 from ..tools.config import ToolSettings, ToolExecutionPolicy
 import logging
 from datetime import datetime
+from copy import deepcopy
 
 if TYPE_CHECKING:
     from ..chat.session import ChatSession
@@ -29,6 +30,83 @@ class ToolAwareRenderer:
         self.confirmation_ui = confirmation_ui or ToolConfirmationUI()
         self.tool_call_depth = 0  # Track recursive tool calls
         self.max_tool_call_depth = 5  # Prevent infinite recursion
+
+    class StreamInterceptor:
+        """
+        Iterator wrapper that intercepts tool calls while passing content to base renderer.
+
+        This class monitors the stream for tool calls and ensures proper rendering
+        completion before tool execution.
+        """
+
+        def __init__(self, source_chunks: Iterator[ChatResponse], parent_renderer: 'ToolAwareRenderer'):
+            """
+            Initialize the interceptor.
+
+            Args:
+                source_chunks: Original chunk iterator from LLM
+                parent_renderer: Reference to parent ToolAwareRenderer for tool handling
+            """
+            self.source_chunks = source_chunks
+            self.parent = parent_renderer
+            self.accumulated_content = ""
+            self.tool_calls_detected = []
+            self.final_chunk = None
+            self._exhausted = False
+
+        def __iter__(self):
+            return self
+
+        def __next__(self) -> ChatResponse:
+            """
+            Process next chunk, intercepting tool calls.
+
+            Returns:
+                ChatResponse: Either original chunk or modified final chunk
+            Raises:
+                StopIteration: When stream is exhausted or tool call requires interruption
+            """
+            if self._exhausted:
+                raise StopIteration
+
+            try:
+                chunk = next(self.source_chunks)
+
+                # Accumulate content for tracking
+                if chunk.message.content:
+                    self.accumulated_content += chunk.message.content
+
+                # Check for tool calls
+                if hasattr(chunk.message, 'tool_calls') and chunk.message.tool_calls:
+                    self.tool_calls_detected = chunk.message.tool_calls
+
+                    # Create a final chunk with accumulated content to trigger markdown rendering
+                    # We need to create a copy to avoid modifying the original chunk
+                    final_chunk = deepcopy(chunk)
+                    final_chunk.done = True
+                    final_chunk.message.content = self.accumulated_content
+                    final_chunk.message.tool_calls = []  # Remove tool calls from content chunk
+
+                    self.final_chunk = final_chunk
+                    self._exhausted = True
+
+                    # If we have content to render, return the final chunk first
+                    if self.accumulated_content:
+                        return final_chunk
+                    else:
+                        # No content to render, just stop
+                        raise StopIteration
+
+                # Check if this is naturally the final chunk
+                if chunk.done:
+                    self.final_chunk = chunk
+                    self._exhausted = True
+
+                return chunk
+
+            except StopIteration:
+                self._exhausted = True
+                raise
 
     def render_streaming_response(self, text_chunks: Iterator[ChatResponse],
                                  tool_context: Optional[Dict] = None) -> Optional[ChatResponse]:
@@ -65,12 +143,11 @@ class ToolAwareRenderer:
                           client: "OllamaClient",
                           available_tools: List[Tool]) -> Optional[ChatResponse]:
         """
-        Render streaming response with tool call handling.
-        """
-        accumulated_text = ""
-        final_chunk = None
-        tool_calls_made = False
+        Render streaming response with tool call handling using delegation pattern.
 
+        This method now properly delegates content rendering to the base renderer
+        while intercepting and handling tool calls.
+        """
         # Check recursion depth
         self.tool_call_depth += 1
         if self.tool_call_depth > self.max_tool_call_depth:
@@ -80,86 +157,80 @@ class ToolAwareRenderer:
             return None
 
         try:
-            for chunk in text_chunks:
-                # Handle thinking blocks if present (delegate to base renderer logic)
-                if hasattr(chunk.message, 'thinking') and chunk.message.thinking:
-                    if hasattr(self.base_renderer, 'show_thinking') and self.base_renderer.show_thinking:
-                        print(chunk.message.thinking, end='', flush=True)
+            # Create stream interceptor
+            interceptor = self.StreamInterceptor(text_chunks, self)
 
-                # Handle regular content
-                if chunk.message.content:
-                    accumulated_text += chunk.message.content
-                    print(chunk.message.content, end='', flush=True)
+            # Delegate rendering to base renderer with intercepted stream
+            # The base renderer will handle markdown formatting properly
+            result = self.base_renderer.render_streaming_response(interceptor)
 
-                # Handle tool calls
-                if hasattr(chunk.message, 'tool_calls') and chunk.message.tool_calls:
-                    tool_calls_made = True
+            # Check if tool calls were detected (preserve state from interceptor)
+            detected_tool_calls = interceptor.tool_calls_detected
+            accumulated_content = interceptor.accumulated_content
 
-                    # Process each tool call
-                    for tool_call in chunk.message.tool_calls:
-                        print(f"\n\n🔧 AI requesting tool: {tool_call.function.name}")
+            if detected_tool_calls:
+                # Process each tool call
+                for tool_call in detected_tool_calls:
+                    print(f"\n\n🔧 AI requesting tool: {tool_call.function.name}")
 
-                        tool_result = self._handle_tool_call(
-                            tool_call,
-                            tool_settings
+                    tool_result = self._handle_tool_call(
+                        tool_call,
+                        tool_settings
+                    )
+
+                    if tool_result:
+                        # Add tool call message to session
+                        # Use the accumulated content from interceptor
+                        message_with_content = Message(
+                            role="assistant",
+                            content=accumulated_content or ""
+                        )
+                        message_with_content.tool_calls = [tool_call]
+
+                        self._add_tool_call_to_session(
+                            session, message_with_content, tool_call, model
                         )
 
-                        if tool_result:
-                            # Add tool call message to session
-                            self._add_tool_call_to_session(
-                                session, chunk.message, tool_call, model
+                        # Add tool response to session
+                        self._add_tool_response_to_session(
+                            session, tool_call.function.name, tool_result
+                        )
+
+                        # Show result to user
+                        if self.confirmation_ui:
+                            self.confirmation_ui.show_tool_result(
+                                tool_call.function.name,
+                                tool_result.success if isinstance(tool_result, ToolExecutionResult) else True,
+                                tool_result.result if isinstance(tool_result, ToolExecutionResult) else str(tool_result),
+                                tool_result.error_message if isinstance(tool_result, ToolExecutionResult) else None
                             )
 
-                            # Add tool response to session
-                            self._add_tool_response_to_session(
-                                session, tool_call.function.name, tool_result
+                        # Continue conversation with tool result
+                        if tool_result.success or tool_result.result:
+                            print("\n🤖 Processing tool result...\n")
+                            messages = session.get_messages_for_api()
+
+                            # Create continuation stream
+                            continuation_stream = client.chat_stream(
+                                model,
+                                messages,
+                                tools=available_tools
                             )
 
-                            # Show result to user
-                            if self.confirmation_ui:
-                                self.confirmation_ui.show_tool_result(
-                                    tool_call.function.name,
-                                    tool_result.success if isinstance(tool_result, ToolExecutionResult) else True,
-                                    tool_result.result if isinstance(tool_result, ToolExecutionResult) else str(tool_result),
-                                    tool_result.error_message if isinstance(tool_result, ToolExecutionResult) else None
-                                )
+                            # Recursively handle continuation (might have more tool calls)
+                            continuation_result = self._render_with_tools(
+                                continuation_stream,
+                                tool_settings,
+                                session,
+                                model,
+                                client,
+                                available_tools
+                            )
 
-                            # Continue conversation with tool result only if execution was successful
-                            # or if we have a result to pass to the model
-                            if tool_result.success or tool_result.result:
-                                print("\n🤖 Processing tool result...\n")
-                                messages = session.get_messages_for_api()
+                            return continuation_result
 
-                                # Continue streaming with updated context
-                                continuation_stream = client.chat_stream(
-                                    model,
-                                    messages,
-                                    tools=available_tools
-                                )
-
-                                # Recursively handle continuation (might have more tool calls)
-                                continuation_result = self._render_with_tools(
-                                    continuation_stream,
-                                    tool_settings,
-                                    session,
-                                    model,
-                                    client,
-                                    available_tools
-                                )
-
-                                # Return the final result from the continuation
-                                return continuation_result
-
-                # Check if this is the final chunk
-                if chunk.done:
-                    chunk.message.content = accumulated_text
-                    final_chunk = chunk
-
-            # If we had tool calls but no continuation, something went wrong
-            if tool_calls_made and not final_chunk:
-                logger.warning("Tool calls made but no final response received")
-
-            return final_chunk
+            # Return the result from base renderer
+            return result if result else interceptor.final_chunk
 
         finally:
             self.tool_call_depth -= 1

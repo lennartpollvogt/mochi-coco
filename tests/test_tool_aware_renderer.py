@@ -59,9 +59,24 @@ class TestToolAwareRenderer:
         """Create a mock base renderer."""
         renderer = Mock()
         renderer.show_thinking = False
-        renderer.render_streaming_response.return_value = MockChatResponse(
-            MockMessage(content="Base response"), done=True
-        )
+
+        def mock_render_streaming_response(iterator):
+            # Actually consume the iterator like a real renderer would
+            accumulated_content = ""
+            final_chunk = None
+
+            for chunk in iterator:
+                if chunk.message.content:
+                    accumulated_content += chunk.message.content
+                if chunk.done:
+                    final_chunk = chunk
+
+            # Return a mock response
+            return MockChatResponse(
+                MockMessage(content="Base response"), done=True
+            )
+
+        renderer.render_streaming_response.side_effect = mock_render_streaming_response
         return renderer
 
     @pytest.fixture
@@ -137,7 +152,9 @@ class TestToolAwareRenderer:
         result = tool_aware_renderer.render_streaming_response(iter(chunks))
 
         mock_base_renderer.render_streaming_response.assert_called_once()
-        assert result == mock_base_renderer.render_streaming_response.return_value
+        # Result should be the return value from the mock side_effect
+        assert result is not None
+        assert result.message.content == "Base response"
 
     def test_render_with_tools_disabled(self, tool_aware_renderer, mock_base_renderer):
         """Test that renderer falls back to base renderer when tools are disabled."""
@@ -168,15 +185,14 @@ class TestToolAwareRenderer:
         message = MockMessage(content="Hello, how are you?")
         chunks = [MockChatResponse(message, done=True)]
 
-        with patch('builtins.print') as mock_print:
-            result = tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
+        result = tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
-            # Should print the content
-            mock_print.assert_called_with("Hello, how are you?", end='', flush=True)
-            assert result.message.content == "Hello, how are you?"
+        # Content should be handled by base renderer, check that we get a result
+        assert result is not None
+        # Base renderer was called and consumed the content
+        assert tool_aware_renderer.base_renderer.render_streaming_response.called
 
-    @patch('builtins.print')
-    def test_render_thinking_blocks(self, mock_print, tool_aware_renderer, tool_context):
+    def test_render_thinking_blocks(self, tool_aware_renderer, tool_context):
         """Test rendering with thinking blocks when enabled."""
         tool_aware_renderer.base_renderer.show_thinking = True
 
@@ -185,9 +201,9 @@ class TestToolAwareRenderer:
 
         result = tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
-        # Should print thinking content
-        mock_print.assert_any_call("I need to think...", end='', flush=True)
-        mock_print.assert_any_call("Response", end='', flush=True)
+        # Thinking blocks are now handled by base renderer through delegation
+        assert result is not None
+        assert tool_aware_renderer.base_renderer.render_streaming_response.called
 
     @patch('builtins.print')
     def test_handle_tool_call_success(self, mock_print, tool_aware_renderer, tool_context):
@@ -355,8 +371,8 @@ class TestToolAwareRenderer:
         with patch('builtins.print'):
             result = renderer.render_streaming_response(iter(chunks), tool_context)
 
-        # Should handle gracefully (return None since continuation fails)
-        assert result is None
+        # Should handle gracefully but still return a result from base renderer
+        assert result is not None
 
     def test_max_recursion_depth(self, tool_aware_renderer, tool_context):
         """Test that maximum recursion depth is enforced."""
