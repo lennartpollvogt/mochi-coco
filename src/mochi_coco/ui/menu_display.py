@@ -522,7 +522,6 @@ class MenuDisplay:
         if has_tools:
             # Tool-related commands
             if tool_settings:
-                from ..tools.config import ToolExecutionPolicy
                 if hasattr(tool_settings, 'execution_policy'):
                     policy_status = tool_settings.execution_policy.value.replace('_', ' ').title()
                 else:

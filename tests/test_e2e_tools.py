@@ -1,9 +1,7 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from pathlib import Path
-import tempfile
 import json
-import shutil
 
 from mochi_coco.tools.discovery_service import ToolDiscoveryService
 from mochi_coco.tools.execution_service import ToolExecutionService
@@ -11,7 +9,6 @@ from mochi_coco.tools.schema_service import ToolSchemaService
 from mochi_coco.tools.config import ToolSettings, ToolExecutionPolicy
 from mochi_coco.chat.session import ChatSession
 from mochi_coco.commands.command_processor import CommandProcessor
-from mochi_coco.ui.menu import ModelSelector
 
 
 @pytest.mark.integration

@@ -1,8 +1,6 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 from pathlib import Path
-import tempfile
-import json
 
 from mochi_coco.tools.discovery_service import ToolDiscoveryService
 from mochi_coco.tools.execution_service import ToolExecutionService

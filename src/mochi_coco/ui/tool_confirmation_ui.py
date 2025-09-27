@@ -14,21 +14,23 @@ from rich.box import ROUNDED
 from rich.console import Group
 import json
 
+
 class ToolConfirmationUI:
     """UI for confirming tool execution."""
 
     def __init__(self):
         self.console = Console()
         self.colors = {
-            'warning': 'yellow',
-            'success': 'green',
-            'error': 'red',
-            'info': 'blue',
-            'highlight': 'cyan'
+            "warning": "yellow",
+            "success": "green",
+            "error": "red",
+            "info": "blue",
+            "highlight": "cyan",
         }
 
-    def confirm_tool_execution(self, tool_name: str, arguments: Dict[str, Any],
-                              timeout: Optional[float] = None) -> bool:
+    def confirm_tool_execution(
+        self, tool_name: str, arguments: Dict[str, Any], timeout: Optional[float] = None
+    ) -> bool:
         """
         Display confirmation prompt for tool execution.
 
@@ -46,11 +48,12 @@ class ToolConfirmationUI:
         # Get user confirmation (not added to chat history)
         try:
             # Show prompt
-            self.console.print("\n⚠️  Allow execution? ", style="bold yellow", end="")
-            self.console.print("[y/N]: ", style="bold white", end="")
+            self.console.print(
+                "\n⚠️  Allow execution? y/N: ", style="bold yellow", end=""
+            )
 
             response = input().strip().lower()
-            confirmed = response in ['y', 'yes']
+            confirmed = response in ["y", "yes"]
 
             # Show confirmation result
             if confirmed:
@@ -89,7 +92,7 @@ class ToolConfirmationUI:
                     "json",
                     theme="monokai",
                     line_numbers=False,
-                    background_color="default"
+                    background_color="default",
                 )
                 content.append(syntax)
         else:
@@ -102,10 +105,10 @@ class ToolConfirmationUI:
             content_group,
             title="🤖 AI Tool Request",
             title_align="left",
-            style=self.colors['warning'],
+            style=self.colors["warning"],
             box=ROUNDED,
             expand=False,
-            padding=(1, 2)
+            padding=(1, 2),
         )
 
         self.console.print(panel)
@@ -122,9 +125,14 @@ class ToolConfirmationUI:
             # Fallback to string representation
             return str(arguments)
 
-    def show_tool_result(self, tool_name: str, success: bool,
-                        result: Optional[str] = None, error: Optional[str] = None,
-                        execution_time: Optional[float] = None):
+    def show_tool_result(
+        self,
+        tool_name: str,
+        success: bool,
+        result: Optional[str] = None,
+        error: Optional[str] = None,
+        execution_time: Optional[float] = None,
+    ):
         """
         Display tool execution result.
 
@@ -140,8 +148,9 @@ class ToolConfirmationUI:
         else:
             self._show_error_result(tool_name, error, execution_time)
 
-    def _show_success_result(self, tool_name: str, result: Optional[str],
-                            execution_time: Optional[float]):
+    def _show_success_result(
+        self, tool_name: str, result: Optional[str], execution_time: Optional[float]
+    ):
         """Display successful execution result."""
         # Build content
         content = Text()
@@ -157,16 +166,12 @@ class ToolConfirmationUI:
             content.append(display_result, style="white")
 
         # Show in panel
-        panel = Panel(
-            content,
-            style="green",
-            box=ROUNDED,
-            expand=False
-        )
+        panel = Panel(content, style="green", box=ROUNDED, expand=False)
         self.console.print(panel)
 
-    def _show_error_result(self, tool_name: str, error: Optional[str],
-                          execution_time: Optional[float]):
+    def _show_error_result(
+        self, tool_name: str, error: Optional[str], execution_time: Optional[float]
+    ):
         """Display error execution result."""
         # Build content
         content = Text()
@@ -180,20 +185,15 @@ class ToolConfirmationUI:
             content.append(error, style="white")
 
         # Show in panel
-        panel = Panel(
-            content,
-            style="red",
-            box=ROUNDED,
-            expand=False
-        )
+        panel = Panel(content, style="red", box=ROUNDED, expand=False)
         self.console.print(panel)
 
     def show_policy_status(self, policy: str):
         """Display current execution policy status."""
         policy_descriptions = {
-            'always_confirm': 'All tool executions require confirmation',
-            'never_confirm': 'Tools execute automatically without confirmation',
-            'confirm_destructive': 'Only destructive operations require confirmation'
+            "always_confirm": "All tool executions require confirmation",
+            "never_confirm": "Tools execute automatically without confirmation",
+            "confirm_destructive": "Only destructive operations require confirmation",
         }
 
         description = policy_descriptions.get(policy, policy)
@@ -201,8 +201,8 @@ class ToolConfirmationUI:
         panel = Panel(
             f"[bold]Current Policy:[/bold] {description}",
             title="🛠️ Tool Execution Policy",
-            style=self.colors['info'],
-            box=ROUNDED
+            style=self.colors["info"],
+            box=ROUNDED,
         )
 
         self.console.print(panel)

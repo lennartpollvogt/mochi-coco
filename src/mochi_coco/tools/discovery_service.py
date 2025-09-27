@@ -6,8 +6,7 @@ as tools by LLMs. It supports both individual tool discovery and tool groups
 as defined in the tools/__init__.py file.
 """
 
-from typing import Dict, List, Tuple, Callable, Optional, Any
-import os
+from typing import Dict, List, Tuple, Callable, Optional
 import sys
 import importlib.util
 import inspect

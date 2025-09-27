@@ -3,12 +3,10 @@ Tests for tool history rendering functionality.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-import json
-from pathlib import Path
+from unittest.mock import Mock
 
 from mochi_coco.ui.menu_display import MenuDisplay
-from mochi_coco.chat.session import ChatSession, SessionMessage, SessionMetadata
+from mochi_coco.chat.session import ChatSession, SessionMessage
 from mochi_coco.rendering import MarkdownRenderer
 
 

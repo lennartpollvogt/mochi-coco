@@ -211,4 +211,3 @@ chat_sessions/
 system_prompts/
 #tools/
 example.py
-ollama_code/

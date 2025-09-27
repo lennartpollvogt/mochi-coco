@@ -7,7 +7,6 @@ of user-defined tools with proper error handling, confirmation policies, and exe
 
 from typing import Dict, Callable, Any, Optional, List
 from dataclasses import dataclass
-import traceback
 import time
 import logging
 from .config import ToolExecutionPolicy

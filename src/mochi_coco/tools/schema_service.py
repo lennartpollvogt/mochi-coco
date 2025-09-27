@@ -5,7 +5,7 @@ This service leverages Ollama's built-in utilities to convert Python functions
 into Tool objects that can be passed to the LLM for function calling.
 """
 
-from typing import List, Dict, Callable, Optional
+from typing import Dict, Callable
 from ollama import Tool
 from ollama._utils import convert_function_to_tool, _parse_docstring
 import inspect

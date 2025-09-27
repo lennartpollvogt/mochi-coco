@@ -1,9 +1,7 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-import asyncio
-from typing import Dict, Any
+from unittest.mock import Mock
 
-from mochi_coco.tools.execution_service import ToolExecutionService, ToolExecutionResult
+from mochi_coco.tools.execution_service import ToolExecutionService
 from mochi_coco.tools.config import ToolExecutionPolicy
 
 
