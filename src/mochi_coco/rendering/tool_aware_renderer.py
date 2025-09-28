@@ -213,8 +213,6 @@ class ToolAwareRenderer:
 
                 # Process each tool call
                 for tool_call in detected_tool_calls:
-                    print(f"\n\n🔧 AI requesting tool: {tool_call.function.name}")
-
                     tool_result = self._handle_tool_call(tool_call, tool_settings)
 
                     if tool_result:
