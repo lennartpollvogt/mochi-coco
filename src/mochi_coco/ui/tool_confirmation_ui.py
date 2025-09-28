@@ -121,7 +121,7 @@ class ToolConfirmationUI:
         try:
             # Pretty print JSON for better readability
             return json.dumps(arguments, indent=2, ensure_ascii=False, default=str)
-        except:
+        except Exception:
             # Fallback to string representation
             return str(arguments)
 

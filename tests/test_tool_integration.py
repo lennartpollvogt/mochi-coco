@@ -94,52 +94,48 @@ __test__ = ['failing_tool']
         functions, groups = discovery.discover_tools()
 
         # Verify discovery worked
-        assert 'calculate' in functions
-        assert 'get_time' in functions
-        assert 'process_text' in functions
-        assert 'math' in groups
-        assert 'text' in groups
+        assert "calculate" in functions
+        assert "get_time" in functions
+        assert "process_text" in functions
+        assert "math" in groups
+        assert "text" in groups
 
         # Schema generation
         schema_service = ToolSchemaService()
         descriptions = schema_service.get_tool_descriptions(functions)
 
         # Verify schemas
-        assert 'calculate' in descriptions
-        calc_desc = descriptions['calculate']
+        assert "calculate" in descriptions
+        calc_desc = descriptions["calculate"]
         # Description should be a string containing function description
         assert isinstance(calc_desc, str)
-        assert 'mathematical' in calc_desc.lower() or 'expression' in calc_desc.lower()
+        assert "mathematical" in calc_desc.lower() or "expression" in calc_desc.lower()
 
         # Execution
         execution_service = ToolExecutionService(functions)
 
         # Test successful execution
         result = execution_service.execute_tool(
-            'calculate',
-            {'expression': '2 + 2'},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "calculate", {"expression": "2 + 2"}, ToolExecutionPolicy.NEVER_CONFIRM
         )
         assert result.success
-        assert result.result == '4'
+        assert result.result == "4"
 
         # Test execution with default parameter
         result = execution_service.execute_tool(
-            'process_text',
-            {'text': 'hello'},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "process_text", {"text": "hello"}, ToolExecutionPolicy.NEVER_CONFIRM
         )
         assert result.success
-        assert result.result == 'HELLO'
+        assert result.result == "HELLO"
 
         # Test execution with explicit parameter
         result = execution_service.execute_tool(
-            'process_text',
-            {'text': 'hello', 'operation': 'reverse'},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "process_text",
+            {"text": "hello", "operation": "reverse"},
+            ToolExecutionPolicy.NEVER_CONFIRM,
         )
         assert result.success
-        assert result.result == 'olleh'
+        assert result.result == "olleh"
 
     def test_tool_group_execution(self, temp_tools_dir):
         """Test executing tools from a specific group."""
@@ -147,8 +143,8 @@ __test__ = ['failing_tool']
         functions, groups = discovery.discover_tools()
 
         # Get math group tools
-        math_tools = groups['math']
-        assert 'calculate' in math_tools
+        math_tools = groups["math"]
+        assert "calculate" in math_tools
 
         # Create execution service with only math tools
         math_functions = {name: functions[name] for name in math_tools}
@@ -156,18 +152,14 @@ __test__ = ['failing_tool']
 
         # Execute math tool
         result = execution_service.execute_tool(
-            'calculate',
-            {'expression': '10 * 5'},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "calculate", {"expression": "10 * 5"}, ToolExecutionPolicy.NEVER_CONFIRM
         )
         assert result.success
-        assert result.result == '50'
+        assert result.result == "50"
 
         # Verify non-math tools are not available
         result = execution_service.execute_tool(
-            'get_time',
-            {},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "get_time", {}, ToolExecutionPolicy.NEVER_CONFIRM
         )
         assert not result.success
         assert "not found" in result.error_message.lower()
@@ -180,18 +172,16 @@ __test__ = ['failing_tool']
 
         # Test tool that raises exception
         result = execution_service.execute_tool(
-            'failing_tool',
-            {},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "failing_tool", {}, ToolExecutionPolicy.NEVER_CONFIRM
         )
         assert not result.success
         assert "designed to fail" in result.error_message
 
         # Test tool with invalid input
         result = execution_service.execute_tool(
-            'calculate',
-            {'expression': 'invalid math'},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "calculate",
+            {"expression": "invalid math"},
+            ToolExecutionPolicy.NEVER_CONFIRM,
         )
         assert result.success  # Our calculate tool handles errors gracefully
         assert "Error:" in result.result
@@ -205,10 +195,7 @@ __test__ = ['failing_tool']
         # Test confirmation approved
         confirm_callback = Mock(return_value=True)
         result = execution_service.execute_tool(
-            'get_time',
-            {},
-            ToolExecutionPolicy.ALWAYS_CONFIRM,
-            confirm_callback
+            "get_time", {}, ToolExecutionPolicy.ALWAYS_CONFIRM, confirm_callback
         )
         assert result.success
         assert confirm_callback.called
@@ -216,10 +203,7 @@ __test__ = ['failing_tool']
         # Test confirmation denied
         confirm_callback = Mock(return_value=False)
         result = execution_service.execute_tool(
-            'get_time',
-            {},
-            ToolExecutionPolicy.ALWAYS_CONFIRM,
-            confirm_callback
+            "get_time", {}, ToolExecutionPolicy.ALWAYS_CONFIRM, confirm_callback
         )
         assert not result.success
         assert "denied by user" in result.error_message.lower()
@@ -232,20 +216,21 @@ __test__ = ['failing_tool']
 
         # Set up tool settings
         tool_settings = ToolSettings(
-            tools=['calculate', 'get_time'],
+            tools=["calculate", "get_time"],
             tool_group=None,
-            execution_policy=ToolExecutionPolicy.NEVER_CONFIRM
+            execution_policy=ToolExecutionPolicy.NEVER_CONFIRM,
         )
         session.metadata.tool_settings = tool_settings
         session.save_session()
 
         # Load session and verify settings
-        loaded_session = ChatSession("test-model", session_id=session.session_id,
-                                   sessions_dir=str(sessions_dir))
+        loaded_session = ChatSession(
+            "test-model", session_id=session.session_id, sessions_dir=str(sessions_dir)
+        )
         loaded_settings = loaded_session.get_tool_settings()
 
         assert loaded_settings is not None
-        assert loaded_settings.tools == ['calculate', 'get_time']
+        assert loaded_settings.tools == ["calculate", "get_time"]
         assert loaded_settings.execution_policy == ToolExecutionPolicy.NEVER_CONFIRM
 
     def test_tool_reload_integration(self, temp_tools_dir):
@@ -254,7 +239,7 @@ __test__ = ['failing_tool']
 
         # Initial discovery
         functions1, groups1 = discovery.discover_tools()
-        assert 'calculate' in functions1
+        assert "calculate" in functions1
 
         # Modify tools file
         tools_dir = Path(temp_tools_dir)
@@ -274,25 +259,21 @@ __new_group__ = ['new_tool']
 
         # Reload tools
         functions2, groups2 = discovery.reload_tools()
-        assert 'new_tool' in functions2
-        assert 'calculate' in functions2
-        assert 'new_group' in groups2
+        assert "new_tool" in functions2
+        assert "calculate" in functions2
+        assert "new_group" in groups2
 
         # Test that new tool works
         execution_service = ToolExecutionService(functions2)
         result = execution_service.execute_tool(
-            'new_tool',
-            {},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "new_tool", {}, ToolExecutionPolicy.NEVER_CONFIRM
         )
         assert result.success
         assert result.result == "new"
 
         # Test that updated tool works
         result = execution_service.execute_tool(
-            'calculate',
-            {'expression': '2+2'},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "calculate", {"expression": "2+2"}, ToolExecutionPolicy.NEVER_CONFIRM
         )
         assert result.success
         assert "Updated:" in result.result
@@ -307,17 +288,17 @@ __new_group__ = ['new_tool']
         descriptions = schema_service.get_tool_descriptions(functions)
 
         # Test calculate tool schema
-        calc_desc = descriptions.get('calculate')
+        calc_desc = descriptions.get("calculate")
         assert calc_desc is not None
         assert isinstance(calc_desc, str)
 
         # Test process_text tool schema
-        text_desc = descriptions.get('process_text')
+        text_desc = descriptions.get("process_text")
         assert text_desc is not None
         assert isinstance(text_desc, str)
 
         # Test tool with no parameters
-        time_desc = descriptions.get('get_time')
+        time_desc = descriptions.get("get_time")
         assert time_desc is not None
         assert isinstance(time_desc, str)
 
@@ -327,21 +308,17 @@ __new_group__ = ['new_tool']
         discovery = ToolDiscoveryService(temp_tools_dir)
         functions, groups = discovery.discover_tools()
         execution_service = ToolExecutionService(functions)
-        schema_service = ToolSchemaService()
 
         # Simulate LLM requesting a tool call
         tool_call = {
-            "function": {
-                "name": "calculate",
-                "arguments": {"expression": "15 + 27"}
-            }
+            "function": {"name": "calculate", "arguments": {"expression": "15 + 27"}}
         }
 
         # Execute the tool call
         result = execution_service.execute_tool(
             tool_call["function"]["name"],
             tool_call["function"]["arguments"],
-            ToolExecutionPolicy.NEVER_CONFIRM
+            ToolExecutionPolicy.NEVER_CONFIRM,
         )
 
         # Verify result
@@ -353,7 +330,7 @@ __new_group__ = ['new_tool']
         tool_response = {
             "role": "tool",
             "tool_name": result.tool_name,
-            "content": result.result
+            "content": result.result,
         }
 
         assert tool_response["content"] == "42"
@@ -369,29 +346,27 @@ __new_group__ = ['new_tool']
 
         # 1. Get current time
         result1 = execution_service.execute_tool(
-            'get_time', {}, ToolExecutionPolicy.NEVER_CONFIRM
+            "get_time", {}, ToolExecutionPolicy.NEVER_CONFIRM
         )
         assert result1.success
         results.append(result1)
 
         # 2. Process some text
         result2 = execution_service.execute_tool(
-            'process_text',
-            {'text': 'hello world', 'operation': 'upper'},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "process_text",
+            {"text": "hello world", "operation": "upper"},
+            ToolExecutionPolicy.NEVER_CONFIRM,
         )
         assert result2.success
-        assert result2.result == 'HELLO WORLD'
+        assert result2.result == "HELLO WORLD"
         results.append(result2)
 
         # 3. Do a calculation
         result3 = execution_service.execute_tool(
-            'calculate',
-            {'expression': '100 - 42'},
-            ToolExecutionPolicy.NEVER_CONFIRM
+            "calculate", {"expression": "100 - 42"}, ToolExecutionPolicy.NEVER_CONFIRM
         )
         assert result3.success
-        assert result3.result == '58'
+        assert result3.result == "58"
         results.append(result3)
 
         # Verify all results
@@ -406,24 +381,22 @@ __new_group__ = ['new_tool']
         session = ChatSession("test-model", sessions_dir=str(sessions_dir))
 
         tool_settings = ToolSettings(
-            tools=['calculate'],
+            tools=["calculate"],
             tool_group=None,
-            execution_policy=ToolExecutionPolicy.ALWAYS_CONFIRM
+            execution_policy=ToolExecutionPolicy.ALWAYS_CONFIRM,
         )
         session.metadata.tool_settings = tool_settings
         session.save_session()
 
         # Load session in new instance
         new_session = ChatSession(
-            "test-model",
-            session_id=session.session_id,
-            sessions_dir=str(sessions_dir)
+            "test-model", session_id=session.session_id, sessions_dir=str(sessions_dir)
         )
 
         # Verify settings persisted
         loaded_settings = new_session.get_tool_settings()
         assert loaded_settings is not None
-        assert loaded_settings.tools == ['calculate']
+        assert loaded_settings.tools == ["calculate"]
         assert loaded_settings.execution_policy == ToolExecutionPolicy.ALWAYS_CONFIRM
 
     def test_malformed_tool_directory_handling(self, tmp_path):

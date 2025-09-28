@@ -19,6 +19,7 @@ from mochi_coco.ui.tool_confirmation_ui import ToolConfirmationUI
 @dataclass
 class MockMessage:
     """Mock message for testing."""
+
     role: str = "assistant"
     content: str = ""
     thinking: str = ""
@@ -32,22 +33,24 @@ class MockMessage:
 @dataclass
 class MockChatResponse:
     """Mock ChatResponse for testing."""
+
     message: MockMessage
     done: bool = False
     model: str = "test-model"
 
     def __post_init__(self):
-        if not hasattr(self, 'message') or self.message is None:
+        if not hasattr(self, "message") or self.message is None:
             self.message = MockMessage()
 
 
 @dataclass
 class MockToolCall:
     """Mock tool call for testing."""
+
     function: Any
 
     def __post_init__(self):
-        if not hasattr(self.function, 'name'):
+        if not hasattr(self.function, "name"):
             self.function = Mock(name="test_tool", arguments={})
 
 
@@ -63,18 +66,13 @@ class TestToolAwareRenderer:
         def mock_render_streaming_response(iterator):
             # Actually consume the iterator like a real renderer would
             accumulated_content = ""
-            final_chunk = None
 
             for chunk in iterator:
                 if chunk.message.content:
                     accumulated_content += chunk.message.content
-                if chunk.done:
-                    final_chunk = chunk
 
             # Return a mock response
-            return MockChatResponse(
-                MockMessage(content="Base response"), done=True
-            )
+            return MockChatResponse(MockMessage(content="Base response"), done=True)
 
         renderer.render_streaming_response.side_effect = mock_render_streaming_response
         return renderer
@@ -93,13 +91,11 @@ class TestToolAwareRenderer:
                         success=False,
                         result=None,
                         error_message="Tool execution denied by user",
-                        tool_name=tool_name
+                        tool_name=tool_name,
                     )
 
             return ToolExecutionResult(
-                success=True,
-                result="Tool executed successfully",
-                tool_name=tool_name
+                success=True, result="Tool executed successfully", tool_name=tool_name
             )
 
         service.execute_tool.side_effect = mock_execute_tool
@@ -113,12 +109,12 @@ class TestToolAwareRenderer:
         return ui
 
     @pytest.fixture
-    def tool_aware_renderer(self, mock_base_renderer, mock_tool_execution_service, mock_confirmation_ui):
+    def tool_aware_renderer(
+        self, mock_base_renderer, mock_tool_execution_service, mock_confirmation_ui
+    ):
         """Create a ToolAwareRenderer with mocked dependencies."""
         return ToolAwareRenderer(
-            mock_base_renderer,
-            mock_tool_execution_service,
-            mock_confirmation_ui
+            mock_base_renderer, mock_tool_execution_service, mock_confirmation_ui
         )
 
     @pytest.fixture
@@ -134,15 +130,14 @@ class TestToolAwareRenderer:
         session.save_session = Mock()
 
         return {
-            'tools_enabled': True,
-            'tool_settings': ToolSettings(
-                tools=['test_tool'],
-                execution_policy=ToolExecutionPolicy.ALWAYS_CONFIRM
+            "tools_enabled": True,
+            "tool_settings": ToolSettings(
+                tools=["test_tool"], execution_policy=ToolExecutionPolicy.ALWAYS_CONFIRM
             ),
-            'session': session,
-            'model': 'test-model',
-            'client': Mock(),
-            'available_tools': [Mock(name='test_tool')]
+            "session": session,
+            "model": "test-model",
+            "client": Mock(),
+            "available_tools": [Mock(name="test_tool")],
         }
 
     def test_render_without_tool_context(self, tool_aware_renderer, mock_base_renderer):
@@ -159,33 +154,43 @@ class TestToolAwareRenderer:
     def test_render_with_tools_disabled(self, tool_aware_renderer, mock_base_renderer):
         """Test that renderer falls back to base renderer when tools are disabled."""
         chunks = [MockChatResponse(MockMessage(content="Hello"), done=True)]
-        tool_context = {'tools_enabled': False}
+        tool_context = {"tools_enabled": False}
 
-        result = tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
+        tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
         mock_base_renderer.render_streaming_response.assert_called_once()
 
-    def test_render_with_incomplete_tool_context(self, tool_aware_renderer, mock_base_renderer):
+    def test_render_with_incomplete_tool_context(
+        self, tool_aware_renderer, mock_base_renderer
+    ):
         """Test fallback when tool context is incomplete."""
         chunks = [MockChatResponse(MockMessage(content="Hello"), done=True)]
         incomplete_context = {
-            'tools_enabled': True,
-            'tool_settings': ToolSettings(),
+            "tools_enabled": True,
+            "tool_settings": ToolSettings(),
             # Missing session, model, client
         }
 
-        with patch('mochi_coco.rendering.tool_aware_renderer.logger') as mock_logger:
-            result = tool_aware_renderer.render_streaming_response(iter(chunks), incomplete_context)
+        with patch("mochi_coco.rendering.tool_aware_renderer.logger") as mock_logger:
+            tool_aware_renderer.render_streaming_response(
+                iter(chunks), incomplete_context
+            )
 
-            mock_logger.warning.assert_called_with("Incomplete tool context, falling back to base renderer")
+            mock_logger.warning.assert_called_with(
+                "Incomplete tool context, falling back to base renderer"
+            )
             mock_base_renderer.render_streaming_response.assert_called_once()
 
-    def test_render_regular_content_without_tools(self, tool_aware_renderer, tool_context):
+    def test_render_regular_content_without_tools(
+        self, tool_aware_renderer, tool_context
+    ):
         """Test rendering regular content without tool calls."""
         message = MockMessage(content="Hello, how are you?")
         chunks = [MockChatResponse(message, done=True)]
 
-        result = tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
+        result = tool_aware_renderer.render_streaming_response(
+            iter(chunks), tool_context
+        )
 
         # Content should be handled by base renderer, check that we get a result
         assert result is not None
@@ -199,14 +204,18 @@ class TestToolAwareRenderer:
         message = MockMessage(content="Response", thinking="I need to think...")
         chunks = [MockChatResponse(message, done=True)]
 
-        result = tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
+        result = tool_aware_renderer.render_streaming_response(
+            iter(chunks), tool_context
+        )
 
         # Thinking blocks are now handled by base renderer through delegation
         assert result is not None
         assert tool_aware_renderer.base_renderer.render_streaming_response.called
 
-    @patch('builtins.print')
-    def test_handle_tool_call_success(self, mock_print, tool_aware_renderer, tool_context):
+    @patch("builtins.print")
+    def test_handle_tool_call_success(
+        self, mock_print, tool_aware_renderer, tool_context
+    ):
         """Test successful tool call handling."""
         # Create mock tool call
         mock_function = Mock()
@@ -220,14 +229,14 @@ class TestToolAwareRenderer:
         chunks = [MockChatResponse(message, done=False)]
 
         # Mock session methods
-        tool_context['session'].get_messages_for_api.return_value = [
+        tool_context["session"].get_messages_for_api.return_value = [
             {"role": "user", "content": "test"}
         ]
 
         # Mock client to return continuation stream (empty for this test)
-        tool_context['client'].chat_stream.return_value = iter([])
+        tool_context["client"].chat_stream.return_value = iter([])
 
-        result = tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
+        tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
         # Should print tool request
         mock_print.assert_any_call("\n\n🔧 AI requesting tool: test_tool")
@@ -244,7 +253,9 @@ class TestToolAwareRenderer:
         tool_call.function = mock_function
 
         # Execute the tool call directly
-        result = tool_aware_renderer._handle_tool_call(tool_call, tool_context['tool_settings'])
+        result = tool_aware_renderer._handle_tool_call(
+            tool_call, tool_context["tool_settings"]
+        )
 
         # Verify confirmation UI was called
         tool_aware_renderer.confirmation_ui.confirm_tool_execution.assert_called_once_with(
@@ -260,15 +271,19 @@ class TestToolAwareRenderer:
     def test_confirmation_callback_direct(self, tool_aware_renderer, tool_context):
         """Test the confirmation callback directly to debug the issue."""
         # Create confirmation callback function like in the actual code
-        tool_settings = tool_context['tool_settings']
+        tool_settings = tool_context["tool_settings"]
 
         def confirm_callback(name: str, args: Dict) -> bool:
             if tool_settings.execution_policy == ToolExecutionPolicy.NEVER_CONFIRM:
                 return True
             elif tool_settings.execution_policy == ToolExecutionPolicy.ALWAYS_CONFIRM:
-                return tool_aware_renderer.confirmation_ui.confirm_tool_execution(name, args)
+                return tool_aware_renderer.confirmation_ui.confirm_tool_execution(
+                    name, args
+                )
             else:
-                return tool_aware_renderer.confirmation_ui.confirm_tool_execution(name, args)
+                return tool_aware_renderer.confirmation_ui.confirm_tool_execution(
+                    name, args
+                )
 
         # Test the callback directly
         result = confirm_callback("test_tool", {"arg1": "value1"})
@@ -297,10 +312,10 @@ class TestToolAwareRenderer:
         chunks = [MockChatResponse(message, done=False)]
 
         # Setup mocks
-        tool_context['session'].get_messages_for_api.return_value = []
-        tool_context['client'].chat_stream.return_value = iter([])
+        tool_context["session"].get_messages_for_api.return_value = []
+        tool_context["client"].chat_stream.return_value = iter([])
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
         # Verify execution was attempted but denied
@@ -312,7 +327,9 @@ class TestToolAwareRenderer:
     def test_never_confirm_policy(self, tool_aware_renderer, tool_context):
         """Test that NEVER_CONFIRM policy skips confirmation."""
         # Set policy to never confirm
-        tool_context['tool_settings'].execution_policy = ToolExecutionPolicy.NEVER_CONFIRM
+        tool_context[
+            "tool_settings"
+        ].execution_policy = ToolExecutionPolicy.NEVER_CONFIRM
 
         mock_function = Mock()
         mock_function.name = "test_tool"
@@ -324,10 +341,10 @@ class TestToolAwareRenderer:
         message = MockMessage(tool_calls=[tool_call])
         chunks = [MockChatResponse(message, done=False)]
 
-        tool_context['session'].get_messages_for_api.return_value = []
-        tool_context['client'].chat_stream.return_value = iter([])
+        tool_context["session"].get_messages_for_api.return_value = []
+        tool_context["client"].chat_stream.return_value = iter([])
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
         # Confirmation should not be called
@@ -347,12 +364,12 @@ class TestToolAwareRenderer:
         session.save_session = Mock()
 
         tool_context = {
-            'tools_enabled': True,
-            'tool_settings': ToolSettings(),
-            'session': session,
-            'model': 'test-model',
-            'client': Mock(),
-            'available_tools': []
+            "tools_enabled": True,
+            "tool_settings": ToolSettings(),
+            "session": session,
+            "model": "test-model",
+            "client": Mock(),
+            "available_tools": [],
         }
 
         mock_function = Mock()
@@ -365,10 +382,10 @@ class TestToolAwareRenderer:
         message = MockMessage(tool_calls=[tool_call])
         chunks = [MockChatResponse(message, done=False)]
 
-        tool_context['session'].get_messages_for_api.return_value = []
-        tool_context['client'].chat_stream.return_value = iter([])
+        tool_context["session"].get_messages_for_api.return_value = []
+        tool_context["client"].chat_stream.return_value = iter([])
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             result = renderer.render_streaming_response(iter(chunks), tool_context)
 
         # Should handle gracefully but still return a result from base renderer
@@ -381,8 +398,10 @@ class TestToolAwareRenderer:
 
         chunks = [MockChatResponse(MockMessage(content="test"), done=True)]
 
-        with patch('builtins.print') as mock_print:
-            result = tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
 
             mock_print.assert_any_call("\n[Error: Maximum tool call depth exceeded]")
             assert result is None
@@ -401,21 +420,23 @@ class TestToolAwareRenderer:
 
         # Mock successful tool execution
         tool_result = ToolExecutionResult(
-            success=True,
-            result="Tool completed",
-            tool_name="test_tool"
+            success=True, result="Tool completed", tool_name="test_tool"
         )
-        tool_aware_renderer.tool_execution_service.execute_tool.return_value = tool_result
+        tool_aware_renderer.tool_execution_service.execute_tool.return_value = (
+            tool_result
+        )
 
-        tool_context['session'].get_messages_for_api.return_value = []
-        tool_context['client'].chat_stream.return_value = iter([])
+        tool_context["session"].get_messages_for_api.return_value = []
+        tool_context["client"].chat_stream.return_value = iter([])
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
         # Verify messages were added to session
-        assert tool_context['session'].messages.append.call_count == 2  # Tool call + tool response
-        assert tool_context['session'].save_session.call_count == 2
+        assert (
+            tool_context["session"].messages.append.call_count == 2
+        )  # Tool call + tool response
+        assert tool_context["session"].save_session.call_count == 2
 
     def test_delegate_methods(self, tool_aware_renderer, mock_base_renderer):
         """Test that methods are properly delegated to base renderer."""
@@ -453,7 +474,7 @@ class TestToolAwareRenderer:
         assert result is False
 
         # render_static_text should fallback to print
-        with patch('builtins.print') as mock_print:
+        with patch("builtins.print") as mock_print:
             renderer.render_static_text("Hello")
             mock_print.assert_called_with("Hello")
 
@@ -474,26 +495,27 @@ class TestToolAwareRenderer:
             success=True,
             result="Tool completed successfully",
             execution_time=0.5,
-            tool_name="test_tool"
+            tool_name="test_tool",
         )
 
-        def mock_execute_tool_custom(tool_name, arguments, policy, confirm_callback=None):
+        def mock_execute_tool_custom(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
             return tool_result
 
-        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = mock_execute_tool_custom
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_custom
+        )
 
-        tool_context['session'].get_messages_for_api.return_value = []
-        tool_context['client'].chat_stream.return_value = iter([])
+        tool_context["session"].get_messages_for_api.return_value = []
+        tool_context["client"].chat_stream.return_value = iter([])
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
         # Verify result was shown
         tool_aware_renderer.confirmation_ui.show_tool_result.assert_called_once_with(
-            "test_tool",
-            True,
-            "Tool completed successfully",
-            None
+            "test_tool", True, "Tool completed successfully", None
         )
 
     def test_error_handling_in_tool_execution(self, tool_aware_renderer, tool_context):
@@ -513,24 +535,25 @@ class TestToolAwareRenderer:
             success=False,
             result=None,
             error_message="Tool execution failed",
-            tool_name="failing_tool"
+            tool_name="failing_tool",
         )
 
-        def mock_execute_tool_custom(tool_name, arguments, policy, confirm_callback=None):
+        def mock_execute_tool_custom(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
             return tool_result
 
-        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = mock_execute_tool_custom
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_custom
+        )
 
-        tool_context['session'].get_messages_for_api.return_value = []
-        tool_context['client'].chat_stream.return_value = iter([])
+        tool_context["session"].get_messages_for_api.return_value = []
+        tool_context["client"].chat_stream.return_value = iter([])
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
         # Verify error was shown
         tool_aware_renderer.confirmation_ui.show_tool_result.assert_called_once_with(
-            "failing_tool",
-            False,
-            None,
-            "Tool execution failed"
+            "failing_tool", False, None, "Tool execution failed"
         )
