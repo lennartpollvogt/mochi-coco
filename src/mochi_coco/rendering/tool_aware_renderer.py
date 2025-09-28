@@ -208,7 +208,7 @@ class ToolAwareRenderer:
 
                     # Add single assistant message with all tool calls
                     self._add_tool_call_to_session(
-                        session, message_with_content, detected_tool_calls[0], model
+                        session, message_with_content, detected_tool_calls, model
                     )
 
                 # Process each tool call
@@ -312,7 +312,7 @@ class ToolAwareRenderer:
         return result
 
     def _add_tool_call_to_session(
-        self, session: "ChatSession", message: Message, tool_call: Any, model: str
+        self, session: "ChatSession", message: Message, tool_calls: Any, model: str
     ):
         """Add tool call message to session."""
         # Create a tool call message that matches the assistant message format
@@ -323,17 +323,33 @@ class ToolAwareRenderer:
             role="assistant", content=message.content or "", model=model
         )
 
-        # Add tool_calls as a custom attribute (will be saved in JSON)
-        tool_message.tool_calls = [
-            {
-                "function": {
-                    "name": tool_call.function.name,
-                    "arguments": tool_call.function.arguments
-                    if tool_call.function.arguments
-                    else {},
+        # Handle both single tool_call and list of tool_calls
+        if isinstance(tool_calls, list):
+            # Multiple tool calls - convert all to dict format
+            tool_message.tool_calls = [
+                {
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments
+                        if tc.function.arguments
+                        else {},
+                    }
                 }
-            }
-        ]
+                for tc in tool_calls
+            ]
+        else:
+            # Single tool call (backward compatibility)
+            tool_call = tool_calls
+            tool_message.tool_calls = [
+                {
+                    "function": {
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments
+                        if tool_call.function.arguments
+                        else {},
+                    }
+                }
+            ]
 
         session.messages.append(tool_message)
         session.metadata.message_count = len(session.messages)
