@@ -3,9 +3,13 @@
 ## Quick Start
 
 1. Create a `./tools` directory in your project
-2. Add an `__init__.py` file with your tool functions
-3. Export functions in `__all__`
-4. Start mochi-coco and select tools with `/tools`
+2. Add an `__init__.py` file with your tool functions or place the tool function in a separate file
+3. Export functions in `__all__` variable
+4. Start mochi-coco and a chat session
+5. Type in /menu and submit to open the chat menu (shortcut: `/5`)
+6. Select the option to enable tools
+7. Select tools or a tool group
+8. Return to chat session
 
 ## Writing Tools
 
@@ -15,11 +19,11 @@
 def my_tool(param1: str, param2: int = 10) -> str:
     """
     Tool description (required).
-    
+
     Args:
         param1: Description of param1
         param2: Description of param2 (optional with default)
-        
+
     Returns:
         str: Description of return value
     """
@@ -47,11 +51,11 @@ The LLM uses docstrings to understand your tools. Include:
 def calculate_tip(bill_amount: float, tip_percentage: float = 15.0) -> str:
     """
     Calculate tip amount and total bill.
-    
+
     Args:
         bill_amount: The original bill amount in dollars
         tip_percentage: Tip percentage (default: 15%)
-        
+
     Returns:
         str: Formatted string with tip amount and total
     """
@@ -67,7 +71,7 @@ Type hints help with validation and schema generation:
 from typing import List, Dict, Optional, Literal
 
 def process_data(
-    items: List[str], 
+    items: List[str],
     operation: Literal["sort", "reverse", "shuffle"],
     case_sensitive: bool = True
 ) -> List[str]:
@@ -85,7 +89,7 @@ def analyze_text(text: str) -> str:
     words = text.split()
     chars = len(text)
     lines = len(text.splitlines())
-    
+
     return f"""Text Analysis:
 - Words: {len(words)}
 - Characters: {chars}
@@ -119,8 +123,8 @@ def convert_celsius_to_fahrenheit(celsius: float) -> str:
     return f"{celsius}°C = {fahrenheit}°F"
 
 # Avoid - too many responsibilities
-def temperature_converter(temp: float, from_unit: str, to_unit: str, 
-                         also_show_kelvin: bool = False, 
+def temperature_converter(temp: float, from_unit: str, to_unit: str,
+                         also_show_kelvin: bool = False,
                          round_digits: int = 2) -> str:
     """Convert between any temperature units with options."""
     # Too complex for a single tool
@@ -166,24 +170,24 @@ __basic_math__ = ['add', 'subtract']
 def read_file_safely(filepath: str, max_lines: int = 100) -> str:
     """
     Read file content with safety limits.
-    
+
     Args:
         filepath: Path to the file to read
         max_lines: Maximum number of lines to read
-        
+
     Returns:
         str: File content or error message
     """
     from pathlib import Path
-    
+
     try:
         path = Path(filepath)
         if not path.exists():
             return f"Error: File '{filepath}' does not exist"
-            
+
         if not path.is_file():
             return f"Error: '{filepath}' is not a file"
-            
+
         with open(path, 'r', encoding='utf-8') as f:
             lines = []
             for i, line in enumerate(f):
@@ -191,9 +195,9 @@ def read_file_safely(filepath: str, max_lines: int = 100) -> str:
                     lines.append(f"... (truncated after {max_lines} lines)")
                     break
                 lines.append(line.rstrip())
-                
+
         return '\n'.join(lines) if lines else "(empty file)"
-        
+
     except UnicodeDecodeError:
         return f"Error: Cannot read '{filepath}' - file appears to be binary"
     except Exception as e:
@@ -205,26 +209,26 @@ def read_file_safely(filepath: str, max_lines: int = 100) -> str:
 def get_weather(city: str) -> str:
     """
     Get weather information for a city (mock implementation).
-    
+
     Args:
         city: Name of the city
-        
+
     Returns:
         str: Weather information
     """
     # This is a mock implementation - replace with real API
     import random
-    
+
     if not city.strip():
         return "Error: City name cannot be empty"
-    
+
     # Mock weather data
     conditions = ["sunny", "cloudy", "rainy", "snowy"]
     temps = list(range(-10, 35))
-    
+
     condition = random.choice(conditions)
     temp = random.choice(temps)
-    
+
     return f"Weather in {city.title()}: {condition.title()}, {temp}°C"
 ```
 
@@ -285,7 +289,7 @@ When a tool-capable model is selected, you'll see:
 Control how tools are executed:
 
 1. **Always Confirm** - Ask before every tool execution
-2. **Never Confirm** - Execute tools automatically  
+2. **Never Confirm** - Execute tools automatically
 3. **Confirm Destructive** - Only confirm potentially dangerous operations (future)
 
 ### Tool Execution Flow
@@ -294,71 +298,35 @@ When the AI requests to use a tool:
 
 #### With Confirmation Enabled:
 ```
-🛠️ AI requesting tool: calculate
-Arguments: {"expression": "15 + 27"}
+🔧 AI requesting tool: flip_coin
+╭─ 🤖 AI Tool Request ─╮
+│                      │
+│  Tool: flip_coin     │
+│                      │
+│  No arguments        │
+│                      │
+╰──────────────────────╯
 
-╭─ ⚠️ Tool Execution Confirmation ─────────────────────────╮
-│ 🛠️ Tool Call Request:                                   │
-│                                                         │
-│ Function: calculate                                     │
-│ Arguments: {"expression": "15 + 27"}                   │
-│                                                         │
-│ Allow execution? [y/N]:                                 │
-╰─────────────────────────────────────────────────────────╯
+⚠️  Allow execution? y/N: y
+✓ Tool execution approved
+
+╭──────────────────────────────╮
+│ ✓ Tool 'flip_coin' completed │
+│                              │
+│ Output:                      │
+│ Coin flip result: Tails      │
+╰──────────────────────────────╯
 ```
 
 #### With Confirmation Disabled:
 ```
-🛠️ Executing tool: calculate
-✓ Tool 'calculate' executed successfully
-Result: 42
-```
-
-### Example Chat Sessions
-
-#### Mathematical Calculations
-```
-You: What's 15% of $89.50?
-
-AI: I'll calculate 15% of $89.50 for you.
-
-🛠️ Executing tool: calculate
-✓ Tool executed successfully
-
-15% of $89.50 is $13.43.
-```
-
-#### File Operations
-```
-You: Can you check what's in the README.md file?
-
-AI: I'll read the README.md file for you.
-
-🛠️ Tool Call Request:
-Function: read_file_safely
-Arguments: {"filepath": "README.md"}
-Allow execution? [y/N]: y
-
-✓ Tool executed successfully
-
-Here's the content of README.md:
-# My Project
-This is a sample project...
-```
-
-#### Text Processing
-```
-You: Count the words in this text: "The quick brown fox jumps over the lazy dog"
-
-AI: I'll count the words in that text for you.
-
-🛠️ Executing tool: count_words
-✓ Tool executed successfully
-
-The text "The quick brown fox jumps over the lazy dog" contains:
-- Words: 9
-- Characters: 43
-- Characters (no spaces): 35
+🔧 AI requesting tool: flip_coin
+╭──────────────────────────────╮
+│ ✓ Tool 'flip_coin' completed │
+│                              │
+│ Output:                      │
+│ Coin flip result: Tails      │
+╰──────────────────────────────╯
 ```
 
 ## Security Considerations
@@ -377,167 +345,48 @@ The text "The quick brown fox jumps over the lazy dog" contains:
 def read_project_file(filename: str) -> str:
     """
     Read a file from the current project directory safely.
-    
+
     Args:
         filename: Name of file to read (no path traversal allowed)
-        
+
     Returns:
         str: File content or error message
     """
     from pathlib import Path
     import os
-    
+
     # Security: prevent path traversal
     if '..' in filename or filename.startswith('/'):
         return "Error: Invalid filename - path traversal not allowed"
-    
+
     # Security: limit to current directory and subdirectories
     try:
         filepath = Path.cwd() / filename
         filepath = filepath.resolve()
-        
+
         # Ensure file is within current directory
         if not str(filepath).startswith(str(Path.cwd().resolve())):
             return "Error: File access outside project directory not allowed"
-            
+
         if not filepath.exists():
             return f"Error: File '{filename}' not found"
-            
+
         # Security: limit file size
         if filepath.stat().st_size > 1024 * 1024:  # 1MB limit
             return "Error: File too large (max 1MB)"
-            
+
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
-            
+
         return content
-        
+
     except Exception as e:
         return f"Error: {str(e)}"
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-#### Tools Not Appearing
-1. Check that `./tools/__init__.py` exists
-2. Verify functions are included in `__all__`
-3. Ensure functions have proper docstrings
-4. Use `/tools reload` to refresh after changes
-
-#### Tool Execution Errors
-1. Check function signatures match the call
-2. Verify all required parameters are provided
-3. Test tools independently before using in chat
-4. Check for proper error handling in tool code
-
-#### Import Errors
-```python
-# Bad - missing import
-def get_time() -> str:
-    return datetime.now().strftime("%H:%M:%S")  # NameError
-
-# Good - proper import
-def get_time() -> str:
-    from datetime import datetime
-    return datetime.now().strftime("%H:%M:%S")
-```
-
-#### Type Hint Issues
-```python
-# Bad - no type hints
-def calculate(a, b):
-    return a + b
-
-# Good - proper type hints  
-def calculate(a: float, b: float) -> str:
-    return str(a + b)
-```
-
-### Debugging Tools
-
-1. **Test Independently**: Run tools outside of mochi-coco first
-2. **Add Logging**: Include debug information in return values
-3. **Use Simple Returns**: Start with simple string returns
-4. **Check Arguments**: Print/log arguments received by tools
-
 ### Getting Help
 
-- Check the example tools in `tool_examples/`
+- Check the example tools in `tools/` within the repository
 - Review error messages carefully
 - Test tools with simple inputs first
-- Use `/tools reload` after making changes
 - Verify your Python environment and dependencies
-
-## Advanced Topics
-
-### Custom Tool Validation
-
-```python
-def validate_email(email: str) -> str:
-    """
-    Validate an email address format.
-    
-    Args:
-        email: Email address to validate
-        
-    Returns:
-        str: Validation result
-    """
-    import re
-    
-    if not email:
-        return "Error: Email cannot be empty"
-    
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    
-    if re.match(pattern, email):
-        return f"✓ '{email}' is a valid email address"
-    else:
-        return f"✗ '{email}' is not a valid email address"
-```
-
-### Working with Complex Data
-
-```python
-def analyze_json_data(json_string: str) -> str:
-    """
-    Analyze JSON data structure and content.
-    
-    Args:
-        json_string: JSON data as a string
-        
-    Returns:
-        str: Analysis report
-    """
-    import json
-    
-    try:
-        data = json.loads(json_string)
-        
-        def analyze_value(value, path="root"):
-            if isinstance(value, dict):
-                return f"Object with {len(value)} keys at {path}"
-            elif isinstance(value, list):
-                return f"Array with {len(value)} items at {path}"
-            elif isinstance(value, str):
-                return f"String (length {len(value)}) at {path}"
-            elif isinstance(value, (int, float)):
-                return f"Number ({value}) at {path}"
-            elif isinstance(value, bool):
-                return f"Boolean ({value}) at {path}"
-            else:
-                return f"Other type ({type(value).__name__}) at {path}"
-        
-        analysis = [analyze_value(data)]
-        
-        return "JSON Analysis:\n" + "\n".join(analysis)
-        
-    except json.JSONDecodeError as e:
-        return f"Error: Invalid JSON - {e}"
-    except Exception as e:
-        return f"Error: {e}"
-```
-
-This guide should help you create powerful, safe, and useful tools for your mochi-coco chat sessions!
