@@ -195,6 +195,22 @@ class ToolAwareRenderer:
             )
 
             if detected_tool_calls:
+                # Process ALL tool calls before continuing conversation
+                all_tools_successful = True
+                tool_results = []
+
+                # First, add the assistant message with all tool calls to session
+                if detected_tool_calls:
+                    message_with_content = Message(
+                        role="assistant", content=accumulated_content or ""
+                    )
+                    message_with_content.tool_calls = detected_tool_calls
+
+                    # Add single assistant message with all tool calls
+                    self._add_tool_call_to_session(
+                        session, message_with_content, detected_tool_calls[0], model
+                    )
+
                 # Process each tool call
                 for tool_call in detected_tool_calls:
                     print(f"\n\n🔧 AI requesting tool: {tool_call.function.name}")
@@ -202,17 +218,6 @@ class ToolAwareRenderer:
                     tool_result = self._handle_tool_call(tool_call, tool_settings)
 
                     if tool_result:
-                        # Add tool call message to session
-                        # Use the accumulated content from interceptor
-                        message_with_content = Message(
-                            role="assistant", content=accumulated_content or ""
-                        )
-                        message_with_content.tool_calls = [tool_call]
-
-                        self._add_tool_call_to_session(
-                            session, message_with_content, tool_call, model
-                        )
-
                         # Add tool response to session
                         self._add_tool_response_to_session(
                             session, tool_call.function.name, tool_result
@@ -233,27 +238,33 @@ class ToolAwareRenderer:
                                 else None,
                             )
 
-                        # Continue conversation with tool result
-                        if tool_result.success or tool_result.result:
-                            print("\n🤖 Processing tool result...\n")
-                            messages = session.get_messages_for_api()
+                        tool_results.append(tool_result)
+                        if not (tool_result.success or tool_result.result):
+                            all_tools_successful = False
+                    else:
+                        all_tools_successful = False
 
-                            # Create continuation stream
-                            continuation_stream = client.chat_stream(
-                                model, messages, tools=available_tools
-                            )
+                # Continue conversation with ALL tool results
+                if all_tools_successful and tool_results:
+                    print(f"\n🤖 Processing {len(tool_results)} tool results...\n")
+                    messages = session.get_messages_for_api()
 
-                            # Recursively handle continuation (might have more tool calls)
-                            continuation_result = self._render_with_tools(
-                                continuation_stream,
-                                tool_settings,
-                                session,
-                                model,
-                                client,
-                                available_tools,
-                            )
+                    # Create continuation stream
+                    continuation_stream = client.chat_stream(
+                        model, messages, tools=available_tools
+                    )
 
-                            return continuation_result
+                    # Recursively handle continuation (might have more tool calls)
+                    continuation_result = self._render_with_tools(
+                        continuation_stream,
+                        tool_settings,
+                        session,
+                        model,
+                        client,
+                        available_tools,
+                    )
+
+                    return continuation_result
 
             # Return the result from base renderer
             return result if result else interceptor.final_chunk

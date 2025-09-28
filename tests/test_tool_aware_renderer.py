@@ -240,7 +240,7 @@ class TestToolAwareRenderer:
 
         # Should print tool request
         mock_print.assert_any_call("\n\n🔧 AI requesting tool: test_tool")
-        mock_print.assert_any_call("\n🤖 Processing tool result...\n")
+        mock_print.assert_any_call("\n🤖 Processing 1 tool results...\n")
 
     def test_tool_execution_with_confirmation(self, tool_aware_renderer, tool_context):
         """Test tool execution with user confirmation."""
