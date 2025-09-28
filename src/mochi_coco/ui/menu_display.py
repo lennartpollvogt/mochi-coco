@@ -33,34 +33,42 @@ class MenuDisplay:
 
         # Define consistent color scheme
         self.colors = {
-            'primary': 'bright_magenta',
-            'secondary': 'bright_cyan',
-            'success': 'bright_green',
-            'warning': 'bright_yellow',
-            'error': 'bright_red',
-            'info': 'bright_blue',
-            'muted': 'bright_black'
+            "primary": "bright_magenta",
+            "secondary": "bright_cyan",
+            "success": "bright_green",
+            "warning": "bright_yellow",
+            "error": "bright_red",
+            "info": "bright_blue",
+            "muted": "bright_black",
         }
 
-    def display_models_table(self, models: List[ModelInfo], client: OllamaClient) -> None:
+    def display_models_table(
+        self, models: List[ModelInfo], client: OllamaClient
+    ) -> None:
         """Display available models in a Rich table format with integrated options and attention message."""
         if not models:
             error_panel = Panel(
-                "❌ No models found!",
-                style=self.colors['error'],
-                box=ROUNDED
+                "❌ No models found!", style=self.colors["error"], box=ROUNDED
             )
             self.console.print(error_panel)
             return
 
         # Create the models table
-        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
-        table.add_column("#", style=self.colors['secondary'], width=3)
+        table = Table(
+            box=ROUNDED, show_header=True, header_style=self.colors["secondary"]
+        )
+        table.add_column("#", style=self.colors["secondary"], width=3)
         table.add_column("Model Name", style="bold white", min_width=25)
-        table.add_column("Size (MB)", style=self.colors['info'], justify="right", width=12)
-        table.add_column("Family", style=self.colors['warning'], width=15)
-        table.add_column("Max. Cxt", style=self.colors['success'], justify="right", width=8)
-        table.add_column("Tools", style=self.colors['primary'], justify="center", width=5)
+        table.add_column(
+            "Size (MB)", style=self.colors["info"], justify="right", width=12
+        )
+        table.add_column("Family", style=self.colors["warning"], width=15)
+        table.add_column(
+            "Max. Cxt", style=self.colors["success"], justify="right", width=8
+        )
+        table.add_column(
+            "Tools", style=self.colors["primary"], justify="center", width=5
+        )
 
         # Add model rows
         for i, model in enumerate(models, 1):
@@ -69,7 +77,9 @@ class MenuDisplay:
             context_str = str(model.context_length) if model.context_length else "N/A"
 
             # Check if model has tools capability
-            tools_str = "Yes" if model.capabilities and 'tools' in model.capabilities else "No"
+            tools_str = (
+                "Yes" if model.capabilities and "tools" in model.capabilities else "No"
+            )
 
             table.add_row(
                 str(i),
@@ -77,7 +87,7 @@ class MenuDisplay:
                 size_str,
                 family_str,
                 context_str,
-                tools_str
+                tools_str,
             )
 
         # Create model selection options
@@ -89,12 +99,18 @@ class MenuDisplay:
 
         # Add attention notice
         options_text.append("\n⚠️ ATTENTION: ", style="bold bright_red")
-        options_text.append("Max. Cxt. is only supported context length not set.\n", style="yellow")
+        options_text.append(
+            "Max. Cxt. is only supported context length not set.\n", style="yellow"
+        )
         options_text.append("💡 ", style="bright_blue")
-        options_text.append("Open Ollama application to set default context length!", style="bright_blue")
+        options_text.append(
+            "Open Ollama application to set default context length!",
+            style="bright_blue",
+        )
 
         # Combine table, options, and attention message
         from rich.console import Group
+
         combined_content = Group(table, options_text)
 
         # Wrap in panel
@@ -102,8 +118,8 @@ class MenuDisplay:
             combined_content,
             title="🤖 Available Models",
             title_align="left",
-            style=self.colors['primary'],
-            box=ROUNDED
+            style=self.colors["primary"],
+            box=ROUNDED,
         )
         self.console.print(models_panel)
 
@@ -112,26 +128,32 @@ class MenuDisplay:
         if not sessions:
             error_panel = Panel(
                 "❌ No previous sessions found!",
-                style=self.colors['error'],
-                box=ROUNDED
+                style=self.colors["error"],
+                box=ROUNDED,
             )
             self.console.print(error_panel)
             return
 
         # Create the sessions table
-        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
-        table.add_column("#", style=self.colors['secondary'], width=3)
+        table = Table(
+            box=ROUNDED, show_header=True, header_style=self.colors["secondary"]
+        )
+        table.add_column("#", style=self.colors["secondary"], width=3)
         table.add_column("Session ID", style="bold cyan", width=12)
-        table.add_column("Model", style=self.colors['primary'], width=20)
+        table.add_column("Model", style=self.colors["primary"], width=20)
         table.add_column("Preview", style="white", min_width=35)
-        table.add_column("Messages", style=self.colors['success'], justify="center", width=8)
+        table.add_column(
+            "Messages", style=self.colors["success"], justify="center", width=8
+        )
 
         # Add session rows
         for i, session in enumerate(sessions, 1):
             # Get preview safely
             try:
                 summary = session.get_session_summary()
-                preview = summary.split(': ', 1)[1] if ': ' in summary else "Empty session"
+                preview = (
+                    summary.split(": ", 1)[1] if ": " in summary else "Empty session"
+                )
                 if len(preview) > 35:
                     preview = preview[:32] + "..."
             except Exception:
@@ -142,7 +164,7 @@ class MenuDisplay:
                 session.session_id,
                 session.metadata.model,
                 preview,
-                str(session.metadata.message_count)
+                str(session.metadata.message_count),
             )
 
         # Create menu options text
@@ -151,11 +173,14 @@ class MenuDisplay:
         options_text.append("\n💡 Options:\n", style="bold bright_yellow")
         options_text.append(f"• 📝 Select session (1-{session_count})\n", style="white")
         options_text.append("• 🆕 Type 'new' for new chat\n", style="white")
-        options_text.append("• 🗑️ Type '/delete <number>' to delete session\n", style="white")
+        options_text.append(
+            "• 🗑️ Type '/delete <number>' to delete session\n", style="white"
+        )
         options_text.append("• 👋 Type 'q' to quit", style="white")
 
         # Combine table and options
         from rich.console import Group
+
         combined_content = Group(table, options_text)
 
         # Wrap in panel
@@ -163,8 +188,8 @@ class MenuDisplay:
             combined_content,
             title="💬 Previous Sessions",
             title_align="left",
-            style=self.colors['primary'],
-            box=ROUNDED
+            style=self.colors["primary"],
+            box=ROUNDED,
         )
         self.console.print(sessions_panel)
 
@@ -187,9 +212,9 @@ class MenuDisplay:
 
         welcome_panel = Panel(
             Align.center(welcome_text),
-            style=self.colors['primary'],
+            style=self.colors["primary"],
             box=HEAVY,
-            padding=(1, 2)
+            padding=(1, 2),
         )
         self.console.print(welcome_panel)
 
@@ -208,7 +233,7 @@ class MenuDisplay:
                     style="bright_cyan",
                     box=ROUNDED,
                     padding=(0, 1),
-                    expand=False
+                    expand=False,
                 )
                 self.console.print(user_header)
 
@@ -238,12 +263,12 @@ class MenuDisplay:
             style="bright_magenta",
             box=ROUNDED,
             padding=(0, 1),
-            expand=False
+            expand=False,
         )
         self.console.print(assistant_header)
 
         # Check for tool calls
-        if hasattr(message, 'tool_calls') and message.tool_calls:
+        if hasattr(message, "tool_calls") and message.tool_calls:
             # Render each tool call
             for tool_call in message.tool_calls:
                 self._render_tool_request(tool_call)
@@ -267,12 +292,12 @@ class MenuDisplay:
             # Tool name section
             tool_text = Text()
             tool_text.append("Tool: ", style="bold")
-            tool_name = tool_call.get('function', {}).get('name', 'Unknown')
+            tool_name = tool_call.get("function", {}).get("name", "Unknown")
             tool_text.append(tool_name, style="bold cyan")
             content.append(tool_text)
 
             # Arguments section
-            arguments = tool_call.get('function', {}).get('arguments', {})
+            arguments = tool_call.get("function", {}).get("arguments", {})
             if arguments:
                 content.append(Text())  # Spacing
                 content.append(Text("Arguments:", style="bold"))
@@ -284,7 +309,7 @@ class MenuDisplay:
                     "json",
                     theme="monokai",
                     line_numbers=False,
-                    background_color="default"
+                    background_color="default",
                 )
                 content.append(syntax)
             else:
@@ -299,7 +324,7 @@ class MenuDisplay:
                 style="yellow",  # Same as live tool requests
                 box=ROUNDED,
                 expand=False,
-                padding=(1, 2)
+                padding=(1, 2),
             )
 
             self.console.print()  # Add spacing before panel
@@ -310,7 +335,7 @@ class MenuDisplay:
             error_panel = Panel(
                 f"[Tool Call - Error rendering details: {str(e)}]",
                 style="dim red",
-                expand=False
+                expand=False,
             )
             self.console.print(error_panel)
 
@@ -318,13 +343,14 @@ class MenuDisplay:
         """Render a tool response panel."""
         try:
             # Get tool name from message
-            tool_name = getattr(message, 'tool_name', 'Unknown Tool')
+            tool_name = getattr(message, "tool_name", "Unknown Tool")
 
             # Check if the tool execution failed/was denied
-            is_error = (message.content and
-                       (message.content.startswith("Error:") or
-                        "denied" in message.content.lower() or
-                        "failed" in message.content.lower()))
+            is_error = message.content and (
+                message.content.startswith("Error:")
+                or "denied" in message.content.lower()
+                or "failed" in message.content.lower()
+            )
 
             # Build content based on success/failure
             content = Text()
@@ -335,18 +361,17 @@ class MenuDisplay:
 
             if message.content:
                 # Show tool output (truncate if too long)
-                display_result = message.content if len(message.content) <= 500 else message.content[:497] + "..."
+                display_result = (
+                    message.content
+                    if len(message.content) <= 500
+                    else message.content[:497] + "..."
+                )
                 content.append("\n\nOutput:\n", style="bold")
                 content.append(display_result, style="white")
 
             # Create panel with appropriate styling
             panel_style = "red" if is_error else "green"
-            panel = Panel(
-                content,
-                style=panel_style,
-                box=ROUNDED,
-                expand=False
-            )
+            panel = Panel(content, style=panel_style, box=ROUNDED, expand=False)
 
             self.console.print()  # Add spacing before panel
             self.console.print(panel)
@@ -356,7 +381,7 @@ class MenuDisplay:
             error_panel = Panel(
                 f"[Tool Response - Error rendering: {str(e)}]",
                 style="dim red",
-                expand=False
+                expand=False,
             )
             self.console.print(error_panel)
 
@@ -373,8 +398,8 @@ class MenuDisplay:
         """Display message when no previous sessions are found."""
         info_panel = Panel(
             "🆕 No previous sessions found. Let's start a new chat!",
-            style=self.colors['info'],
-            box=ROUNDED
+            style=self.colors["info"],
+            box=ROUNDED,
         )
         self.console.print(info_panel)
 
@@ -400,40 +425,44 @@ class MenuDisplay:
         """Display available system prompts in a Rich table format with integrated options."""
         if not prompts:
             error_panel = Panel(
-                "❌ No system prompts found!",
-                style=self.colors['error'],
-                box=ROUNDED
+                "❌ No system prompts found!", style=self.colors["error"], box=ROUNDED
             )
             self.console.print(error_panel)
             return
 
         # Create the system prompts table
-        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
-        table.add_column("#", style=self.colors['secondary'], width=3)
+        table = Table(
+            box=ROUNDED, show_header=True, header_style=self.colors["secondary"]
+        )
+        table.add_column("#", style=self.colors["secondary"], width=3)
         table.add_column("Filename", style="bold white", min_width=15)
         table.add_column("Preview", style="white", min_width=35)
-        table.add_column("Word Count", style=self.colors['success'], justify="right", width=10)
+        table.add_column(
+            "Word Count", style=self.colors["success"], justify="right", width=10
+        )
 
         # Add system prompt rows
         for i, prompt in enumerate(prompts, 1):
             table.add_row(
-                str(i),
-                prompt.filename,
-                prompt.preview,
-                str(prompt.word_count)
+                str(i), prompt.filename, prompt.preview, str(prompt.word_count)
             )
 
         # Create system prompt selection options
         prompt_count = len(prompts)
         options_text = Text()
         options_text.append("\n💡 Options:\n", style="bold bright_yellow")
-        options_text.append(f"• 📝 Select system prompt (1-{prompt_count})\n", style="white")
-        options_text.append("• 🆕 Type 'no' for no system prompt\n", style="white")
-        options_text.append("• 🗑️ Type '/delete <number>' to delete a system prompt\n", style="white")
+        options_text.append(
+            f"• 📝 Select system prompt (1-{prompt_count})", style="white"
+        )
+        options_text.append("• 🆕 Type 'no' for no system prompt", style="white")
+        options_text.append(
+            "• 🗑️ Type '/delete <number>' to delete a system prompt", style="white"
+        )
         options_text.append("• 👋 Type 'q' to quit", style="white")
 
         # Combine table and options
         from rich.console import Group
+
         combined_content = Group(table, options_text)
 
         # Wrap in panel
@@ -441,8 +470,8 @@ class MenuDisplay:
             combined_content,
             title="🔧 System Prompts",
             title_align="left",
-            style=self.colors['primary'],
-            box=ROUNDED
+            style=self.colors["primary"],
+            box=ROUNDED,
         )
         self.console.print(prompts_panel)
 
@@ -451,15 +480,17 @@ class MenuDisplay:
         if not session.messages:
             error_panel = Panel(
                 "❌ No messages to edit in this session.",
-                style=self.colors['error'],
-                box=ROUNDED
+                style=self.colors["error"],
+                box=ROUNDED,
             )
             self.console.print(error_panel)
             return
 
         # Create the edit table
-        table = Table(box=ROUNDED, show_header=True, header_style=self.colors['secondary'])
-        table.add_column("#", style=self.colors['secondary'], width=3)
+        table = Table(
+            box=ROUNDED, show_header=True, header_style=self.colors["secondary"]
+        )
+        table.add_column("#", style=self.colors["secondary"], width=3)
         table.add_column("Role", style="bold", width=12)
         table.add_column("Preview", style="white", min_width=70)
 
@@ -469,9 +500,13 @@ class MenuDisplay:
         # Add message rows
         for message in session.messages:
             role = message.role
-            preview = message.content[:70] + "..." if len(message.content) > 70 else message.content
+            preview = (
+                message.content[:70] + "..."
+                if len(message.content) > 70
+                else message.content
+            )
             # Clean up preview
-            preview = preview.replace('\n', ' ').replace('\r', ' ')
+            preview = preview.replace("\n", " ").replace("\r", " ")
 
             if role == "user":
                 user_msg_counter += 1
@@ -488,32 +523,31 @@ class MenuDisplay:
         # Wrap table in panel
         edit_panel = Panel(
             table,
-            title="✏️  Edit Messages",
+            title="✏️ Edit Messages",
             title_align="left",
-            style=self.colors['warning'],
-            box=ROUNDED
+            style=self.colors["warning"],
+            box=ROUNDED,
         )
         self.console.print(edit_panel)
 
         # Add prompt
         prompt_text = f"Select a user message (1-{user_msg_counter}) or 'q' to cancel"
-        prompt_panel = Panel(
-            prompt_text,
-            style=self.colors['info'],
-            box=ROUNDED
-        )
+        prompt_panel = Panel(prompt_text, style=self.colors["info"], box=ROUNDED)
         self.console.print(prompt_panel)
 
-    def display_command_menu(self, has_system_prompts: bool = False,
-                            has_tools: bool = False,
-                            tool_settings=None) -> None:
+    def display_command_menu(
+        self,
+        has_system_prompts: bool = False,
+        has_tools: bool = False,
+        tool_settings=None,
+    ) -> None:
         """Enhanced command menu with dynamic tool options."""
 
         commands = [
             ("1", "💬 Switch Sessions", "Change to different chat session"),
             ("2", "🤖 Change Model", "Select a different AI model"),
             ("3", "📝 Toggle Markdown", "Enable/disable markdown rendering"),
-            ("4", "🤔 Toggle Thinking", "Show/hide thinking blocks")
+            ("4", "🤔 Toggle Thinking", "Show/hide thinking blocks"),
         ]
 
         # Dynamic command numbering
@@ -522,34 +556,46 @@ class MenuDisplay:
         if has_tools:
             # Tool-related commands
             if tool_settings:
-                if hasattr(tool_settings, 'execution_policy'):
-                    policy_status = tool_settings.execution_policy.value.replace('_', ' ').title()
+                if hasattr(tool_settings, "execution_policy"):
+                    policy_status = tool_settings.execution_policy.value.replace(
+                        "_", " "
+                    ).title()
                 else:
                     policy_status = "Never Confirm"
-                commands.append((str(next_num), "🛠️ Tool Policy", f"Current: {policy_status}"))
+                commands.append(
+                    (str(next_num), "🛠️ Tool Policy", f"Current: {policy_status}")
+                )
                 next_num += 1
 
                 if tool_settings.is_enabled():
-                    active_count = len(tool_settings.tools) if tool_settings.tools else 0
+                    active_count = (
+                        len(tool_settings.tools) if tool_settings.tools else 0
+                    )
                     if tool_settings.tool_group:
                         status = f"Group: {tool_settings.tool_group}"
                     else:
                         status = f"{active_count} tool(s) selected"
                     commands.append((str(next_num), "📂 Change Tools", status))
                 else:
-                    commands.append((str(next_num), "📂 Select Tools", "No tools selected"))
+                    commands.append(
+                        (str(next_num), "📂 Select Tools", "No tools selected")
+                    )
                 next_num += 1
             else:
-                commands.append((str(next_num), "📂 Enable Tools", "Select tools to use"))
+                commands.append(
+                    (str(next_num), "📂 Enable Tools", "Select tools to use")
+                )
                 next_num += 1
 
         if has_system_prompts:
-            commands.append((str(next_num), "🔧 Change System", "Select different system prompt"))
+            commands.append(
+                (str(next_num), "🔧 Change System", "Select different system prompt")
+            )
             next_num += 1
 
         # Display the menu
         table = Table(box=ROUNDED, show_header=False, padding=(0, 2))
-        table.add_column("Shortcut", style=self.colors['secondary'], width=10)
+        table.add_column("Shortcut", style=self.colors["secondary"], width=10)
         table.add_column("Action", style="bold", width=20)
         table.add_column("Description", style="white")
 
@@ -562,15 +608,15 @@ class MenuDisplay:
             table.add_row(shortcut, action, desc)
 
         # Add help commands
-        table.add_row("/help", "📚 Help", "Show all available commands", style="dim")
-        table.add_row("/quit", "👋 Exit", "Exit the application", style="dim")
+        # table.add_row("/help", "📚 Help", "Show all available commands", style="dim")
+        table.add_row("/quit /q", "👋 Exit", "Exit the menu", style="dim")
 
         panel = Panel(
             table,
-            title="⌨️  Available Commands",
+            title="⌨️ Available Commands",
             title_align="left",
-            style=self.colors['info'],
-            box=ROUNDED
+            style=self.colors["info"],
+            box=ROUNDED,
         )
 
         self.console.print(panel)
@@ -578,36 +624,22 @@ class MenuDisplay:
     def display_confirmation_prompt(self, message: str, style: str = "warning") -> None:
         """Display a confirmation prompt with Rich styling."""
         panel_style = self.colors.get(style, style)
-        confirmation_panel = Panel(
-            message,
-            style=panel_style,
-            box=ROUNDED
-        )
+        confirmation_panel = Panel(message, style=panel_style, box=ROUNDED)
         self.console.print(confirmation_panel)
 
     def display_error(self, message: str) -> None:
         """Display an error message with Rich styling."""
-        error_panel = Panel(
-            f"❌ {message}",
-            style=self.colors['error'],
-            box=ROUNDED
-        )
+        error_panel = Panel(f"❌ {message}", style=self.colors["error"], box=ROUNDED)
         self.console.print(error_panel)
 
     def display_success(self, message: str) -> None:
         """Display a success message with Rich styling."""
         success_panel = Panel(
-            f"✅ {message}",
-            style=self.colors['success'],
-            box=ROUNDED
+            f"✅ {message}", style=self.colors["success"], box=ROUNDED
         )
         self.console.print(success_panel)
 
     def display_info(self, message: str) -> None:
         """Display an info message with Rich styling."""
-        info_panel = Panel(
-            f"💡 {message}",
-            style=self.colors['info'],
-            box=ROUNDED
-        )
+        info_panel = Panel(f"💡 {message}", style=self.colors["info"], box=ROUNDED)
         self.console.print(info_panel)
