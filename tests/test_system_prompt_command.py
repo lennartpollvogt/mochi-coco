@@ -9,7 +9,6 @@ import pytest
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
-import typer
 
 from mochi_coco.commands.command_processor import CommandProcessor, CommandResult
 from mochi_coco.services.system_prompt_service import SystemPromptService
