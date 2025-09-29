@@ -589,7 +589,7 @@ class MenuDisplay:
 
         if has_system_prompts:
             commands.append(
-                (str(next_num), "🔧 Change System", "Select different system prompt")
+                (str(next_num), "🔧 System Prompt", "Select different system prompt")
             )
             next_num += 1
 
