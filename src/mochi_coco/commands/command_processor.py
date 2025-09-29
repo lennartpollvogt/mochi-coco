@@ -19,8 +19,13 @@ if TYPE_CHECKING:
 class CommandResult:
     """Result of command execution."""
 
-    def __init__(self, should_continue: bool = True, should_exit: bool = False,
-                 new_session: Optional["ChatSession"] = None, new_model: Optional[str] = None):
+    def __init__(
+        self,
+        should_continue: bool = True,
+        should_exit: bool = False,
+        new_session: Optional["ChatSession"] = None,
+        new_model: Optional[str] = None,
+    ):
         self.should_continue = should_continue
         self.should_exit = should_exit
         self.new_session = new_session
@@ -30,8 +35,12 @@ class CommandResult:
 class CommandProcessor:
     """Handles processing of special commands in the chat interface."""
 
-    def __init__(self, model_selector: "ModelSelector", renderer_manager: "RendererManager",
-                 session_setup_helper: Optional["SessionSetupHelper"] = None):
+    def __init__(
+        self,
+        model_selector: "ModelSelector",
+        renderer_manager: "RendererManager",
+        session_setup_helper: Optional["SessionSetupHelper"] = None,
+    ):
         self.model_selector = model_selector
         self.renderer_manager = renderer_manager
         self.session_setup_helper = session_setup_helper
@@ -39,6 +48,7 @@ class CommandProcessor:
         # Initialize system prompt services
         from ..services import SystemPromptService
         from ..ui import SystemPromptMenuHandler
+
         self.system_prompt_service = SystemPromptService()
         self.system_prompt_menu_handler = SystemPromptMenuHandler(
             self.system_prompt_service
@@ -46,14 +56,17 @@ class CommandProcessor:
 
         # Initialize session creation services
         from ..services import UserPreferenceService, SessionCreationService
+
         self.user_preference_service = UserPreferenceService()
         self.session_creation_service = SessionCreationService(
             self.model_selector,
             self.user_preference_service,
-            self.system_prompt_service
+            self.system_prompt_service,
         )
 
-    def process_command(self, user_input: str, session: "ChatSession", model: str) -> CommandResult:
+    def process_command(
+        self, user_input: str, session: "ChatSession", model: str
+    ) -> CommandResult:
         """
         Enhanced command processing with tool commands.
 
@@ -86,13 +99,13 @@ class CommandProcessor:
             return self._handle_edit_command(session)
 
         # Static commands
-        if cmd in ['/1', '/chats']:
+        if cmd in ["/1", "/chats"]:
             return self._handle_chats_command(session)
-        elif cmd in ['/2', '/models']:
+        elif cmd in ["/2", "/models"]:
             return self._handle_models_command(session)
-        elif cmd in ['/3', '/markdown']:
+        elif cmd in ["/3", "/markdown"]:
             return self._handle_markdown_command(session)
-        elif cmd in ['/4', '/thinking']:
+        elif cmd in ["/4", "/thinking"]:
             return self._handle_thinking_command(session)
 
         # Dynamic tool commands (check if number corresponds to tool command)
@@ -111,49 +124,79 @@ class CommandProcessor:
         """Handle the /models command."""
         try:
             from ..ui.model_menu_handler import ModelSelectionContext
-            new_model = self.model_selector.select_model(context=ModelSelectionContext.FROM_CHAT)
+
+            new_model = self.model_selector.select_model(
+                context=ModelSelectionContext.FROM_CHAT
+            )
             if new_model:
                 session.model = new_model
                 session.metadata.model = new_model
                 session.save_session()
-                typer.secho(f"\n✅ Switched to model: {new_model}\n", fg=typer.colors.GREEN, bold=True)
+                typer.secho(
+                    f"\n✅ Switched to model: {new_model}\n",
+                    fg=typer.colors.GREEN,
+                    bold=True,
+                )
                 return CommandResult(new_model=new_model)
             return CommandResult()
         except Exception as e:
             typer.secho(f"\n❌ Error editing message: {e}", fg=typer.colors.RED)
             return CommandResult()
 
-    def _handle_system_prompt_command(self, session: "ChatSession") -> CommandResult:
+    def _handle_system_prompt_command(
+        self, session: "ChatSession", args: str = ""
+    ) -> CommandResult:
         """Handle system prompt changes."""
         try:
             if not self.system_prompt_service.has_system_prompts():
-                typer.secho("\n❌ No system prompts found in system_prompts/ directory.", fg=typer.colors.RED)
+                typer.secho(
+                    "\n❌ No system prompts found in system_prompts/ directory.",
+                    fg=typer.colors.RED,
+                )
                 return CommandResult()
 
             # Show current system prompt if exists
             current_file = session.get_current_system_prompt_file()
             if current_file:
-                typer.secho(f"\n📝 Current system prompt: {current_file}", fg=typer.colors.BLUE)
+                typer.secho(
+                    f"\n📝 Current system prompt: {current_file}", fg=typer.colors.BLUE
+                )
 
             # Show system prompt selection
             from ..ui.system_prompt_menu_handler import SystemPromptSelectionContext
-            new_content = self.system_prompt_menu_handler.select_system_prompt(SystemPromptSelectionContext.FROM_MENU)
+
+            new_content = self.system_prompt_menu_handler.select_system_prompt(
+                SystemPromptSelectionContext.FROM_MENU
+            )
 
             if new_content is not None:
                 if new_content == "":  # Empty string indicates removal
                     if session.has_system_message():
                         # Remove system message
-                        session.messages = [msg for msg in session.messages if msg.role != "system"]
+                        session.messages = [
+                            msg for msg in session.messages if msg.role != "system"
+                        ]
                         session.metadata.message_count = len(session.messages)
                         session.metadata.updated_at = datetime.now().isoformat()
                         session.save_session()
-                        typer.secho("\n✅ System prompt removed.\n", fg=typer.colors.GREEN, bold=True)
+                        typer.secho(
+                            "\n✅ System prompt removed.\n",
+                            fg=typer.colors.GREEN,
+                            bold=True,
+                        )
                     else:
-                        typer.secho("\n💡 No system prompt was active.\n", fg=typer.colors.YELLOW)
+                        typer.secho(
+                            "\n💡 No system prompt was active.\n",
+                            fg=typer.colors.YELLOW,
+                        )
                 else:
                     # Update system prompt
                     session.update_system_message(new_content)
-                    typer.secho("\n✅ System prompt updated.\n", fg=typer.colors.GREEN, bold=True)
+                    typer.secho(
+                        "\n✅ System prompt updated.\n",
+                        fg=typer.colors.GREEN,
+                        bold=True,
+                    )
 
             return CommandResult()
 
@@ -161,12 +204,14 @@ class CommandProcessor:
             typer.secho(f"\n❌ Error changing system prompt: {e}", fg=typer.colors.RED)
             return CommandResult()
 
-
-
-    def _handle_chats_command(self, current_session: Optional["ChatSession"] = None) -> CommandResult:
+    def _handle_chats_command(
+        self, current_session: Optional["ChatSession"] = None
+    ) -> CommandResult:
         """Handle the /chats command with standardized session creation."""
         from ..services.session_creation_types import (
-            SessionCreationContext, SessionCreationOptions, SessionCreationMode
+            SessionCreationContext,
+            SessionCreationOptions,
+            SessionCreationMode,
         )
 
         typer.secho("\n🔄 Managing chat sessions...\n", fg=typer.colors.BLUE, bold=True)
@@ -177,7 +222,7 @@ class CommandProcessor:
             mode=SessionCreationMode.AUTO_DETECT,
             allow_system_prompt_selection=True,
             collect_preferences=True,
-            show_welcome_message=False  # We're already in a session
+            show_welcome_message=False,  # We're already in a session
         )
 
         result = self.session_creation_service.create_session(options)
@@ -194,15 +239,16 @@ class CommandProcessor:
         # Update renderer settings with new preferences
         if result.preferences:
             self.renderer_manager.configure_renderer(
-                result.preferences.markdown_enabled,
-                result.preferences.show_thinking
+                result.preferences.markdown_enabled, result.preferences.show_thinking
             )
 
             # Show updated preferences
             if result.preferences.markdown_enabled:
                 typer.secho("✅ Markdown rendering enabled.", fg=typer.colors.CYAN)
                 if result.preferences.show_thinking:
-                    typer.secho("✅ Thinking blocks will be displayed.", fg=typer.colors.CYAN)
+                    typer.secho(
+                        "✅ Thinking blocks will be displayed.", fg=typer.colors.CYAN
+                    )
             else:
                 typer.secho("✅ Plain text rendering enabled.", fg=typer.colors.CYAN)
 
@@ -210,6 +256,7 @@ class CommandProcessor:
         if self.session_setup_helper and result.session and result.model:
             # Determine if this is an existing session being loaded or a new session
             from ..services.session_creation_types import SessionCreationMode
+
             is_existing_session = result.mode == SessionCreationMode.LOAD_EXISTING
 
             # Both Flow 3 (new session) and Flow 4 (existing session) involve switching from an old session,
@@ -220,25 +267,26 @@ class CommandProcessor:
                 new_model=result.model,
                 preferences=result.preferences,
                 display_history=is_existing_session,  # Only show history for existing sessions
-                summary_callback=None  # Will use default callback
+                summary_callback=None,  # Will use default callback
             )
 
             if not setup_success:
-                typer.secho("❌ Session setup was cancelled or failed", fg=typer.colors.RED)
+                typer.secho(
+                    "❌ Session setup was cancelled or failed", fg=typer.colors.RED
+                )
                 return CommandResult()
 
             # Display session history if we switched to an existing session
             if is_existing_session and result.session.messages:
                 from ..utils import re_render_chat_history
+
                 re_render_chat_history(result.session, self.model_selector)
 
         # Note: All session setup now goes through session_setup_helper.handle_session_switch()
         # so the fallback path is no longer needed
 
         return CommandResult(
-            should_continue=True,
-            new_session=result.session,
-            new_model=result.model
+            should_continue=True, new_session=result.session, new_model=result.model
         )
 
     def _handle_markdown_command(self, session: "ChatSession") -> CommandResult:
@@ -255,7 +303,9 @@ class CommandProcessor:
         new_mode = self.renderer_manager.toggle_markdown_mode()
 
         status = "enabled" if new_mode == RenderingMode.MARKDOWN else "disabled"
-        typer.secho(f"\n✅ Markdown rendering {status}", fg=typer.colors.GREEN, bold=True)
+        typer.secho(
+            f"\n✅ Markdown rendering {status}", fg=typer.colors.GREEN, bold=True
+        )
 
         # Re-render chat history with new mode
         re_render_chat_history(session, self.model_selector)
@@ -272,13 +322,23 @@ class CommandProcessor:
             CommandResult indicating success and any state changes
         """
         if not self.renderer_manager.can_toggle_thinking():
-            typer.secho("\n⚠️ Thinking blocks can only be toggled in markdown mode.", fg=typer.colors.YELLOW)
-            typer.secho("Enable markdown first with '/markdown' command.\n", fg=typer.colors.YELLOW)
+            typer.secho(
+                "\n⚠️ Thinking blocks can only be toggled in markdown mode.",
+                fg=typer.colors.YELLOW,
+            )
+            typer.secho(
+                "Enable markdown first with '/markdown' command.\n",
+                fg=typer.colors.YELLOW,
+            )
         else:
             # Toggle thinking blocks
             new_thinking_state = self.renderer_manager.toggle_thinking_display()
             status = "shown" if new_thinking_state else "hidden"
-            typer.secho(f"\n✅ Thinking blocks will be {status}", fg=typer.colors.GREEN, bold=True)
+            typer.secho(
+                f"\n✅ Thinking blocks will be {status}",
+                fg=typer.colors.GREEN,
+                bold=True,
+            )
 
             # Re-render chat history with new thinking setting
             re_render_chat_history(session, self.model_selector)
@@ -292,7 +352,9 @@ class CommandProcessor:
         # Check if there are any user messages to edit
         user_messages = session.get_user_messages_with_indices()
         if not user_messages:
-            typer.secho("\n⚠️ No user messages to edit in this session.", fg=typer.colors.YELLOW)
+            typer.secho(
+                "\n⚠️ No user messages to edit in this session.", fg=typer.colors.YELLOW
+            )
             return CommandResult()
 
         # Check if session has any messages at all
@@ -316,14 +378,20 @@ class CommandProcessor:
         # Get the message to edit
         display_num, actual_index, message = user_messages[selected_index - 1]
 
-        typer.secho(f"\nEditing message #{display_num}:", fg=typer.colors.CYAN, bold=True)
+        typer.secho(
+            f"\nEditing message #{display_num}:", fg=typer.colors.CYAN, bold=True
+        )
         typer.secho("Original message:", fg=typer.colors.YELLOW)
         typer.echo(f"  {message.content}")
         typer.echo()
 
         # Get edited content
         from ..user_prompt import get_user_input_with_prefill
-        typer.secho("Enter your edited message (or press Ctrl+C to cancel):", fg=typer.colors.CYAN)
+
+        typer.secho(
+            "Enter your edited message (or press Ctrl+C to cancel):",
+            fg=typer.colors.CYAN,
+        )
         try:
             edited_content = get_user_input_with_prefill(prefill_text=message.content)
             if not edited_content.strip():
@@ -343,12 +411,19 @@ class CommandProcessor:
         session.edit_message_and_truncate(actual_index, edited_content)
 
         # Show confirmation
-        typer.secho(f"\nMessage #{display_num} edited successfully!", fg=typer.colors.GREEN, bold=True)
-        typer.secho("All messages after this point have been removed.", fg=typer.colors.YELLOW)
+        typer.secho(
+            f"\nMessage #{display_num} edited successfully!",
+            fg=typer.colors.GREEN,
+            bold=True,
+        )
+        typer.secho(
+            "All messages after this point have been removed.", fg=typer.colors.YELLOW
+        )
 
         # Re-render chat history to show the changes
         # Re-render chat history to show the changes
         from ..utils import re_render_chat_history
+
         re_render_chat_history(session, self.model_selector)
 
         # Automatically continue conversation by getting LLM response
@@ -363,8 +438,12 @@ class CommandProcessor:
             return
 
         try:
-            typer.secho("\nContinuing conversation from edited message...", fg=typer.colors.CYAN)
-            typer.secho(f"Sending to {session.metadata.model}...\n", fg=typer.colors.BLUE)
+            typer.secho(
+                "\nContinuing conversation from edited message...", fg=typer.colors.CYAN
+            )
+            typer.secho(
+                f"Sending to {session.metadata.model}...\n", fg=typer.colors.BLUE
+            )
             typer.secho("Assistant:", fg=typer.colors.MAGENTA, bold=True)
 
             # Get current model from session
@@ -378,12 +457,16 @@ class CommandProcessor:
 
             # Use renderer for streaming response
             text_stream = client.chat_stream(current_model, messages)
-            final_chunk = self.renderer_manager.renderer.render_streaming_response(text_stream)
+            final_chunk = self.renderer_manager.renderer.render_streaming_response(
+                text_stream
+            )
 
             print()  # Extra newline for spacing
             if final_chunk:
                 session.add_message(chunk=final_chunk)
-                typer.secho("\n✅ Conversation continued successfully!", fg=typer.colors.GREEN)
+                typer.secho(
+                    "\n✅ Conversation continued successfully!", fg=typer.colors.GREEN
+                )
             else:
                 typer.secho("No response received from the model.", fg=typer.colors.RED)
 
@@ -394,14 +477,14 @@ class CommandProcessor:
     def _build_dynamic_command_map(self, session: "ChatSession") -> Dict[str, str]:
         """Build dynamic command mapping based on available features."""
         command_map = {
-            '/1': '_handle_chats_command',
-            '/2': '_handle_models_command',
-            '/3': '_handle_markdown_command',
-            '/4': '_handle_thinking_command',
-            '/chats': '_handle_chats_command',
-            '/models': '_handle_models_command',
-            '/markdown': '_handle_markdown_command',
-            '/thinking': '_handle_thinking_command',
+            "/1": "_handle_chats_command",
+            "/2": "_handle_models_command",
+            "/3": "_handle_markdown_command",
+            "/4": "_handle_thinking_command",
+            "/chats": "_handle_chats_command",
+            "/models": "_handle_models_command",
+            "/markdown": "_handle_markdown_command",
+            "/thinking": "_handle_thinking_command",
         }
 
         next_num = 5
@@ -412,19 +495,19 @@ class CommandProcessor:
 
             if tool_settings and tool_settings.is_enabled():
                 # Tool policy command
-                command_map[f'/{next_num}'] = '_handle_tool_policy_command'
-                command_map['/policy'] = '_handle_tool_policy_command'
+                command_map[f"/{next_num}"] = "_handle_tool_policy_command"
+                command_map["/policy"] = "_handle_tool_policy_command"
                 next_num += 1
 
             # Tool selection command
-            command_map[f'/{next_num}'] = '_handle_tools_command'
-            command_map['/tools'] = '_handle_tools_command'
+            command_map[f"/{next_num}"] = "_handle_tools_command"
+            command_map["/tools"] = "_handle_tools_command"
             next_num += 1
 
         # System prompt command
         if self._are_system_prompts_available():
-            command_map[f'/{next_num}'] = '_handle_system_prompt_command'
-            command_map['/system'] = '_handle_system_prompt_command'
+            command_map[f"/{next_num}"] = "_handle_system_prompt_command"
+            command_map["/system"] = "_handle_system_prompt_command"
             next_num += 1
 
         return command_map
@@ -436,9 +519,14 @@ class CommandProcessor:
 
     def _are_system_prompts_available(self) -> bool:
         """Check if system prompts are available."""
-        return hasattr(self, 'system_prompt_service') and self.system_prompt_service is not None
+        return (
+            hasattr(self, "system_prompt_service")
+            and self.system_prompt_service is not None
+        )
 
-    def _handle_tool_policy_command(self, session: "ChatSession", args: str = "") -> CommandResult:
+    def _handle_tool_policy_command(
+        self, session: "ChatSession", args: str = ""
+    ) -> CommandResult:
         """Handle changing tool execution policy."""
         from ..tools.config import ToolSettings, ToolExecutionPolicy
 
@@ -453,19 +541,24 @@ class CommandProcessor:
         tool_settings.execution_policy = policies[next_index]
 
         # Update session
-        if not hasattr(session.metadata, 'tools_settings'):
+        if not hasattr(session.metadata, "tools_settings"):
             session.metadata.tools_settings = {}
         session.metadata.tool_settings = tool_settings
         session.save_session()
 
         # Display confirmation
-        policy_name = tool_settings.execution_policy.value.replace('_', ' ').title()
-        typer.secho(f"\n✅ Tool execution policy set to: {policy_name}\n",
-                    fg=typer.colors.GREEN, bold=True)
+        policy_name = tool_settings.execution_policy.value.replace("_", " ").title()
+        typer.secho(
+            f"\n✅ Tool execution policy set to: {policy_name}\n",
+            fg=typer.colors.GREEN,
+            bold=True,
+        )
 
         return CommandResult()
 
-    def _handle_tools_command(self, session: "ChatSession", args: str = "") -> CommandResult:
+    def _handle_tools_command(
+        self, session: "ChatSession", args: str = ""
+    ) -> CommandResult:
         """Handle tool selection command."""
         from ..tools.discovery_service import ToolDiscoveryService
         from ..tools.schema_service import ToolSchemaService
@@ -478,21 +571,28 @@ class CommandProcessor:
         ui = ToolSelectionUI()
 
         # Handle reload argument
-        if args.strip().lower() == 'reload':
+        if args.strip().lower() == "reload":
             functions, groups = discovery.reload_tools()
             typer.secho("✅ Tools reloaded", fg=typer.colors.GREEN)
         else:
             functions, groups = discovery.discover_tools()
 
         if not functions and not groups:
-            typer.secho("\n❌ No tools found. Place Python functions in ./tools/__init__.py\n",
-                       fg=typer.colors.RED)
+            typer.secho(
+                "\n❌ No tools found. Place Python functions in ./tools/__init__.py\n",
+                fg=typer.colors.RED,
+            )
 
             # Create example file if requested
-            if args.strip().lower() == 'init':
+            if args.strip().lower() == "init":
                 self._create_example_tools_file()
-                typer.secho("✅ Created example ./tools/__init__.py", fg=typer.colors.GREEN)
-                typer.secho("Reload tools with '/tools reload' to use them", fg=typer.colors.YELLOW)
+                typer.secho(
+                    "✅ Created example ./tools/__init__.py", fg=typer.colors.GREEN
+                )
+                typer.secho(
+                    "Reload tools with '/tools reload' to use them",
+                    fg=typer.colors.YELLOW,
+                )
 
             return CommandResult()
 
@@ -534,14 +634,19 @@ class CommandProcessor:
                 group_name = group_names[selected_indices[0]]
                 tool_settings.tool_group = group_name
                 tool_settings.tools = []
-                typer.secho(f"\n✅ Tool group '{group_name}' selected\n", fg=typer.colors.GREEN)
+                typer.secho(
+                    f"\n✅ Tool group '{group_name}' selected\n", fg=typer.colors.GREEN
+                )
             elif selected_indices:
                 # Individual tools selection
                 tool_names = list(functions.keys())
                 selected_tools = [tool_names[i] for i in selected_indices]
                 tool_settings.tools = selected_tools
                 tool_settings.tool_group = None
-                typer.secho(f"\n✅ Selected tools: {', '.join(selected_tools)}\n", fg=typer.colors.GREEN)
+                typer.secho(
+                    f"\n✅ Selected tools: {', '.join(selected_tools)}\n",
+                    fg=typer.colors.GREEN,
+                )
             else:
                 # Clear selection
                 tool_settings.tools = []
@@ -614,7 +719,7 @@ __time__ = ['get_current_time']
             self.model_selector.menu_display.display_command_menu(
                 has_system_prompts=has_system_prompts,
                 has_tools=has_tools,
-                tool_settings=tool_settings
+                tool_settings=tool_settings,
             )
 
             # Get user selection
@@ -622,7 +727,7 @@ __time__ = ['get_current_time']
             choice = user_interaction.get_user_input()
 
             # Handle quit
-            if choice.lower() in {'q', 'quit', 'exit'}:
+            if choice.lower() in {"q", "quit", "exit"}:
                 typer.secho("Returning to chat.", fg=typer.colors.YELLOW)
                 return CommandResult()
 
@@ -638,8 +743,12 @@ __time__ = ['get_current_time']
                     if result.should_exit or result.new_session or result.new_model:
                         return result
                     # For toggles, return immediately
-                    if handler_name in ['_handle_markdown_command', '_handle_thinking_command',
-                                      '_handle_system_prompt_command', '_handle_tool_policy_command']:
+                    if handler_name in [
+                        "_handle_markdown_command",
+                        "_handle_thinking_command",
+                        "_handle_system_prompt_command",
+                        "_handle_tool_policy_command",
+                    ]:
                         return result
                     # For selection menus, continue loop if cancelled
                     continue
