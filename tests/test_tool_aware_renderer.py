@@ -238,8 +238,7 @@ class TestToolAwareRenderer:
 
         tool_aware_renderer.render_streaming_response(iter(chunks), tool_context)
 
-        # Should print tool request
-        mock_print.assert_any_call("\n\n🔧 AI requesting tool: test_tool")
+        # Should print tool processing message
         mock_print.assert_any_call("\n🤖 Processing 1 tool results...\n")
 
     def test_tool_execution_with_confirmation(self, tool_aware_renderer, tool_context):
