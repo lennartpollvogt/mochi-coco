@@ -24,8 +24,8 @@
 - [x] only list ollama models with `completion` functionality (see `OllamaClient().show(model).capabilities`)
 - [x] add info to model overview if a model can use tools
 - [x] add system prompt
-- [ ] Add tool usage
-- [ ] add folder with example tools users of the application can use to get started and to showcase the capabilities of the application + add documentation on how to create own tools
+- [x] Add tool usage
+- [x] add folder with example tools users of the application can use to get started and to showcase the capabilities of the application + add documentation on how to create own tools
 - [ ] autocomplete for commands during chat sessions
 
 # Issues
