@@ -452,11 +452,11 @@ class MenuDisplay:
         options_text = Text()
         options_text.append("\n💡 Options:\n", style="bold bright_yellow")
         options_text.append(
-            f"• 📝 Select system prompt (1-{prompt_count})", style="white"
+            f"• 📝 Select system prompt (1-{prompt_count})\n", style="white"
         )
-        options_text.append("• 🆕 Type 'no' for no system prompt", style="white")
+        options_text.append("• 🆕 Type 'no' for no system prompt\n", style="white")
         options_text.append(
-            "• 🗑️ Type '/delete <number>' to delete a system prompt", style="white"
+            "• 🗑️ Type '/delete <number>' to delete a system prompt\n", style="white"
         )
         options_text.append("• 👋 Type 'q' to quit", style="white")
 
