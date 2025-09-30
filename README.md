@@ -6,7 +6,7 @@
 `-----´
 ```
 
-A beautiful, feature-rich CLI chat application for interacting with LLMs via Ollama with streaming responses, session persistence, and markdown rendering.
+A beautiful, feature-rich CLI chat application for interacting with LLMs via Ollama with streaming responses, session persistence, markdown rendering and tool support.
 
 ## Installation
 

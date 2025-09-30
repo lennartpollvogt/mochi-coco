@@ -1,7 +1,7 @@
 [project]
 name = "mochi-coco"
-version = "0.2.0"
-description = "A beautiful, feature-rich CLI chat application for interacting with LLMs via Ollama with streaming responses, session persistence, and markdown rendering."
+version = "0.3.0"
+description = "A beautiful, feature-rich CLI chat application for interacting with LLMs via Ollama with streaming responses, session persistence, markdown rendering and tool support."
 readme = "README.md"
 authors = [
     { name = "Lennart Pollvogt", email = "lennartpollvogt@protonmail.com" },
