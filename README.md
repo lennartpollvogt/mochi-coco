@@ -47,6 +47,7 @@ While chatting, you can use these commands:
   - `/markdown` - Toggle markdown rendering on/off
   - `/thinking` - Toggle thinking blocks display (only when markdown rendering is enabled)
   - `/system` - Change system prompt during chat session
+  - `/tools` - Enable/disable tools feature (only when `/tools` folder exists in the terminal's root directory)
 - `/edit` - Edit a previous message and continue from there
 - `/exit` or `/quit` - Exit the application
 
@@ -222,8 +223,10 @@ The system prompts can be selected when creating a new chat session:
 │ ╰─────┴─────────────────┴─────────────────────────────────────┴────────────╯             │
 │                                                                                          │
 │ 💡 Options:                                                                              │
-│ • 📝 Select system prompt (1-1)• 🆕 Type 'no' for no system prompt• 🗑️ Type '/delete     │
-│ <number>' to delete a system prompt• 👋 Type 'q' to quit                                 │
+│ • 📝 Select system prompt (1-1)                                                          │
+│ • 🆕 Type 'no' for no system prompt                                                      │
+│ • 🗑️ Type '/delete <number>' to delete a system prompt                                   │
+│ • 👋 Type 'q' to quit                                                                    │
 ╰──────────────────────────────────────────────────────────────────────────────────────────╯
 Enter your choice:
 ```
@@ -254,8 +257,10 @@ Enter your choice: 6
 │ ╰─────┴─────────────────┴─────────────────────────────────────┴────────────╯             │
 │                                                                                          │
 │ 💡 Options:                                                                              │
-│ • 📝 Select system prompt (1-1)• 🆕 Type 'no' for no system prompt• 🗑️ Type '/delete     │
-│ <number>' to delete a system prompt• 👋 Type 'q' to quit                                 │
+│ • 📝 Select system prompt (1-1)                                                          │
+│ • 🆕 Type 'no' for no system prompt                                                      │
+│ • 🗑️ Type '/delete <number>' to delete a system prompt                                   │
+│ • 👋 Type 'q' to quit                                                                    │
 ╰──────────────────────────────────────────────────────────────────────────────────────────╯
 Enter your choice:
 ```
@@ -274,13 +279,18 @@ Enter your choice:
 │ ╰─────┴─────────────────┴─────────────────────────────────────┴────────────╯             │
 │                                                                                          │
 │ 💡 Options:                                                                              │
-│ • 📝 Select system prompt (1-1)• 🆕 Type 'no' for no system prompt• 🗑️ Type '/delete     │
-│ <number>' to delete a system prompt• 👋 Type 'q' to quit                                 │
+│ • 📝 Select system prompt (1-1)                                                          │
+│ • 🆕 Type 'no' for no system prompt                                                      │
+│ • 🗑️ Type '/delete <number>' to delete a system prompt                                   │
+│ • 👋 Type 'q' to quit                                                                    │
 ╰──────────────────────────────────────────────────────────────────────────────────────────╯
 Enter your choice:
 ```
 
 ### Edit Menu
+
+With the in-chat command `/edit` you can edit messages from the current chat history.
+
 ```bash
 ╭────────╮
 │ 🧑 You │
@@ -302,12 +312,15 @@ Enter your choice:
 
 ```
 
+> **Disclaimer**
+>
+> Editing a message will continue the chat from this point. All previously trailing messages - whether user or assistant - will be deleted.
 
 ### Tool Menu
 
-The tool feature is optional and depend on the existence of a `/tools` folder in the terminal's root directory. Additionally, tools are not enabled by default.
+The tool feature depends on the existence of a `/tools` folder in the terminal's root directory and python functions. Tools are not enabled by default.
 
-Get more about using the tool feature here: [User Guide: Tools](docs/tools/user_guide_tools.md)
+Get more information how to use the tool feature here: [User Guide: Tools](docs/tools/user_guide_tools.md)
 
 ```bash
 ╭────────╮
