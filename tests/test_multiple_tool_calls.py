@@ -267,7 +267,7 @@ class TestMultipleToolCallsBug:
 
         def mock_render_streaming(stream, context=None):
             # Consume the stream like a real renderer would
-            chunks = list(stream)
+            _chunks = list(stream)
             return None
 
         base_renderer.render_streaming_response = mock_render_streaming

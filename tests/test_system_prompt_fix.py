@@ -161,7 +161,7 @@ class TestSystemPromptCommandFix:
             return_value=CommandResult(),
         ) as mock_handler:
             # Process command with arguments
-            result = command_processor.process_command(
+            _result = command_processor.process_command(
                 "/system reload", chat_session, "test-model"
             )
 

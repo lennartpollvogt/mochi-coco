@@ -284,7 +284,7 @@ class TestSystemPromptCommandIntegration:
             "_handle_system_prompt_command",
             return_value=CommandResult(),
         ) as mock_handler:
-            result = command_processor.process_command(
+            _result = command_processor.process_command(
                 "/SYSTEM", sample_chat_session, "test-model"
             )
             mock_handler.assert_called_once_with(sample_chat_session, "")
