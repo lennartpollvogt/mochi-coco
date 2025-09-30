@@ -5,19 +5,30 @@ from pydantic import BaseModel, Field
 import json
 
 from ..ollama import AsyncInstructorOllamaClient
-from ..chat.session import ChatSession
+from ..chat.session import ChatSession, SessionMessage, UserMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
 
+
 class ConversationSummary(BaseModel):
     """Structured summary of the conversation"""
-    summary: str = Field(..., description="Summary of the conversation in 2-5 sentences")
-    topics: List[str] = Field(..., description="List of topics discussed in the conversation")
+
+    summary: str = Field(
+        ..., description="Summary of the conversation in 2-5 sentences"
+    )
+    topics: List[str] = Field(
+        ..., description="List of topics discussed in the conversation"
+    )
+
 
 class SummarizationService:
     """Service for background conversation summarization using async Ollama client."""
 
-    def __init__(self, instructor_client: Optional[AsyncInstructorOllamaClient], model: Optional[str] = None):
+    def __init__(
+        self,
+        instructor_client: Optional[AsyncInstructorOllamaClient],
+        model: Optional[str] = None,
+    ):
         """
         Initialize the summarization service.
 
@@ -31,9 +42,13 @@ class SummarizationService:
         self._task: Optional[asyncio.Task] = None
         self._last_message_count = 0
 
-    async def start_monitoring(self, session: ChatSession, chat_model: str,
-                             summary_model: Optional[str] = None,
-                             update_callback: Optional[Callable[[str], None]] = None):
+    async def start_monitoring(
+        self,
+        session: ChatSession,
+        chat_model: str,
+        summary_model: Optional[str] = None,
+        update_callback: Optional[Callable[[str], None]] = None,
+    ):
         """
         Start background monitoring of the chat session for summarization.
 
@@ -72,8 +87,9 @@ class SummarizationService:
                 logger.info("Summarization monitoring stopped")
                 pass
 
-    async def generate_summary_now(self, session: ChatSession, chat_model: str,
-                                 summary_model: Optional[str] = None) -> Optional[dict]:
+    async def generate_summary_now(
+        self, session: ChatSession, chat_model: str, summary_model: Optional[str] = None
+    ) -> Optional[dict]:
         """
         Generate a summary immediately for the current conversation.
 
@@ -92,8 +108,13 @@ class SummarizationService:
             logger.error(f"Failed to generate summary: {e}")
             return None
 
-    async def _monitor_session(self, session: ChatSession, chat_model: str, summary_model: str,
-                             update_callback: Optional[Callable[[str], None]]):
+    async def _monitor_session(
+        self,
+        session: ChatSession,
+        chat_model: str,
+        summary_model: str,
+        update_callback: Optional[Callable[[str], None]],
+    ):
         """
         Monitor session for changes and update summaries.
 
@@ -108,27 +129,33 @@ class SummarizationService:
                 current_count = len(session.messages)
 
                 # Check if new messages were added and we have at least one exchange
-                if (current_count > self._last_message_count and
-                    current_count >= 2 and
-                    self._should_update_summary(session)):
-
+                if (
+                    current_count > self._last_message_count
+                    and current_count >= 2
+                    and self._should_update_summary(session)
+                ):
                     logger.debug(f"Generating summary for {current_count} messages")
                     summary = await self._generate_summary(session, summary_model)
 
                     if summary:
                         # Update session metadata
-                        if hasattr(session, 'metadata') and session.metadata:
+                        if hasattr(session, "metadata") and session.metadata:
                             session.metadata.summary = summary
                             # Update the updated_at timestamp
                             from datetime import datetime
+
                             session.metadata.updated_at = datetime.now().isoformat()
 
                         # Save session to persist the summary to JSON file
                         try:
                             session.save_session()
                             # Extract summary text for logging preview
-                            summary_preview = summary.get('summary', 'No summary available')[:100]
-                            logger.info(f"Summary saved to session file: {summary_preview}...")
+                            summary_preview = summary.get(
+                                "summary", "No summary available"
+                            )[:100]
+                            logger.info(
+                                f"Summary saved to session file: {summary_preview}..."
+                            )
                         except Exception as e:
                             logger.error(f"Failed to save session with summary: {e}")
 
@@ -136,7 +163,9 @@ class SummarizationService:
                         if update_callback:
                             try:
                                 # Extract summary text from dict for callback
-                                summary_str = summary.get('summary', 'No summary text available')
+                                summary_str = summary.get(
+                                    "summary", "No summary text available"
+                                )
                                 update_callback(summary_str)
                             except Exception as e:
                                 logger.error(f"Summary update callback failed: {e}")
@@ -167,10 +196,18 @@ class SummarizationService:
             return False
 
         # Check if last message is from assistant (indicates completed exchange)
-        last_message = session.messages[-1]
-        return hasattr(last_message, 'role') and last_message.role == 'assistant'
+        last_message: SessionMessage | UserMessage | SystemMessage = session.messages[
+            -1
+        ]
+        return (
+            hasattr(last_message, "role")
+            and last_message.role == "assistant"
+            and last_message.tool_calls is None
+        )
 
-    async def _generate_summary(self, session: ChatSession, summary_model: str) -> Optional[dict]:
+    async def _generate_summary(
+        self, session: ChatSession, summary_model: str
+    ) -> Optional[dict]:
         """
         Generate a summary of the current conversation.
 
@@ -184,7 +221,9 @@ class SummarizationService:
         try:
             # Check if instructor client is available
             if self.instructor_client is None:
-                logger.error("AsyncInstructorOllamaClient is not available for structured summarization")
+                logger.error(
+                    "AsyncInstructorOllamaClient is not available for structured summarization"
+                )
                 return None
 
             messages = session.get_messages_for_api()
@@ -199,11 +238,13 @@ class SummarizationService:
                         f"Here is the current conversation:\n```\n{self._format_conversation(messages)}\n```\n\n"
                         "Make sure you provide the correct json format by adhering to the provided schema."
                         f"As you will overwrite the current summary, consider it in your response. Current summary: \n```\n{current_summary}\n```"
-                    )
+                    ),
                 }
             ]
             # Generate summary using single (non-streaming) request
-            response = await self.instructor_client.structured_response(summary_model, summary_prompt, format=ConversationSummary)
+            response = await self.instructor_client.structured_response(
+                summary_model, summary_prompt, format=ConversationSummary
+            )
 
             if response and response.message and response.message.content:
                 parsed_summary: Dict[str, Any] = json.loads(response.message.content)
@@ -229,22 +270,24 @@ class SummarizationService:
         formatted = ""
 
         # Use last 10 messages to avoid context overflow and focus on recent conversation
-        #recent_messages = messages[-10:] if len(messages) > 10 else messages
+        # recent_messages = messages[-10:] if len(messages) > 10 else messages
 
         for msg in messages:
-            role = msg.get('role', 'unknown')
-            content = msg.get('content', '')
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
 
             # Clean up content and truncate if too long
             content = content.strip()
-            #if len(content) > 500:  # Truncate very long messages
-                #content = content[:500] + "..."
+            # if len(content) > 500:  # Truncate very long messages
+            # content = content[:500] + "..."
 
-            message = f"<{role.title()}>:\n<content>{content}\n</content>\n</{role.title()}>"
+            message = (
+                f"<{role.title()}>:\n<content>{content}\n</content>\n</{role.title()}>"
+            )
             # add message to formatted
             formatted += message
 
-        #return "\n".join(formatted)
+        # return "\n".join(formatted)
         return formatted
 
     @property

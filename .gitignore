@@ -209,5 +209,5 @@ __marimo__/
 # mochi-coco
 chat_sessions/
 system_prompts/
-tools/
+#tools/
 example.py

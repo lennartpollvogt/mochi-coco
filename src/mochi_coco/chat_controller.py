@@ -5,7 +5,7 @@ This refactored version uses specialized controllers and orchestrators to handle
 different concerns, improving maintainability and testability.
 """
 
-from typing import Optional
+from typing import Optional, Dict, Any
 import asyncio
 import logging
 
@@ -22,6 +22,7 @@ from .services.session_creation_types import (
     SessionCreationContext, SessionCreationMode, SessionCreationOptions
 )
 from .controllers import SessionController, CommandResultHandler
+from .tools import ToolDiscoveryService, ToolSchemaService, ToolExecutionService
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,11 @@ class ChatController:
         self.command_processor = CommandProcessor(
             self.model_selector, self.renderer_manager, self.session_setup_helper
         )
+
+        # Initialize tool services
+        self.tool_discovery_service = ToolDiscoveryService()
+        self.tool_schema_service = ToolSchemaService()
+        self.tool_execution_service = None  # Will be initialized when tools are loaded
 
     def run(self) -> None:
         """Run the main chat application with standardized session creation."""
@@ -189,9 +195,12 @@ class ChatController:
         # Display response headers
         self.ui_orchestrator.display_streaming_response_headers()
 
+        # Prepare tool context if tools are enabled
+        tool_context = self._prepare_tool_context(session)
+
         # Process message through session controller
         message_result = self.session_controller.process_user_message(
-            session, model, user_input, self.renderer
+            session, model, user_input, self.renderer, tool_context
         )
 
         # Display footer
@@ -202,6 +211,59 @@ class ChatController:
             self.ui_orchestrator.display_error(message_result.error_message or "Failed to process message")
 
 
+
+    def _prepare_tool_context(self, session) -> Optional[Dict[str, Any]]:
+        """Prepare tool context for the session if tools are enabled."""
+        # Check if session has tools enabled
+        if not session.has_tools_enabled():
+            return None
+
+        tool_settings = session.get_tool_settings()
+        if not tool_settings:
+            return None
+
+        try:
+            # Discover available tools
+            functions, groups = self.tool_discovery_service.discover_tools()
+            if not functions and not groups:
+                logger.warning("No tools found despite session having tool settings")
+                return None
+
+            # Get active tools based on session settings
+            active_tool_names = tool_settings.get_active_tools(functions, groups)
+            if not active_tool_names:
+                logger.warning("No active tools found for session")
+                return None
+
+            # Filter to get actual function objects for active tools
+            active_tools = []
+            for tool_name in active_tool_names:
+                if tool_name in functions:
+                    active_tools.append(functions[tool_name])
+                else:
+                    logger.warning(f"Tool '{tool_name}' not found in available functions")
+
+            if not active_tools:
+                logger.warning("No valid tool functions found")
+                return None
+
+            # Initialize tool execution service if needed
+            if self.tool_execution_service is None:
+                self.tool_execution_service = ToolExecutionService(functions)
+
+            # Create tool context
+            return {
+                'tools_enabled': True,
+                'tools': active_tools,
+                'tool_execution_service': self.tool_execution_service,
+                'tool_settings': tool_settings,
+                'session': session,
+                'available_functions': functions
+            }
+
+        except Exception as e:
+            logger.error(f"Error preparing tool context: {e}", exc_info=True)
+            return None
 
     def _on_summary_updated(self, summary: str) -> None:
         """Callback for summary updates."""

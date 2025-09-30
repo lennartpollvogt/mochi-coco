@@ -1,9 +1,12 @@
-from typing import AsyncIterator, List, Optional, Sequence, Mapping, Any
+from typing import AsyncIterator, List, Optional, Sequence, Mapping, Any, Union, Callable
 from dataclasses import dataclass
 from pydantic import BaseModel
+import logging
 
-from ollama import AsyncClient, ListResponse, ChatResponse, Message, ShowResponse
+from ollama import AsyncClient, ListResponse, ChatResponse, Message, ShowResponse, Tool
 from ollama_instructor import OllamaInstructorAsync
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ChatMessage:
@@ -85,16 +88,34 @@ class AsyncOllamaClient:
         except Exception as e:
             raise Exception(f"Failed to show model details: {e}")
 
-    async def chat_stream(self, model: str, messages: Sequence[Mapping[str, Any] | Message]) -> AsyncIterator[ChatResponse]:
+    async def chat_stream(self, model: str, messages: Sequence[Mapping[str, Any] | Message],
+                          tools: Optional[Sequence[Union[Tool, Callable]]] = None,
+                          think: Optional[bool] = None) -> AsyncIterator[ChatResponse]:
         """
-        Stream chat responses from the model asynchronously.
+        Async stream chat responses with optional tool support.
+
+        Args:
+            model: Model name to use for generation
+            messages: Sequence of chat messages
+            tools: Optional list of Tool objects or callable functions
+            think: Enable thinking mode for supported models
+
+        Yields:
+            ChatResponse chunks during streaming
         """
         try:
-            response_stream = await self.client.chat(
-                model=model,
-                messages=messages,
-                stream=True
-            )
+            kwargs = {
+                "model": model,
+                "messages": messages,
+                "stream": True
+            }
+
+            if tools is not None:
+                kwargs["tools"] = tools
+            if think is not None:
+                kwargs["think"] = think
+
+            response_stream = await self.client.chat(**kwargs)
 
             async for chunk in response_stream:
                 if chunk.message and chunk.message.content:
@@ -102,22 +123,75 @@ class AsyncOllamaClient:
                 elif hasattr(chunk, 'done') and chunk.done and hasattr(chunk, 'eval_count'):
                     yield chunk
         except Exception as e:
-            raise Exception(f"Chat failed: {e}")
+            logger.error(f"Async chat failed: {e}")
+            raise
 
-    async def chat_single(self, model: str, messages: Sequence[Mapping[str, Any] | Message]) -> ChatResponse:
+    async def chat_single(self, model: str, messages: Sequence[Mapping[str, Any] | Message],
+                          tools: Optional[Sequence[Union[Tool, Callable]]] = None,
+                          think: Optional[bool] = None) -> ChatResponse:
         """
         Get a single (non-streaming) chat response from the model asynchronously.
+
+        Args:
+            model: Model name to use for generation
+            messages: Sequence of chat messages
+            tools: Optional list of Tool objects or callable functions
+            think: Enable thinking mode for supported models
+
+        Returns:
+            Complete ChatResponse
         """
         try:
-            response = await self.client.chat(
-                model=model,
-                messages=messages,
-                stream=False,
-                format=None
-            )
+            kwargs = {
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                "format": None
+            }
+
+            if tools is not None:
+                kwargs["tools"] = tools
+            if think is not None:
+                kwargs["think"] = think
+
+            response = await self.client.chat(**kwargs)
             return response
         except Exception as e:
-            raise Exception(f"Chat failed: {e}")
+            logger.error(f"Async chat failed: {e}")
+            raise
+
+    async def chat(self, model: str, messages: Sequence[Mapping[str, Any] | Message],
+                   tools: Optional[Sequence[Union[Tool, Callable]]] = None,
+                   think: Optional[bool] = None) -> ChatResponse:
+        """
+        Async non-streaming chat with optional tool support.
+
+        Args:
+            model: Model name to use for generation
+            messages: Sequence of chat messages
+            tools: Optional list of Tool objects or callable functions
+            think: Enable thinking mode for supported models
+
+        Returns:
+            Complete ChatResponse
+        """
+        try:
+            kwargs = {
+                "model": model,
+                "messages": messages,
+                "stream": False
+            }
+
+            if tools is not None:
+                kwargs["tools"] = tools
+            if think is not None:
+                kwargs["think"] = think
+
+            return await self.client.chat(**kwargs)
+
+        except Exception as e:
+            logger.error(f"Async chat failed: {e}")
+            raise
 
 class AsyncInstructorOllamaClient:
     def __init__(self, host: Optional[str] = None):
