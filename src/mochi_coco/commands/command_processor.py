@@ -541,8 +541,8 @@ class CommandProcessor:
         tool_settings.execution_policy = policies[next_index]
 
         # Update session
-        if not hasattr(session.metadata, "tools_settings"):
-            session.metadata.tools_settings = {}
+        if not hasattr(session.metadata, "tool_settings"):
+            session.metadata.tool_settings = {}
         session.metadata.tool_settings = tool_settings
         session.save_session()
 
