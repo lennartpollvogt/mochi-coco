@@ -16,6 +16,7 @@ from ..services.session_creation_types import SessionCreationContext
 
 # Import with TYPE_CHECKING to avoid circular imports
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from ..chat import ChatSession
 
@@ -45,22 +46,20 @@ class SessionCreationUI:
             style="bright_green",
             padding=(1, 2),
             title="🍡 Welcome to Mochi-Coco!",
-            title_align="center"
+            title_align="center",
         )
         self.console.print(panel)
 
     def _display_menu_welcome(self) -> None:
         """Display welcome message for menu-initiated session creation."""
         self.chat_interface.print_info_message(
-            "🔄 Session Management",
-            "Select or create a chat session"
+            "🔄 Session Management", "Select or create a chat session"
         )
 
     def _display_generic_welcome(self) -> None:
         """Display generic welcome message for other contexts."""
         self.chat_interface.print_info_message(
-            "💬 Session Selection",
-            "Choose your chat session"
+            "💬 Session Selection", "Choose your chat session"
         )
 
     def display_existing_sessions(self, sessions: List["ChatSession"]) -> None:
@@ -79,7 +78,7 @@ class SessionCreationUI:
                 session.session_id,
                 session.metadata.model,
                 preview,
-                str(session.metadata.message_count)
+                str(session.metadata.message_count),
             )
 
         # Create options text
@@ -88,7 +87,9 @@ class SessionCreationUI:
         options_text.append("\n💡 Options:\n", style="bold bright_yellow")
         options_text.append(f"• 📝 Select session (1-{session_count})\n", style="white")
         options_text.append("• 🆕 Type 'new' for new chat\n", style="white")
-        options_text.append("• 🗑️ Type '/delete <number>' to delete session\n", style="white")
+        options_text.append(
+            "• 🗑️ Type '/delete <number>' to delete session\n", style="white"
+        )
         options_text.append("• 👋 Type 'q' to quit", style="white")
 
         # Combine table and options
@@ -102,9 +103,9 @@ class SessionCreationUI:
         choice = input("Enter your choice: ").strip()
 
         # Handle delete command
-        if choice.startswith('/delete '):
+        if choice.startswith("/delete "):
             try:
-                delete_num = choice.split(' ')[1]
+                delete_num = choice.split(" ")[1]
                 return f"delete_{delete_num}"
             except (IndexError, ValueError):
                 return "invalid"
@@ -113,32 +114,52 @@ class SessionCreationUI:
 
     def display_deletion_success(self, session_id: str) -> None:
         """Display successful session deletion."""
-        self.chat_interface.print_success_message(f"Session {session_id} deleted successfully")
+        self.chat_interface.print_success_message(
+            f"Session {session_id} deleted successfully"
+        )
 
     def display_deletion_error(self, session_id: str) -> None:
         """Display session deletion error."""
-        self.chat_interface.print_error_message(f"Failed to delete session {session_id}")
+        self.chat_interface.print_error_message(
+            f"Failed to delete session {session_id}"
+        )
+
+    def display_invalid_input_error(self, session_count: int) -> None:
+        """Display error for invalid session selection input."""
+        options_text = f"Please enter: a number (1-{session_count}), 'new', '/delete <number>', or 'q'"
+        self.chat_interface.print_error_message(f"Invalid input. {options_text}")
+
+    def display_invalid_session_number_error(self, session_count: int) -> None:
+        """Display error for invalid session number."""
+        self.chat_interface.print_error_message(
+            f"Invalid session number. Please enter a number between 1 and {session_count}."
+        )
+
+    def display_invalid_delete_command_error(self, session_count: int) -> None:
+        """Display error for invalid delete command format."""
+        self.chat_interface.print_error_message(
+            f"Invalid delete command format. Use '/delete <number>' where <number> is 1-{session_count}."
+        )
 
     def display_session_creation_start(self, context: SessionCreationContext) -> None:
         """Display message when starting session creation process."""
         if context == SessionCreationContext.APPLICATION_STARTUP:
             self.chat_interface.print_info_message(
-                "🚀 Starting Session",
-                "Setting up your chat environment"
+                "🚀 Starting Session", "Setting up your chat environment"
             )
         elif context == SessionCreationContext.MENU_COMMAND:
             self.chat_interface.print_info_message(
-                "🔄 Session Switch",
-                "Loading session management"
+                "🔄 Session Switch", "Loading session management"
             )
 
-    def display_session_creation_success(self, session: "ChatSession", model: str,
-                                       context: SessionCreationContext) -> None:
+    def display_session_creation_success(
+        self, session: "ChatSession", model: str, context: SessionCreationContext
+    ) -> None:
         """Display successful session creation/loading."""
         if context == SessionCreationContext.APPLICATION_STARTUP:
-            #self.chat_interface.print_success_message(
+            # self.chat_interface.print_success_message(
             #    f"Session ready! Using {model} (ID: {session.session_id})"
-            #)
+            # )
             pass
         else:
             self.chat_interface.print_success_message(
@@ -154,12 +175,7 @@ or all previous sessions have been deleted.
 
 Let's create a new chat session!"""
 
-        panel = Panel(
-            message,
-            title="Welcome!",
-            style="yellow",
-            padding=(1, 1)
-        )
+        panel = Panel(message, title="Welcome!", style="yellow", padding=(1, 1))
         self.console.print(panel)
 
     def _get_session_preview(self, session: "ChatSession") -> str:

@@ -9,8 +9,11 @@ from typing import Optional, List
 import logging
 
 from .session_creation_types import (
-    SessionCreationContext, SessionCreationMode, SessionCreationOptions,
-    SessionCreationResult, UserPreferences
+    SessionCreationContext,
+    SessionCreationMode,
+    SessionCreationOptions,
+    SessionCreationResult,
+    UserPreferences,
 )
 from .user_preference_service import UserPreferenceService
 from .system_prompt_service import SystemPromptService
@@ -18,6 +21,7 @@ from ..ui.session_creation_ui import SessionCreationUI
 
 # Import with TYPE_CHECKING to avoid circular imports
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from ..chat import ChatSession
     from ..ui import ModelSelector
@@ -28,9 +32,12 @@ logger = logging.getLogger(__name__)
 class SessionCreationService:
     """Unified service for all session creation scenarios."""
 
-    def __init__(self, model_selector: "ModelSelector",
-                 preference_service: UserPreferenceService,
-                 system_prompt_service: SystemPromptService):
+    def __init__(
+        self,
+        model_selector: "ModelSelector",
+        preference_service: UserPreferenceService,
+        system_prompt_service: SystemPromptService,
+    ):
         self.model_selector = model_selector
         self.preference_service = preference_service
         self.system_prompt_service = system_prompt_service
@@ -43,14 +50,16 @@ class SessionCreationService:
         This is the single entry point for all session creation scenarios.
         """
         try:
-            logger.info(f"Starting session creation - Context: {options.context}, Mode: {options.mode}")
+            logger.info(
+                f"Starting session creation - Context: {options.context}, Mode: {options.mode}"
+            )
 
             # Show welcome message if requested
             if options.show_welcome_message:
                 self.ui.display_welcome(options.context)
 
             # Show session creation start message
-            #self.ui.display_session_creation_start(options.context)
+            # self.ui.display_session_creation_start(options.context)
 
             # Handle different creation modes
             if options.mode == SessionCreationMode.NEW_SESSION:
@@ -69,9 +78,12 @@ class SessionCreationService:
             logger.error(f"Session creation failed: {e}")
             return SessionCreationResult(None, None, None, None, False, str(e))
 
-    def _auto_detect_and_create(self, options: SessionCreationOptions) -> SessionCreationResult:
+    def _auto_detect_and_create(
+        self, options: SessionCreationOptions
+    ) -> SessionCreationResult:
         """Auto-detect the best session creation approach."""
         from ..chat import ChatSession
+
         existing_sessions = ChatSession.list_sessions()
 
         if not existing_sessions:
@@ -80,73 +92,134 @@ class SessionCreationService:
             return self._create_new_session(options)
         else:
             # Sessions exist - let user choose
-            return self._handle_session_selection_with_options(existing_sessions, options)
+            return self._handle_session_selection_with_options(
+                existing_sessions, options
+            )
 
-    def _handle_session_selection_with_options(self, sessions: List["ChatSession"],
-                                             options: SessionCreationOptions) -> SessionCreationResult:
+    def _handle_session_selection_with_options(
+        self, sessions: List["ChatSession"], options: SessionCreationOptions
+    ) -> SessionCreationResult:
         """Handle session selection when existing sessions are available."""
         self.ui.display_existing_sessions(sessions)
 
-        choice = self.ui.get_session_choice(len(sessions))
+        while True:  # Retry loop for invalid input
+            try:
+                choice = self.ui.get_session_choice(len(sessions))
+                result = self._process_session_choice(choice, sessions, options)
+
+                if result is not None:  # Valid result (success or legitimate exit)
+                    return result
+                # Continue loop for invalid input (result is None)
+
+            except (EOFError, KeyboardInterrupt):
+                return SessionCreationResult(
+                    None, None, None, None, False, "User interrupted"
+                )
+
+    def _process_session_choice(
+        self,
+        choice: str,
+        sessions: List["ChatSession"],
+        options: SessionCreationOptions,
+    ) -> Optional[SessionCreationResult]:
+        """
+        Process a single session choice.
+
+        Returns:
+            SessionCreationResult for valid operations (success/legitimate failure)
+            None to continue input loop for invalid input
+        """
+        session_count = len(sessions)
 
         if choice == "new":
             return self._create_new_session(options)
         elif choice in ["q", "quit", "exit"]:
             return SessionCreationResult(None, None, None, None, False, "User quit")
         elif choice.startswith("delete_"):
-            session_index = int(choice.split("_")[1]) - 1
-            return self._handle_session_deletion(sessions, session_index, options)
+            try:
+                session_index = int(choice.split("_")[1]) - 1
+                if 0 <= session_index < session_count:
+                    return self._handle_session_deletion(
+                        sessions, session_index, options
+                    )
+                else:
+                    self.ui.display_invalid_session_number_error(session_count)
+                    return None  # Continue loop
+            except (IndexError, ValueError):
+                self.ui.display_invalid_delete_command_error(session_count)
+                return None  # Continue loop
         else:
             # Load existing session
             try:
                 session_index = int(choice) - 1
-                if 0 <= session_index < len(sessions):
+                if 0 <= session_index < session_count:
                     return self._load_specific_session(sessions[session_index], options)
                 else:
-                    return SessionCreationResult(None, None, None, None, False, "Invalid session selection")
+                    self.ui.display_invalid_session_number_error(session_count)
+                    return None  # Continue loop
             except ValueError:
-                return SessionCreationResult(None, None, None, None, False, "Invalid input")
+                self.ui.display_invalid_input_error(session_count)
+                return None  # Continue loop
 
-    def _create_new_session(self, options: SessionCreationOptions) -> SessionCreationResult:
+    def _create_new_session(
+        self, options: SessionCreationOptions
+    ) -> SessionCreationResult:
         """Create a completely new session."""
         # Select model
         model = self._select_model_for_context(options.context)
         if not model:
-            return SessionCreationResult(None, None, None, None, False, "No model selected")
+            return SessionCreationResult(
+                None, None, None, None, False, "No model selected"
+            )
 
         # Collect user preferences
         preferences = None
         if options.collect_preferences:
             preferences = self.preference_service.collect_preferences(options.context)
             if preferences is None:
-                return SessionCreationResult(None, None, None, None, False, "Preference collection cancelled")
+                return SessionCreationResult(
+                    None, None, None, None, False, "Preference collection cancelled"
+                )
         else:
             preferences = UserPreferences(markdown_enabled=True, show_thinking=False)
 
         # Handle system prompt selection
         system_prompt_content = None
-        if options.allow_system_prompt_selection and self.system_prompt_service.has_system_prompts():
-            system_prompt_content = self._handle_system_prompt_selection(options.context)
+        if (
+            options.allow_system_prompt_selection
+            and self.system_prompt_service.has_system_prompts()
+        ):
+            system_prompt_content = self._handle_system_prompt_selection(
+                options.context
+            )
 
         # Create the session
         from ..chat import ChatSession
+
         session = ChatSession(model=model)
 
         # Add system prompt if selected
         if system_prompt_content:
             session.add_system_message(content=system_prompt_content)
             if preferences:
-                preferences.selected_system_prompt = "Custom"  # Could be enhanced to track filename
+                preferences.selected_system_prompt = (
+                    "Custom"  # Could be enhanced to track filename
+                )
 
         # Display success message
         self.ui.display_session_creation_success(session, model, options.context)
 
         logger.info(f"Created new session: {session.session_id}")
-        return SessionCreationResult(session, model, preferences, SessionCreationMode.NEW_SESSION, True)
+        return SessionCreationResult(
+            session, model, preferences, SessionCreationMode.NEW_SESSION, True
+        )
 
-    def _load_existing_session(self, options: SessionCreationOptions) -> SessionCreationResult:
+    def _load_existing_session(
+        self, options: SessionCreationOptions
+    ) -> SessionCreationResult:
         """Load an existing session."""
         from ..chat import ChatSession
+
         existing_sessions = ChatSession.list_sessions()
         if not existing_sessions:
             # Fall back to creating new session
@@ -159,6 +232,7 @@ class SessionCreationService:
     def _resume_session(self, options: SessionCreationOptions) -> SessionCreationResult:
         """Resume the most recent session or create new if none exists."""
         from ..chat import ChatSession
+
         existing_sessions = ChatSession.list_sessions()
 
         if not existing_sessions:
@@ -170,25 +244,37 @@ class SessionCreationService:
         most_recent_session = existing_sessions[0]  # Assuming first is most recent
         return self._load_specific_session(most_recent_session, options)
 
-    def _load_specific_session(self, session: "ChatSession",
-                              options: SessionCreationOptions) -> SessionCreationResult:
+    def _load_specific_session(
+        self, session: "ChatSession", options: SessionCreationOptions
+    ) -> SessionCreationResult:
         """Load a specific session."""
         # Get existing preferences or collect new ones
         preferences = None
         if options.collect_preferences:
-            preferences = self.preference_service.get_or_collect_preferences(options.context)
+            preferences = self.preference_service.get_or_collect_preferences(
+                options.context
+            )
         else:
             # Use default preferences for existing session
             preferences = UserPreferences(markdown_enabled=True, show_thinking=False)
 
         # Display success message
-        self.ui.display_session_creation_success(session, session.metadata.model, options.context)
+        self.ui.display_session_creation_success(
+            session, session.metadata.model, options.context
+        )
 
         logger.info(f"Loaded existing session: {session.session_id}")
-        return SessionCreationResult(session, session.metadata.model, preferences,
-                                   SessionCreationMode.LOAD_EXISTING, True)
+        return SessionCreationResult(
+            session,
+            session.metadata.model,
+            preferences,
+            SessionCreationMode.LOAD_EXISTING,
+            True,
+        )
 
-    def _handle_system_prompt_selection(self, context: SessionCreationContext) -> Optional[str]:
+    def _handle_system_prompt_selection(
+        self, context: SessionCreationContext
+    ) -> Optional[str]:
         """Handle system prompt selection for new sessions."""
         from ..ui.system_prompt_menu_handler import SystemPromptSelectionContext
 
@@ -198,10 +284,13 @@ class SessionCreationService:
             sp_context = SystemPromptSelectionContext.FROM_MENU
 
         from ..ui.system_prompt_menu_handler import SystemPromptMenuHandler
+
         handler = SystemPromptMenuHandler(self.system_prompt_service)
         return handler.select_system_prompt(sp_context)
 
-    def _select_model_for_context(self, context: SessionCreationContext) -> Optional[str]:
+    def _select_model_for_context(
+        self, context: SessionCreationContext
+    ) -> Optional[str]:
         """Select a model appropriate for the given context."""
         from ..ui.model_menu_handler import ModelSelectionContext
 
@@ -215,8 +304,9 @@ class SessionCreationService:
 
         return self.model_selector.select_model(model_context)
 
-    def _handle_session_deletion(self, sessions: List["ChatSession"], index: int,
-                               options: SessionCreationOptions) -> SessionCreationResult:
+    def _handle_session_deletion(
+        self, sessions: List["ChatSession"], index: int, options: SessionCreationOptions
+    ) -> SessionCreationResult:
         """Handle session deletion and continue with selection."""
         if 0 <= index < len(sessions):
             session_to_delete = sessions[index]
@@ -224,9 +314,12 @@ class SessionCreationService:
                 self.ui.display_deletion_success(session_to_delete.session_id)
                 # Refresh and continue
                 from ..chat import ChatSession
+
                 updated_sessions = ChatSession.list_sessions()
                 if updated_sessions:
-                    return self._handle_session_selection_with_options(updated_sessions, options)
+                    return self._handle_session_selection_with_options(
+                        updated_sessions, options
+                    )
                 else:
                     self.ui.display_no_sessions_available()
                     return self._create_new_session(options)
@@ -234,4 +327,6 @@ class SessionCreationService:
                 self.ui.display_deletion_error(session_to_delete.session_id)
                 return self._handle_session_selection_with_options(sessions, options)
         else:
-            return SessionCreationResult(None, None, None, None, False, "Invalid session index for deletion")
+            return SessionCreationResult(
+                None, None, None, None, False, "Invalid session index for deletion"
+            )
