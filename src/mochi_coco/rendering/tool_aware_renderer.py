@@ -242,8 +242,22 @@ class ToolAwareRenderer:
                     else:
                         all_tools_successful = False
 
-                # Continue conversation with ALL tool results
-                if all_tools_successful and tool_results:
+                # Continue conversation unless user denied any tool
+                should_continue = False
+                if tool_results:
+                    # Check if any tool was denied by user
+                    any_user_denied = any(
+                        not result.success
+                        and result.error_message == "Tool execution denied by user"
+                        for result in tool_results
+                    )
+                    # Continue if no user denials (allows LLM to handle technical errors)
+                    should_continue = not any_user_denied
+
+                if should_continue:
+                    logger.debug(
+                        f"Continuing conversation with {len(tool_results)} tool results"
+                    )
                     print(f"\n🤖 Processing {len(tool_results)} tool results...\n")
                     messages = session.get_messages_for_api()
 
@@ -263,6 +277,11 @@ class ToolAwareRenderer:
                     )
 
                     return continuation_result
+                else:
+                    if tool_results:
+                        logger.debug(
+                            "Stopping conversation due to user denial or no results"
+                        )
 
             # Return the result from base renderer
             return result if result else interceptor.final_chunk

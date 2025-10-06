@@ -556,3 +556,782 @@ class TestToolAwareRenderer:
         tool_aware_renderer.confirmation_ui.show_tool_result.assert_called_once_with(
             "failing_tool", False, None, "Tool execution failed"
         )
+
+    def test_continue_on_technical_error(self, tool_aware_renderer, tool_context):
+        """Test that conversation continues when tool has technical error."""
+
+        # Setup tool execution service to return technical error
+        def mock_execute_tool_with_error(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            return ToolExecutionResult(
+                success=False,
+                result=None,
+                error_message="Invalid arguments for tool 'test_tool': missing required positional argument: 'b'",
+                tool_name=tool_name,
+            )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_with_error
+        )
+
+        # Create tool call
+        mock_function = Mock()
+        mock_function.name = "test_tool"
+        mock_function.arguments = {"a": 5}  # Missing 'b' argument
+
+        tool_call = Mock()
+        tool_call.function = mock_function
+
+        message = MockMessage(content="Let me calculate", tool_calls=[tool_call])
+        chunks = [MockChatResponse(message, done=True)]
+
+        # Setup continuation stream
+        continuation_chunks = [
+            MockChatResponse(
+                MockMessage(content="I see the error, let me fix that"), done=True
+            )
+        ]
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+        tool_context["client"].chat_stream.return_value = iter(continuation_chunks)
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify continuation was initiated
+        tool_context["client"].chat_stream.assert_called_once()
+        mock_print.assert_any_call("\n🤖 Processing 1 tool results...\n")
+
+        # Verify tool error was shown
+        tool_aware_renderer.confirmation_ui.show_tool_result.assert_called_once_with(
+            "test_tool",
+            False,
+            None,
+            "Invalid arguments for tool 'test_tool': missing required positional argument: 'b'",
+        )
+
+    def test_stop_on_user_denial(self, tool_aware_renderer, tool_context):
+        """Test that conversation stops when user denies tool execution."""
+
+        # Setup tool execution service to return user denial
+        def mock_execute_tool_with_denial(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            return ToolExecutionResult(
+                success=False,
+                result=None,
+                error_message="Tool execution denied by user",
+                tool_name=tool_name,
+            )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_with_denial
+        )
+
+        # Create tool call
+        mock_function = Mock()
+        mock_function.name = "test_tool"
+        mock_function.arguments = {"value": 42}
+
+        tool_call = Mock()
+        tool_call.function = mock_function
+
+        message = MockMessage(content="Let me use a tool", tool_calls=[tool_call])
+        chunks = [MockChatResponse(message, done=True)]
+
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify continuation was NOT initiated
+        tool_context["client"].chat_stream.assert_not_called()
+        # Should not print the processing message
+        mock_print.assert_not_called()
+
+        # Verify tool denial was shown
+        tool_aware_renderer.confirmation_ui.show_tool_result.assert_called_once_with(
+            "test_tool", False, None, "Tool execution denied by user"
+        )
+
+    def test_continue_on_mixed_success_and_technical_error(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test continuation when some tools succeed and others have technical errors."""
+
+        # Setup tool execution service to return mixed results
+        def mock_execute_tool_mixed(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            if tool_name == "working_tool":
+                return ToolExecutionResult(
+                    success=True,
+                    result="Tool worked fine",
+                    tool_name=tool_name,
+                )
+            else:  # failing_tool
+                return ToolExecutionResult(
+                    success=False,
+                    result=None,
+                    error_message="Tool execution failed: connection timeout",
+                    tool_name=tool_name,
+                )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_mixed
+        )
+
+        # Create multiple tool calls
+        working_function = Mock()
+        working_function.name = "working_tool"
+        working_function.arguments = {}
+
+        failing_function = Mock()
+        failing_function.name = "failing_tool"
+        failing_function.arguments = {}
+
+        working_call = Mock()
+        working_call.function = working_function
+
+        failing_call = Mock()
+        failing_call.function = failing_function
+
+        message = MockMessage(
+            content="Let me use two tools", tool_calls=[working_call, failing_call]
+        )
+        chunks = [MockChatResponse(message, done=True)]
+
+        # Setup continuation stream
+        continuation_chunks = [
+            MockChatResponse(MockMessage(content="Got partial results"), done=True)
+        ]
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+        tool_context["client"].chat_stream.return_value = iter(continuation_chunks)
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify continuation was initiated
+        tool_context["client"].chat_stream.assert_called_once()
+        mock_print.assert_any_call("\n🤖 Processing 2 tool results...\n")
+
+    def test_stop_on_mixed_success_and_user_denial(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test that conversation stops when any tool is denied by user, even if others succeed."""
+
+        # Setup tool execution service to return mixed results
+        def mock_execute_tool_mixed(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            if tool_name == "working_tool":
+                return ToolExecutionResult(
+                    success=True,
+                    result="Tool worked fine",
+                    tool_name=tool_name,
+                )
+            else:  # denied_tool
+                return ToolExecutionResult(
+                    success=False,
+                    result=None,
+                    error_message="Tool execution denied by user",
+                    tool_name=tool_name,
+                )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_mixed
+        )
+
+        # Create multiple tool calls
+        working_function = Mock()
+        working_function.name = "working_tool"
+        working_function.arguments = {}
+
+        denied_function = Mock()
+        denied_function.name = "denied_tool"
+        denied_function.arguments = {}
+
+        working_call = Mock()
+        working_call.function = working_function
+
+        denied_call = Mock()
+        denied_call.function = denied_function
+
+        message = MockMessage(
+            content="Let me use two tools", tool_calls=[working_call, denied_call]
+        )
+        chunks = [MockChatResponse(message, done=True)]
+
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify continuation was NOT initiated
+        tool_context["client"].chat_stream.assert_not_called()
+        # Should not print the processing message
+        mock_print.assert_not_called()
+
+    def test_continue_on_multiple_technical_errors(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test continuation when all tools have technical errors."""
+
+        # Setup tool execution service to return only technical errors
+        def mock_execute_tool_all_errors(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            error_messages = {
+                "tool1": "Invalid arguments for tool 'tool1': missing parameter",
+                "tool2": "Tool execution failed: network error",
+            }
+            return ToolExecutionResult(
+                success=False,
+                result=None,
+                error_message=error_messages.get(tool_name, "Unknown error"),
+                tool_name=tool_name,
+            )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_all_errors
+        )
+
+        # Create multiple tool calls
+        func1 = Mock()
+        func1.name = "tool1"
+        func1.arguments = {}
+
+        func2 = Mock()
+        func2.name = "tool2"
+        func2.arguments = {}
+
+        call1 = Mock()
+        call1.function = func1
+
+        call2 = Mock()
+        call2.function = func2
+
+        message = MockMessage(
+            content="Let me try these tools", tool_calls=[call1, call2]
+        )
+        chunks = [MockChatResponse(message, done=True)]
+
+        # Setup continuation stream
+        continuation_chunks = [
+            MockChatResponse(
+                MockMessage(content="I see both tools failed, let me correct"),
+                done=True,
+            )
+        ]
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+        tool_context["client"].chat_stream.return_value = iter(continuation_chunks)
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify continuation was initiated
+        tool_context["client"].chat_stream.assert_called_once()
+        mock_print.assert_any_call("\n🤖 Processing 2 tool results...\n")
+
+    def test_stop_on_multiple_user_denials(self, tool_aware_renderer, tool_context):
+        """Test that conversation stops when all tools are denied by user."""
+
+        # Setup tool execution service to return all denials
+        def mock_execute_tool_all_denials(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            return ToolExecutionResult(
+                success=False,
+                result=None,
+                error_message="Tool execution denied by user",
+                tool_name=tool_name,
+            )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_all_denials
+        )
+
+        # Create multiple tool calls
+        func1 = Mock()
+        func1.name = "tool1"
+        func1.arguments = {}
+
+        func2 = Mock()
+        func2.name = "tool2"
+        func2.arguments = {}
+
+        call1 = Mock()
+        call1.function = func1
+
+        call2 = Mock()
+        call2.function = func2
+
+        message = MockMessage(
+            content="Let me try these tools", tool_calls=[call1, call2]
+        )
+        chunks = [MockChatResponse(message, done=True)]
+
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify continuation was NOT initiated
+        tool_context["client"].chat_stream.assert_not_called()
+        # Should not print the processing message
+        mock_print.assert_not_called()
+
+    def test_no_continuation_with_no_tool_results(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test that conversation doesn't continue when there are no tool results."""
+        # Create message without tool calls
+        message = MockMessage(content="Just regular content")
+        chunks = [MockChatResponse(message, done=True)]
+
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify continuation was NOT initiated
+        tool_context["client"].chat_stream.assert_not_called()
+        # Should not print the processing message
+        mock_print.assert_not_called()
+
+    def test_never_confirm_policy_with_technical_error_continues(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test that NEVER_CONFIRM policy with technical errors still continues conversation."""
+        # Set policy to never confirm
+        tool_context[
+            "tool_settings"
+        ].execution_policy = ToolExecutionPolicy.NEVER_CONFIRM
+
+        # Setup tool execution service to return technical error (no confirmation asked)
+        def mock_execute_tool_with_error(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            # With NEVER_CONFIRM, confirm_callback should not be called
+            assert policy == ToolExecutionPolicy.NEVER_CONFIRM
+            return ToolExecutionResult(
+                success=False,
+                result=None,
+                error_message="Invalid arguments for tool 'test_tool': missing required parameter",
+                tool_name=tool_name,
+            )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_with_error
+        )
+
+        # Create tool call
+        mock_function = Mock()
+        mock_function.name = "test_tool"
+        mock_function.arguments = {"wrong": "args"}
+
+        tool_call = Mock()
+        tool_call.function = mock_function
+
+        message = MockMessage(content="Let me use this tool", tool_calls=[tool_call])
+        chunks = [MockChatResponse(message, done=True)]
+
+        # Setup continuation stream
+        continuation_chunks = [
+            MockChatResponse(
+                MockMessage(content="I see the error, let me fix that"), done=True
+            )
+        ]
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+        tool_context["client"].chat_stream.return_value = iter(continuation_chunks)
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify no confirmation was requested
+        tool_aware_renderer.confirmation_ui.confirm_tool_execution.assert_not_called()
+
+        # Verify continuation was initiated (technical error should allow continuation)
+        tool_context["client"].chat_stream.assert_called_once()
+        mock_print.assert_any_call("\n🤖 Processing 1 tool results...\n")
+
+    def test_never_confirm_policy_with_success_continues(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test that NEVER_CONFIRM policy with successful tools continues conversation."""
+        # Set policy to never confirm
+        tool_context[
+            "tool_settings"
+        ].execution_policy = ToolExecutionPolicy.NEVER_CONFIRM
+
+        # Setup tool execution service to return success (no confirmation asked)
+        def mock_execute_tool_success(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            # With NEVER_CONFIRM, confirm_callback should not be called
+            assert policy == ToolExecutionPolicy.NEVER_CONFIRM
+            return ToolExecutionResult(
+                success=True,
+                result="Tool executed successfully",
+                tool_name=tool_name,
+            )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_success
+        )
+
+        # Create tool call
+        mock_function = Mock()
+        mock_function.name = "test_tool"
+        mock_function.arguments = {"correct": "args"}
+
+        tool_call = Mock()
+        tool_call.function = mock_function
+
+        message = MockMessage(content="Let me use this tool", tool_calls=[tool_call])
+        chunks = [MockChatResponse(message, done=True)]
+
+        # Setup continuation stream
+        continuation_chunks = [
+            MockChatResponse(
+                MockMessage(content="Great! The tool worked perfectly"), done=True
+            )
+        ]
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+        tool_context["client"].chat_stream.return_value = iter(continuation_chunks)
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify no confirmation was requested
+        tool_aware_renderer.confirmation_ui.confirm_tool_execution.assert_not_called()
+
+        # Verify continuation was initiated (success should allow continuation)
+        tool_context["client"].chat_stream.assert_called_once()
+        mock_print.assert_any_call("\n🤖 Processing 1 tool results...\n")
+
+    def test_never_confirm_policy_no_user_denials_possible(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test that NEVER_CONFIRM policy never produces user denial errors."""
+        # Set policy to never confirm
+        tool_context[
+            "tool_settings"
+        ].execution_policy = ToolExecutionPolicy.NEVER_CONFIRM
+
+        # Use the default mock that returns success
+        # This verifies our mock setup doesn't accidentally create denial errors
+
+        # Create tool call
+        mock_function = Mock()
+        mock_function.name = "test_tool"
+        mock_function.arguments = {}
+
+        tool_call = Mock()
+        tool_call.function = mock_function
+
+        message = MockMessage(content="Let me use this tool", tool_calls=[tool_call])
+        chunks = [MockChatResponse(message, done=True)]
+
+        # Setup continuation stream
+        continuation_chunks = [
+            MockChatResponse(MockMessage(content="Tool completed"), done=True)
+        ]
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+        tool_context["client"].chat_stream.return_value = iter(continuation_chunks)
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify no confirmation was requested
+        tool_aware_renderer.confirmation_ui.confirm_tool_execution.assert_not_called()
+
+        # Verify continuation happened (no user denials should occur)
+        tool_context["client"].chat_stream.assert_called_once()
+
+        # Verify tool execution was called with NEVER_CONFIRM policy
+        tool_aware_renderer.tool_execution_service.execute_tool.assert_called_once()
+        call_args = tool_aware_renderer.tool_execution_service.execute_tool.call_args
+        assert call_args[0][2] == ToolExecutionPolicy.NEVER_CONFIRM  # policy argument
+
+    def test_never_confirm_policy_with_wrong_arguments_continues(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test NEVER_CONFIRM policy with wrong arguments: no confirmation, technical error, conversation continues."""
+        # Set policy to never confirm
+        tool_context[
+            "tool_settings"
+        ].execution_policy = ToolExecutionPolicy.NEVER_CONFIRM
+
+        # Setup tool execution service to simulate wrong arguments scenario
+        def mock_execute_tool_wrong_args(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            # Verify policy is NEVER_CONFIRM and no confirmation is requested
+            assert policy == ToolExecutionPolicy.NEVER_CONFIRM
+            # With NEVER_CONFIRM, confirm_callback should not be called at all
+
+            # Simulate what happens when tool gets wrong arguments:
+            # The function call fails with TypeError, which gets caught and converted to ToolExecutionResult
+            return ToolExecutionResult(
+                success=False,
+                result=None,
+                error_message="Invalid arguments for tool 'add_numbers': unexpected keyword argument 'wrong_param'",
+                tool_name=tool_name,
+            )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_wrong_args
+        )
+
+        # Create tool call with wrong arguments (simulating LLM mistake)
+        mock_function = Mock()
+        mock_function.name = "add_numbers"
+        mock_function.arguments = {
+            "x": 5,
+            "wrong_param": 10,
+        }  # Should be "y", not "wrong_param"
+
+        tool_call = Mock()
+        tool_call.function = mock_function
+
+        message = MockMessage(
+            content="Let me add these numbers", tool_calls=[tool_call]
+        )
+        chunks = [MockChatResponse(message, done=True)]
+
+        # Setup continuation stream (LLM should get a chance to self-correct)
+        continuation_chunks = [
+            MockChatResponse(
+                MockMessage(
+                    content="I see the error, let me use the correct parameter name"
+                ),
+                done=True,
+            )
+        ]
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "Add 5 and 10"},
+            {
+                "role": "assistant",
+                "content": "Let me add these numbers",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "add_numbers",
+                            "arguments": {"x": 5, "wrong_param": 10},
+                        }
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "content": "Error: Invalid arguments for tool 'add_numbers': unexpected keyword argument 'wrong_param'",
+            },
+        ]
+        tool_context["client"].chat_stream.return_value = iter(continuation_chunks)
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify no confirmation was requested (NEVER_CONFIRM policy)
+        tool_aware_renderer.confirmation_ui.confirm_tool_execution.assert_not_called()
+
+        # Verify the technical error was shown to user
+        tool_aware_renderer.confirmation_ui.show_tool_result.assert_called_once_with(
+            "add_numbers",
+            False,
+            None,
+            "Invalid arguments for tool 'add_numbers': unexpected keyword argument 'wrong_param'",
+        )
+
+        # Verify continuation was initiated (technical error should allow LLM to self-correct)
+        tool_context["client"].chat_stream.assert_called_once()
+        mock_print.assert_any_call("\n🤖 Processing 1 tool results...\n")
+
+        # This demonstrates the key behavior:
+        # 1. No user confirmation needed (NEVER_CONFIRM)
+        # 2. Tool fails with technical error (wrong arguments)
+        # 3. Error is shown to user and added to chat history
+        # 4. Conversation continues automatically
+        # 5. LLM gets chance to see error and self-correct
+
+    def test_confirm_destructive_policy_with_user_denial_stops(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test that CONFIRM_DESTRUCTIVE policy with user denial stops conversation."""
+        # Set policy to confirm destructive (currently same as ALWAYS_CONFIRM)
+        tool_context[
+            "tool_settings"
+        ].execution_policy = ToolExecutionPolicy.CONFIRM_DESTRUCTIVE
+
+        # Setup confirmation to deny
+        tool_aware_renderer.confirmation_ui.confirm_tool_execution.return_value = False
+
+        # Setup tool execution service to return user denial
+        def mock_execute_tool_with_denial(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            # With CONFIRM_DESTRUCTIVE, confirm_callback should be called
+            assert policy == ToolExecutionPolicy.CONFIRM_DESTRUCTIVE
+            if confirm_callback:
+                confirmed = confirm_callback(tool_name, arguments)
+                if not confirmed:
+                    return ToolExecutionResult(
+                        success=False,
+                        result=None,
+                        error_message="Tool execution denied by user",
+                        tool_name=tool_name,
+                    )
+            return ToolExecutionResult(
+                success=True,
+                result="Tool executed successfully",
+                tool_name=tool_name,
+            )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_with_denial
+        )
+
+        # Create tool call
+        mock_function = Mock()
+        mock_function.name = "destructive_tool"
+        mock_function.arguments = {"action": "delete"}
+
+        tool_call = Mock()
+        tool_call.function = mock_function
+
+        message = MockMessage(content="Let me delete something", tool_calls=[tool_call])
+        chunks = [MockChatResponse(message, done=True)]
+
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify confirmation was requested
+        tool_aware_renderer.confirmation_ui.confirm_tool_execution.assert_called_once()
+
+        # Verify continuation was NOT initiated (user denial should stop)
+        tool_context["client"].chat_stream.assert_not_called()
+        # Should not print the processing message
+        mock_print.assert_not_called()
+
+    def test_confirm_destructive_policy_with_technical_error_continues(
+        self, tool_aware_renderer, tool_context
+    ):
+        """Test that CONFIRM_DESTRUCTIVE policy with technical errors continues conversation."""
+        # Set policy to confirm destructive (currently same as ALWAYS_CONFIRM)
+        tool_context[
+            "tool_settings"
+        ].execution_policy = ToolExecutionPolicy.CONFIRM_DESTRUCTIVE
+
+        # Setup confirmation to allow
+        tool_aware_renderer.confirmation_ui.confirm_tool_execution.return_value = True
+
+        # Setup tool execution service to return technical error after confirmation
+        def mock_execute_tool_with_error(
+            tool_name, arguments, policy, confirm_callback=None
+        ):
+            # With CONFIRM_DESTRUCTIVE, confirm_callback should be called
+            assert policy == ToolExecutionPolicy.CONFIRM_DESTRUCTIVE
+            if confirm_callback:
+                confirmed = confirm_callback(tool_name, arguments)
+                if not confirmed:
+                    return ToolExecutionResult(
+                        success=False,
+                        result=None,
+                        error_message="Tool execution denied by user",
+                        tool_name=tool_name,
+                    )
+            # Even after confirmation, tool can still fail with technical error
+            return ToolExecutionResult(
+                success=False,
+                result=None,
+                error_message="Tool execution failed: network timeout",
+                tool_name=tool_name,
+            )
+
+        tool_aware_renderer.tool_execution_service.execute_tool.side_effect = (
+            mock_execute_tool_with_error
+        )
+
+        # Create tool call
+        mock_function = Mock()
+        mock_function.name = "network_tool"
+        mock_function.arguments = {"url": "https://example.com"}
+
+        tool_call = Mock()
+        tool_call.function = mock_function
+
+        message = MockMessage(content="Let me fetch data", tool_calls=[tool_call])
+        chunks = [MockChatResponse(message, done=True)]
+
+        # Setup continuation stream
+        continuation_chunks = [
+            MockChatResponse(
+                MockMessage(content="I see there was a network error, let me retry"),
+                done=True,
+            )
+        ]
+        tool_context["session"].get_messages_for_api.return_value = [
+            {"role": "user", "content": "test"}
+        ]
+        tool_context["client"].chat_stream.return_value = iter(continuation_chunks)
+
+        with patch("builtins.print") as mock_print:
+            result = tool_aware_renderer.render_streaming_response(
+                iter(chunks), tool_context
+            )
+
+        # Verify confirmation was requested and approved
+        tool_aware_renderer.confirmation_ui.confirm_tool_execution.assert_called_once()
+
+        # Verify continuation was initiated (technical error should allow continuation)
+        tool_context["client"].chat_stream.assert_called_once()
+        mock_print.assert_any_call("\n🤖 Processing 1 tool results...\n")
