@@ -231,7 +231,7 @@ The system prompts can be selected when creating a new chat session:
 Enter your choice:
 ```
 
-... or by opening the chat session menu and selectin the corresponding option
+... or by opening the chat session menu and selecting the corresponding option
 ```bash
 ╭────────╮
 │ 🧑 You │
