@@ -9,6 +9,12 @@ from rich.style import Style
 from rich.text import Text
 from typing import Optional
 
+# Import with TYPE_CHECKING to avoid circular imports
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..tools.config import ToolSettings
+
 
 class ChatInterface:
     """Handles the visual presentation of chat interface elements using Rich."""
@@ -32,7 +38,7 @@ class ChatInterface:
             style="bright_cyan",
             box=self.box_style,
             padding=(0, 1),
-            expand=False
+            expand=False,
         )
         self.console.print(panel)
 
@@ -44,7 +50,7 @@ class ChatInterface:
             style="bright_magenta",
             box=self.box_style,
             padding=(0, 1),
-            expand=False
+            expand=False,
         )
         self.console.print(panel)
 
@@ -62,7 +68,7 @@ class ChatInterface:
             box=self.box_style,
             padding=(0, 1),
             title="System",
-            title_align="left"
+            title_align="left",
         )
         self.console.print(panel)
 
@@ -80,7 +86,7 @@ class ChatInterface:
             box=self.box_style,
             padding=(0, 1),
             title=title or "Info",
-            title_align="left"
+            title_align="left",
         )
         self.console.print(panel)
 
@@ -97,7 +103,7 @@ class ChatInterface:
             box=self.box_style,
             padding=(0, 1),
             title="Error",
-            title_align="left"
+            title_align="left",
         )
         self.console.print(panel)
 
@@ -114,7 +120,7 @@ class ChatInterface:
             box=self.box_style,
             padding=(0, 1),
             title="Success",
-            title_align="left"
+            title_align="left",
         )
         self.console.print(panel)
 
@@ -122,7 +128,15 @@ class ChatInterface:
         """Print a visual separator between messages."""
         self.console.print()
 
-    def print_session_info(self, session_id: str, model: str, markdown: bool, thinking: bool) -> None:
+    def print_session_info(
+        self,
+        session_id: str,
+        model: str,
+        markdown: bool,
+        thinking: bool,
+        summary_model: Optional[str] = None,
+        tool_settings: Optional["ToolSettings"] = None,
+    ) -> None:
         """
         Print session information with integrated commands in a styled panel.
 
@@ -131,13 +145,51 @@ class ChatInterface:
             model: The model being used
             markdown: Whether markdown is enabled
             thinking: Whether thinking blocks are enabled
+            summary_model: The summary model being used (if configured)
+            tool_settings: The tool settings for this session (if configured)
         """
         # Session info
         info_text = Text()
         info_text.append(f"Session ID: {session_id}\n", style="white")
         info_text.append(f"Model: {model}\n", style="magenta")
-        info_text.append(f"Markdown: {'Enabled' if markdown else 'Disabled'}\n", style="cyan")
-        info_text.append(f"Thinking Blocks: {'Enabled' if thinking else 'Disabled'}\n", style="cyan")
+
+        # Summary model info
+        if summary_model:
+            info_text.append(f"Summary Model: {summary_model}\n", style="magenta")
+        else:
+            info_text.append("Summary Model: Not configured\n", style="dim")
+
+        # Tools info
+        if tool_settings and tool_settings.is_enabled():
+            if tool_settings.tool_group:
+                info_text.append(
+                    f"Tool Group: {tool_settings.tool_group}\n", style="yellow"
+                )
+            elif tool_settings.tools:
+                tools_str = ", ".join(tool_settings.tools)
+                info_text.append(f"Tools: {tools_str}\n", style="yellow")
+
+            # Tool execution policy
+            policy_display = {
+                "always_confirm": "Always confirm",
+                "never_confirm": "Never confirm",
+                "confirm_destructive": "Confirm destructive",
+            }
+            policy_text = policy_display.get(
+                tool_settings.execution_policy.value,
+                tool_settings.execution_policy.value,
+            )
+            info_text.append(f"Tool Policy: {policy_text}\n", style="yellow")
+        else:
+            info_text.append("Tools: None\n", style="dim")
+            info_text.append("Tool Policy: Not applicable\n", style="dim")
+
+        info_text.append(
+            f"Markdown: {'Enabled' if markdown else 'Disabled'}\n", style="cyan"
+        )
+        info_text.append(
+            f"Thinking Blocks: {'Enabled' if thinking else 'Disabled'}\n", style="cyan"
+        )
 
         # Add commands section
         info_text.append("\n💡 Available Commands:\n", style="bold bright_green")
@@ -151,6 +203,6 @@ class ChatInterface:
             box=self.box_style,
             padding=(0, 1),
             title="💬 Chat Session",
-            title_align="left"
+            title_align="left",
         )
         self.console.print(panel)

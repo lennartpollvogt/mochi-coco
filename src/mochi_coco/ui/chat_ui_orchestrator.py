@@ -22,18 +22,30 @@ class ChatUIOrchestrator:
         self.chat_interface = ChatInterface()
         self.console = Console()
 
-    def display_session_setup(self, session: "ChatSession", model: str,
-                            markdown_enabled: bool, show_thinking: bool) -> None:
+    def display_session_setup(
+        self,
+        session: "ChatSession",
+        model: str,
+        markdown_enabled: bool,
+        show_thinking: bool,
+    ) -> None:
         """Display session information and setup UI."""
+        # Extract additional session metadata
+        summary_model = session.metadata.summary_model
+        tool_settings = session.get_tool_settings()
+
         self.chat_interface.print_session_info(
             session_id=session.session_id,
             model=model,
             markdown=markdown_enabled,
-            thinking=show_thinking
+            thinking=show_thinking,
+            summary_model=summary_model,
+            tool_settings=tool_settings,
         )
 
-    def display_chat_history_if_needed(self, session: "ChatSession",
-                                     model_selector: "ModelSelector") -> None:
+    def display_chat_history_if_needed(
+        self, session: "ChatSession", model_selector: "ModelSelector"
+    ) -> None:
         """Display existing chat history for resumed sessions."""
         if session.messages:
             self.chat_interface.print_separator()
@@ -69,4 +81,5 @@ class ChatUIOrchestrator:
     def display_exit_message(self) -> None:
         """Display exit message."""
         import typer
+
         typer.secho("\nExiting.", fg=typer.colors.YELLOW)

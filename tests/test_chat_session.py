@@ -27,7 +27,9 @@ class TestChatSession:
         """Create a mock ChatResponse for testing."""
         mock_response = Mock()
         mock_response.message = Mock()
-        mock_response.message.__getitem__ = lambda self, key: "Hello, how can I help you?"
+        mock_response.message.__getitem__ = (
+            lambda self, key: "Hello, how can I help you?"
+        )
         mock_response.message.role = "assistant"
         mock_response.model = "test-model"
         mock_response.eval_count = 100
@@ -54,9 +56,7 @@ class TestChatSession:
         """Test session creation with a specific session ID."""
         session_id = "test123456"
         session = ChatSession(
-            model="test-model",
-            session_id=session_id,
-            sessions_dir=temp_sessions_dir
+            model="test-model", session_id=session_id, sessions_dir=temp_sessions_dir
         )
 
         assert session.session_id == session_id
@@ -74,8 +74,10 @@ class TestChatSession:
 
     def test_metadata_initialization(self, temp_sessions_dir):
         """Test that session metadata is initialized correctly."""
-        with patch('mochi_coco.chat.session.datetime') as mock_datetime:
-            mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
+        with patch("mochi_coco.chat.session.datetime") as mock_datetime:
+            mock_datetime.now.return_value.isoformat.return_value = (
+                "2024-01-01T12:00:00"
+            )
 
             session = ChatSession(model="test-model", sessions_dir=temp_sessions_dir)
 
@@ -128,7 +130,10 @@ class TestChatSession:
 
         assert len(api_messages) == 2
         assert api_messages[0] == {"role": "user", "content": "Hello"}
-        assert api_messages[1] == {"role": "assistant", "content": "Hello, how can I help you?"}
+        assert api_messages[1] == {
+            "role": "assistant",
+            "content": "Hello, how can I help you?",
+        }
 
     def test_session_persistence_roundtrip(self, temp_sessions_dir, mock_chat_response):
         """Test that session data survives save/load cycle."""
@@ -144,9 +149,7 @@ class TestChatSession:
 
         # Load session in new object
         loaded_session = ChatSession(
-            model="",
-            session_id=original_session_id,
-            sessions_dir=temp_sessions_dir
+            model="", session_id=original_session_id, sessions_dir=temp_sessions_dir
         )
 
         # Verify data integrity
@@ -161,9 +164,7 @@ class TestChatSession:
     def test_load_nonexistent_session(self, temp_sessions_dir):
         """Test loading a session that doesn't exist."""
         session = ChatSession(
-            model="test-model",
-            session_id="nonexistent",
-            sessions_dir=temp_sessions_dir
+            model="test-model", session_id="nonexistent", sessions_dir=temp_sessions_dir
         )
 
         result = session.load_session()
@@ -176,7 +177,7 @@ class TestChatSession:
         session = ChatSession(model="test-model", sessions_dir=temp_sessions_dir)
 
         # Create corrupted JSON file
-        with open(session.session_file, 'w') as f:
+        with open(session.session_file, "w") as f:
             f.write("{ invalid json content")
 
         result = session.load_session()
@@ -268,9 +269,7 @@ class TestChatSession:
     def test_delete_nonexistent_session(self, temp_sessions_dir):
         """Test deleting a session that doesn't exist."""
         session = ChatSession(
-            model="test-model",
-            session_id="nonexistent",
-            sessions_dir=temp_sessions_dir
+            model="test-model", session_id="nonexistent", sessions_dir=temp_sessions_dir
         )
 
         result = session.delete_session()
@@ -311,7 +310,7 @@ class TestChatSession:
 
         # Create a corrupted session file
         corrupted_file = Path(temp_sessions_dir) / "corrupted.json"
-        with open(corrupted_file, 'w') as f:
+        with open(corrupted_file, "w") as f:
             f.write("{ invalid json }")
 
         sessions = ChatSession.list_sessions(temp_sessions_dir)
@@ -326,7 +325,7 @@ class TestChatSession:
         session2 = ChatSession(
             model="test-model",
             session_id=session1.session_id,
-            sessions_dir=temp_sessions_dir
+            sessions_dir=temp_sessions_dir,
         )
 
         # Both sessions add different messages
@@ -339,9 +338,7 @@ class TestChatSession:
 
         # Load fresh session and verify it has valid JSON
         fresh_session = ChatSession(
-            model="",
-            session_id=session1.session_id,
-            sessions_dir=temp_sessions_dir
+            model="", session_id=session1.session_id, sessions_dir=temp_sessions_dir
         )
         result = fresh_session.load_session()
 
@@ -350,27 +347,39 @@ class TestChatSession:
 
     def test_user_message_auto_fields(self):
         """Test that UserMessage auto-generates ID and timestamp."""
-        with patch('mochi_coco.chat.session.uuid') as mock_uuid, \
-             patch('mochi_coco.chat.session.datetime') as mock_datetime:
-
+        with (
+            patch("mochi_coco.chat.session.uuid") as mock_uuid,
+            patch("mochi_coco.chat.session.datetime") as mock_datetime,
+        ):
             mock_uuid.uuid4.return_value = MagicMock()
-            mock_uuid.uuid4.return_value.__str__ = MagicMock(return_value="12345678-1234-1234-1234-123456789012")
-            mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
+            mock_uuid.uuid4.return_value.__str__ = MagicMock(
+                return_value="12345678-1234-1234-1234-123456789012"
+            )
+            mock_datetime.now.return_value.isoformat.return_value = (
+                "2024-01-01T12:00:00"
+            )
 
             message = UserMessage(content="Test message")
 
-            assert message.message_id == "1234567812"  # First 10 chars after removing dashes
+            assert (
+                message.message_id == "1234567812"
+            )  # First 10 chars after removing dashes
             assert message.timestamp == "2024-01-01T12:00:00"
             assert message.role == "user"
 
     def test_session_message_auto_fields(self):
         """Test that SessionMessage auto-generates ID and timestamp."""
-        with patch('mochi_coco.chat.session.uuid') as mock_uuid, \
-             patch('mochi_coco.chat.session.datetime') as mock_datetime:
-
+        with (
+            patch("mochi_coco.chat.session.uuid") as mock_uuid,
+            patch("mochi_coco.chat.session.datetime") as mock_datetime,
+        ):
             mock_uuid.uuid4.return_value = MagicMock()
-            mock_uuid.uuid4.return_value.__str__ = MagicMock(return_value="12345678-1234-1234-1234-123456789012")
-            mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T12:00:00"
+            mock_uuid.uuid4.return_value.__str__ = MagicMock(
+                return_value="12345678-1234-1234-1234-123456789012"
+            )
+            mock_datetime.now.return_value.isoformat.return_value = (
+                "2024-01-01T12:00:00"
+            )
 
             message = SessionMessage(role="assistant", content="Test response")
 
@@ -390,9 +399,7 @@ class TestChatSession:
     def test_session_file_property(self, temp_sessions_dir):
         """Test that session_file property returns correct path."""
         session = ChatSession(
-            model="test-model",
-            session_id="test123",
-            sessions_dir=temp_sessions_dir
+            model="test-model", session_id="test123", sessions_dir=temp_sessions_dir
         )
 
         expected_path = Path(temp_sessions_dir) / "test123.json"
@@ -415,10 +422,142 @@ class TestChatSession:
         original_updated_at = sample_session.metadata.updated_at
 
         # Add another message (should update timestamp)
-        with patch('mochi_coco.chat.session.datetime') as mock_datetime:
-            mock_datetime.now.return_value.isoformat.return_value = "2024-01-01T13:00:00"
+        with patch("mochi_coco.chat.session.datetime") as mock_datetime:
+            mock_datetime.now.return_value.isoformat.return_value = (
+                "2024-01-01T13:00:00"
+            )
             sample_session.add_user_message("Second message")
 
         assert sample_session.metadata.message_count == 2
         assert sample_session.metadata.updated_at == "2024-01-01T13:00:00"
         assert sample_session.metadata.updated_at != original_updated_at
+
+    def test_tool_settings_integration(self, temp_sessions_dir):
+        """Test that sessions correctly handle tool settings metadata."""
+        from mochi_coco.tools.config import ToolSettings, ToolExecutionPolicy
+
+        session = ChatSession(model="test-model", sessions_dir=temp_sessions_dir)
+
+        # Test with no tool settings
+        assert session.has_tools_enabled() is False
+        assert session.get_tool_settings() is None
+
+        # Test with individual tools
+        tool_settings = ToolSettings(
+            tools=["tool1", "tool2"],
+            execution_policy=ToolExecutionPolicy.ALWAYS_CONFIRM,
+        )
+        session.metadata.tool_settings = tool_settings
+
+        assert session.has_tools_enabled() is True
+        retrieved_settings = session.get_tool_settings()
+        assert retrieved_settings.tools == ["tool1", "tool2"]
+        assert retrieved_settings.execution_policy == ToolExecutionPolicy.ALWAYS_CONFIRM
+
+        # Test with tool group
+        tool_settings_group = ToolSettings(
+            tool_group="development", execution_policy=ToolExecutionPolicy.NEVER_CONFIRM
+        )
+        session.metadata.tool_settings = tool_settings_group
+
+        assert session.has_tools_enabled() is True
+        retrieved_settings_group = session.get_tool_settings()
+        assert retrieved_settings_group.tool_group == "development"
+        assert (
+            retrieved_settings_group.execution_policy
+            == ToolExecutionPolicy.NEVER_CONFIRM
+        )
+
+    def test_summary_model_metadata(self, temp_sessions_dir):
+        """Test that sessions correctly handle summary model metadata."""
+        session = ChatSession(model="test-model", sessions_dir=temp_sessions_dir)
+
+        # Test with no summary model
+        assert session.metadata.summary_model is None
+
+        # Test with summary model
+        session.metadata.summary_model = "summary-model"
+        assert session.metadata.summary_model == "summary-model"
+
+        # Test summary model persists with session
+        session.save_session()
+
+        # Load session and verify summary model persisted
+        loaded_session = ChatSession(
+            model="", session_id=session.session_id, sessions_dir=temp_sessions_dir
+        )
+        loaded_session.load_session()
+        assert loaded_session.metadata.summary_model == "summary-model"
+
+    def test_session_persistence_with_new_metadata(self, temp_sessions_dir):
+        """Test that new metadata fields persist correctly through save/load cycle."""
+        from mochi_coco.tools.config import ToolSettings, ToolExecutionPolicy
+
+        # Create session with all new metadata
+        session = ChatSession(model="test-model", sessions_dir=temp_sessions_dir)
+        session.metadata.summary_model = "gpt-summary"
+        session.metadata.tool_settings = ToolSettings(
+            tools=["calculator", "weather"],
+            execution_policy=ToolExecutionPolicy.CONFIRM_DESTRUCTIVE,
+        )
+
+        # Add some messages and save
+        session.add_user_message("Test message")
+        session.save_session()
+
+        # Load in fresh session instance
+        loaded_session = ChatSession(
+            model="", session_id=session.session_id, sessions_dir=temp_sessions_dir
+        )
+        result = loaded_session.load_session()
+
+        assert result is True
+        assert loaded_session.metadata.summary_model == "gpt-summary"
+        assert loaded_session.has_tools_enabled() is True
+
+        tool_settings = loaded_session.get_tool_settings()
+        assert tool_settings.tools == ["calculator", "weather"]
+        assert tool_settings.execution_policy == ToolExecutionPolicy.CONFIRM_DESTRUCTIVE
+
+        # Verify message data also persisted
+        assert len(loaded_session.messages) == 1
+        assert loaded_session.messages[0].content == "Test message"
+
+    def test_tool_settings_backward_compatibility(self, temp_sessions_dir):
+        """Test that sessions handle legacy tool settings format (dict) correctly."""
+        from mochi_coco.tools.config import ToolSettings, ToolExecutionPolicy
+
+        session = ChatSession(model="test-model", sessions_dir=temp_sessions_dir)
+
+        # Simulate legacy tool settings as dictionary (backward compatibility)
+        legacy_tool_settings = {
+            "tools": ["legacy_tool1", "legacy_tool2"],
+            "tool_group": None,
+            "confirmation_necessary": True,  # Legacy field
+        }
+        session.metadata.tool_settings = legacy_tool_settings
+
+        # Test that has_tools_enabled works with dict format
+        assert session.has_tools_enabled() is True
+
+        # Test that get_tool_settings converts dict to ToolSettings object
+        retrieved_settings = session.get_tool_settings()
+        assert isinstance(retrieved_settings, ToolSettings)
+        assert retrieved_settings.tools == ["legacy_tool1", "legacy_tool2"]
+        assert retrieved_settings.execution_policy == ToolExecutionPolicy.ALWAYS_CONFIRM
+
+        # Test legacy tool_group format
+        legacy_group_settings = {
+            "tools": [],
+            "tool_group": "legacy_group",
+            "confirmation_necessary": False,
+        }
+        session.metadata.tool_settings = legacy_group_settings
+
+        assert session.has_tools_enabled() is True
+        retrieved_group_settings = session.get_tool_settings()
+        assert retrieved_group_settings.tool_group == "legacy_group"
+        assert (
+            retrieved_group_settings.execution_policy
+            == ToolExecutionPolicy.NEVER_CONFIRM
+        )
