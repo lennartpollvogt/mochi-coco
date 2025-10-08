@@ -86,15 +86,8 @@ class SessionCreationService:
 
         existing_sessions = ChatSession.list_sessions()
 
-        if not existing_sessions:
-            # No sessions exist - must create new
-            self.ui.display_no_sessions_available()
-            return self._create_new_session(options)
-        else:
-            # Sessions exist - let user choose
-            return self._handle_session_selection_with_options(
-                existing_sessions, options
-            )
+        # Always show session selection menu, even with empty sessions list
+        return self._handle_session_selection_with_options(existing_sessions, options)
 
     def _handle_session_selection_with_options(
         self, sessions: List["ChatSession"], options: SessionCreationOptions
@@ -102,12 +95,34 @@ class SessionCreationService:
         """Handle session selection when existing sessions are available."""
         self.ui.display_existing_sessions(sessions)
 
+        # Create menu context options for any choices made from this menu
+        # This ensures model selection allows quitting back to session menu
+        menu_context_options = SessionCreationOptions(
+            context=SessionCreationContext.MENU_COMMAND,
+            mode=options.mode,
+            allow_system_prompt_selection=options.allow_system_prompt_selection,
+            collect_preferences=options.collect_preferences,
+            show_welcome_message=False,
+        )
+
         while True:  # Retry loop for invalid input
             try:
                 choice = self.ui.get_session_choice(len(sessions))
-                result = self._process_session_choice(choice, sessions, options)
+                result = self._process_session_choice(
+                    choice, sessions, menu_context_options
+                )
 
                 if result is not None:  # Valid result (success or legitimate exit)
+                    # Check if this is a cancellation from model selection
+                    if (
+                        not result.success
+                        and result.error_message == "Model selection cancelled"
+                        and choice == "new"
+                    ):
+                        # User cancelled model selection, continue session menu loop
+                        # Re-display the session menu
+                        self.ui.display_existing_sessions(sessions)
+                        continue
                     return result
                 # Continue loop for invalid input (result is None)
 
@@ -152,7 +167,10 @@ class SessionCreationService:
             # Load existing session
             try:
                 session_index = int(choice) - 1
-                if 0 <= session_index < session_count:
+                if session_count == 0:
+                    self.ui.display_no_sessions_for_selection_error()
+                    return None  # Continue loop
+                elif 0 <= session_index < session_count:
                     return self._load_specific_session(sessions[session_index], options)
                 else:
                     self.ui.display_invalid_session_number_error(session_count)
@@ -168,9 +186,17 @@ class SessionCreationService:
         # Select model
         model = self._select_model_for_context(options.context)
         if not model:
-            return SessionCreationResult(
-                None, None, None, None, False, "No model selected"
-            )
+            # Handle different cancellation scenarios
+            if options.context == SessionCreationContext.MENU_COMMAND:
+                # User quit from model selection, they want to return to session menu
+                return SessionCreationResult(
+                    None, None, None, None, False, "Model selection cancelled"
+                )
+            else:
+                # Other contexts - treat as error
+                return SessionCreationResult(
+                    None, None, None, None, False, "No model selected"
+                )
 
         # Collect user preferences
         preferences = None

@@ -71,21 +71,26 @@ class SessionCreationUI:
         table.add_column("Preview", style="white", width=35)
         table.add_column("Messages", style="blue", width=8, justify="center")
 
-        for i, session in enumerate(sessions, 1):
-            preview = self._get_session_preview(session)
-            table.add_row(
-                str(i),
-                session.session_id,
-                session.metadata.model,
-                preview,
-                str(session.metadata.message_count),
-            )
+        if sessions:
+            for i, session in enumerate(sessions, 1):
+                preview = self._get_session_preview(session)
+                table.add_row(
+                    str(i),
+                    session.session_id,
+                    session.metadata.model,
+                    preview,
+                    str(session.metadata.message_count),
+                )
+            session_selection_text = f"• 📝 Select session (1-{len(sessions)})"
+        else:
+            # Add empty row to show table structure
+            table.add_row("", "", "", "", "")
+            session_selection_text = "• 📝 Select session (no sessions)"
 
         # Create options text
-        session_count = len(sessions)
         options_text = Text()
         options_text.append("\n💡 Options:\n", style="bold bright_yellow")
-        options_text.append(f"• 📝 Select session (1-{session_count})\n", style="white")
+        options_text.append(f"{session_selection_text}\n", style="white")
         options_text.append("• 🆕 Type 'new' for new chat\n", style="white")
         options_text.append(
             "• 🗑️ Type '/delete <number>' to delete session\n", style="white"
@@ -139,6 +144,12 @@ class SessionCreationUI:
         """Display error for invalid delete command format."""
         self.chat_interface.print_error_message(
             f"Invalid delete command format. Use '/delete <number>' where <number> is 1-{session_count}."
+        )
+
+    def display_no_sessions_for_selection_error(self) -> None:
+        """Display error when user tries to select session number but no sessions exist."""
+        self.chat_interface.print_error_message(
+            "No sessions available to select. Please type 'new' to create a new session."
         )
 
     def display_session_creation_start(self, context: SessionCreationContext) -> None:
