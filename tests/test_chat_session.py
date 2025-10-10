@@ -7,7 +7,9 @@ editing functionality, and error handling.
 
 import pytest
 import tempfile
+import json
 from pathlib import Path
+from datetime import datetime
 from unittest.mock import Mock, MagicMock, patch
 
 from mochi_coco.chat.session import ChatSession, UserMessage, SessionMessage
@@ -451,6 +453,7 @@ class TestChatSession:
 
         assert session.has_tools_enabled() is True
         retrieved_settings = session.get_tool_settings()
+        assert retrieved_settings is not None
         assert retrieved_settings.tools == ["tool1", "tool2"]
         assert retrieved_settings.execution_policy == ToolExecutionPolicy.ALWAYS_CONFIRM
 
@@ -462,6 +465,7 @@ class TestChatSession:
 
         assert session.has_tools_enabled() is True
         retrieved_settings_group = session.get_tool_settings()
+        assert retrieved_settings_group is not None
         assert retrieved_settings_group.tool_group == "development"
         assert (
             retrieved_settings_group.execution_policy
@@ -516,6 +520,7 @@ class TestChatSession:
         assert loaded_session.has_tools_enabled() is True
 
         tool_settings = loaded_session.get_tool_settings()
+        assert tool_settings is not None
         assert tool_settings.tools == ["calculator", "weather"]
         assert tool_settings.execution_policy == ToolExecutionPolicy.CONFIRM_DESTRUCTIVE
 
@@ -530,32 +535,68 @@ class TestChatSession:
         session = ChatSession(model="test-model", sessions_dir=temp_sessions_dir)
 
         # Simulate legacy tool settings as dictionary (backward compatibility)
-        legacy_tool_settings = {
-            "tools": ["legacy_tool1", "legacy_tool2"],
-            "tool_group": None,
-            "confirmation_necessary": True,  # Legacy field
+        # Create mock session file with legacy format to test migration
+        legacy_session_data = {
+            "metadata": {
+                "session_id": session.session_id,
+                "model": "test-model",
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
+                "message_count": 0,
+                "format_version": "1.1",
+                "tool_settings": {  # Dict format (legacy)
+                    "tools": ["legacy_tool1", "legacy_tool2"],
+                    "tool_group": None,
+                    "confirmation_necessary": True,
+                },
+            },
+            "messages": [],
         }
-        session.metadata.tool_settings = legacy_tool_settings
 
-        # Test that has_tools_enabled works with dict format
+        # Write legacy format to file
+        with open(session.session_file, "w") as f:
+            json.dump(legacy_session_data, f)
+
+        # Load should migrate legacy data
+        success = session.load_session()
+        assert success
+
+        # Test that migration worked
         assert session.has_tools_enabled() is True
-
-        # Test that get_tool_settings converts dict to ToolSettings object
         retrieved_settings = session.get_tool_settings()
+        assert retrieved_settings is not None
         assert isinstance(retrieved_settings, ToolSettings)
         assert retrieved_settings.tools == ["legacy_tool1", "legacy_tool2"]
         assert retrieved_settings.execution_policy == ToolExecutionPolicy.ALWAYS_CONFIRM
 
         # Test legacy tool_group format
-        legacy_group_settings = {
-            "tools": [],
-            "tool_group": "legacy_group",
-            "confirmation_necessary": False,
+        session2 = ChatSession(model="test-model", sessions_dir=temp_sessions_dir)
+        legacy_group_data = {
+            "metadata": {
+                "session_id": session2.session_id,
+                "model": "test-model",
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
+                "message_count": 0,
+                "format_version": "1.1",
+                "tool_settings": {  # Dict format (legacy)
+                    "tools": [],
+                    "tool_group": "legacy_group",
+                    "confirmation_necessary": False,
+                },
+            },
+            "messages": [],
         }
-        session.metadata.tool_settings = legacy_group_settings
 
-        assert session.has_tools_enabled() is True
-        retrieved_group_settings = session.get_tool_settings()
+        with open(session2.session_file, "w") as f:
+            json.dump(legacy_group_data, f)
+
+        success = session2.load_session()
+        assert success
+
+        assert session2.has_tools_enabled() is True
+        retrieved_group_settings = session2.get_tool_settings()
+        assert retrieved_group_settings is not None
         assert retrieved_group_settings.tool_group == "legacy_group"
         assert (
             retrieved_group_settings.execution_policy

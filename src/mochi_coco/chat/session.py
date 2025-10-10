@@ -101,6 +101,10 @@ class SessionMetadata:
                 self.tool_settings = None
             self.format_version = "1.1"
 
+        # Handle legacy dict-based tool_settings regardless of version
+        if hasattr(self, "tool_settings") and isinstance(self.tool_settings, dict):
+            self.tool_settings = ToolSettings.from_dict(self.tool_settings)
+
 
 class ChatSession:
     def __init__(
@@ -269,15 +273,7 @@ class ChatSession:
             # Load metadata
             metadata_dict = session_data.get("metadata", {})
 
-            # Handle tool_settings deserialization
-            if (
-                "tool_settings" in metadata_dict
-                and metadata_dict["tool_settings"] is not None
-            ):
-                tool_settings_data = metadata_dict["tool_settings"]
-                metadata_dict["tool_settings"] = ToolSettings.from_dict(
-                    tool_settings_data
-                )
+            # Note: tool_settings migration is handled in migrate_from_legacy()
 
             # Explicit construction with required and optional fields for type safety
             self.metadata = SessionMetadata(
@@ -448,20 +444,13 @@ class ChatSession:
 
     def has_tools_enabled(self) -> bool:
         """Check if session has tools enabled."""
-        if hasattr(self.metadata, "tool_settings"):
-            settings = self.metadata.tool_settings
-            if isinstance(settings, ToolSettings):
-                return settings.is_enabled()
-            elif isinstance(settings, dict):
-                # Check for tools or tool_group
-                return bool(settings.get("tools") or settings.get("tool_group"))
+        if hasattr(self.metadata, "tool_settings") and self.metadata.tool_settings:
+            # After migration, this will always be a ToolSettings object
+            return self.metadata.tool_settings.is_enabled()
         return False
 
     def get_tool_settings(self) -> Optional[ToolSettings]:
         """Get tool settings for this session."""
-        if hasattr(self.metadata, "tool_settings") and self.metadata.tool_settings:
-            if isinstance(self.metadata.tool_settings, ToolSettings):
-                return self.metadata.tool_settings
-            elif isinstance(self.metadata.tool_settings, dict):
-                return ToolSettings.from_dict(self.metadata.tool_settings)
+        if hasattr(self.metadata, "tool_settings"):
+            return self.metadata.tool_settings  # Already a ToolSettings object or None
         return None
