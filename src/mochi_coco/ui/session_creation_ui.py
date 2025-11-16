@@ -5,17 +5,16 @@ This module provides standardized user interface components for session creation
 selection, and management across all entry points in the application.
 """
 
-from typing import List
+# Import with TYPE_CHECKING to avoid circular imports
+from typing import TYPE_CHECKING, List
+
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from .chat_interface import ChatInterface
 from ..services.session_creation_types import SessionCreationContext
-
-# Import with TYPE_CHECKING to avoid circular imports
-from typing import TYPE_CHECKING
+from .chat_interface import ChatInterface
 
 if TYPE_CHECKING:
     from ..chat import ChatSession
@@ -39,10 +38,13 @@ class SessionCreationUI:
 
     def _display_startup_welcome(self) -> None:
         """Display welcome message for application startup."""
-        welcome_test_1 = """🤖 AI Chat with Style"""
+        from ..utils.version import get_version
+
+        version = get_version()
+        welcome_text = f"""🤖 AI Chat with Style | v{version}"""
 
         panel = Panel(
-            welcome_test_1,
+            welcome_text,
             style="bright_green",
             padding=(1, 2),
             title="🍡 Welcome to Mochi-Coco!",
