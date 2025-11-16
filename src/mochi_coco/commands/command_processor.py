@@ -2,18 +2,19 @@
 Command processor for handling special commands in the chat interface.
 """
 
-from typing import Optional, TYPE_CHECKING, Dict
-import typer
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Dict, Optional
+
+import typer
 
 from ..rendering import RenderingMode
 from ..utils import re_render_chat_history
 
 if TYPE_CHECKING:
     from ..chat import ChatSession
-    from ..ui import ModelSelector
     from ..services import RendererManager, SessionSetupHelper
+    from ..ui import ModelSelector
 
 
 class CommandResult:
@@ -55,7 +56,7 @@ class CommandProcessor:
         )
 
         # Initialize session creation services
-        from ..services import UserPreferenceService, SessionCreationService
+        from ..services import SessionCreationService, UserPreferenceService
 
         self.user_preference_service = UserPreferenceService()
         self.session_creation_service = SessionCreationService(
@@ -210,8 +211,8 @@ class CommandProcessor:
         """Handle the /chats command with standardized session creation."""
         from ..services.session_creation_types import (
             SessionCreationContext,
-            SessionCreationOptions,
             SessionCreationMode,
+            SessionCreationOptions,
         )
 
         typer.secho("\n🔄 Managing chat sessions...\n", fg=typer.colors.BLUE, bold=True)
@@ -444,7 +445,13 @@ class CommandProcessor:
             typer.secho(
                 f"Sending to {session.metadata.model}...\n", fg=typer.colors.BLUE
             )
-            typer.secho("Assistant:", fg=typer.colors.MAGENTA, bold=True)
+
+            # Display proper assistant header using ChatInterface
+            from ..ui import ChatInterface
+
+            chat_interface = ChatInterface()
+            chat_interface.print_separator()
+            chat_interface.print_assistant_header()
 
             # Get current model from session
             current_model = session.metadata.model
@@ -528,7 +535,7 @@ class CommandProcessor:
         self, session: "ChatSession", args: str = ""
     ) -> CommandResult:
         """Handle changing tool execution policy."""
-        from ..tools.config import ToolSettings, ToolExecutionPolicy
+        from ..tools.config import ToolExecutionPolicy, ToolSettings
 
         tool_settings = session.get_tool_settings()
         if not tool_settings:
@@ -560,10 +567,10 @@ class CommandProcessor:
         self, session: "ChatSession", args: str = ""
     ) -> CommandResult:
         """Handle tool selection command."""
+        from ..tools.config import ToolSettings
         from ..tools.discovery_service import ToolDiscoveryService
         from ..tools.schema_service import ToolSchemaService
         from ..ui.tool_selection_ui import ToolSelectionUI
-        from ..tools.config import ToolSettings
 
         # Initialize services
         discovery = ToolDiscoveryService()
