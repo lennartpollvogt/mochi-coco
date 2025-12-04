@@ -27,7 +27,10 @@
 - [x] Add tool usage
 - [x] add folder with example tools users of the application can use to get started and to showcase the capabilities of the application + add documentation on how to create own tools
 - [x] show tool on/off, tool policy and enabled tools in session info (when loaded and created)
-- [ ] add possibility to stop stream/generation from ollama server
+- [x] remove logic for maximum tool usage
+- [x] when starting mochi-coco show version
+- [x] make sure after editing a message and starting from there, that the 'Assistant' Panel is correctly rendered (it's missing the borders)
+- [x] add possibility to stop stream/generation from ollama server
 - [ ] autocomplete with file names when user inserts @ to add files to message context
   - needs: search for files in the directory of the terminal
   - needs: activate autocomplete for file names when user types @ (see nested completer: https://python-prompt-toolkit.readthedocs.io/en/3.0.52/pages/asking_for_input.html#nested-completion)
@@ -36,6 +39,7 @@
   - needs: functionality to add files to message context (insert in user message thoughtfully)
 - [ ] toogle to exclude thinking block in chat history from new requests (will reduce tokens)
 - [ ] autocomplete for commands during chat sessions
+- [ ] add possibility to go into "agent mode" to have a more agent like behavior of the LLM and not stopping the requests to the ollama server when the LLM is responding in text instead of tools.
 
 # Issues
 

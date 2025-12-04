@@ -35,8 +35,7 @@ class ToolAwareRenderer:
         self.base_renderer = base_renderer
         self.tool_execution_service = tool_execution_service
         self.confirmation_ui = confirmation_ui or ToolConfirmationUI()
-        self.tool_call_depth = 0  # Track recursive tool calls
-        self.max_tool_call_depth = 5  # Prevent infinite recursion
+
     class StreamInterceptor:
         """
         Iterator wrapper that intercepts tool calls while passing content to base renderer.
@@ -171,124 +170,112 @@ class ToolAwareRenderer:
         This method now properly delegates content rendering to the base renderer
         while intercepting and handling tool calls.
         """
-        # Check recursion depth
-        self.tool_call_depth += 1
-        if self.tool_call_depth > self.max_tool_call_depth:
-            logger.error(f"Max tool call depth ({self.max_tool_call_depth}) exceeded")
-            print("\n[Error: Maximum tool call depth exceeded]")
-            self.tool_call_depth -= 1
-            return None
+        # Create stream interceptor
+        interceptor = self.StreamInterceptor(text_chunks, self)
 
-        try:
-            # Create stream interceptor
-            interceptor = self.StreamInterceptor(text_chunks, self)
+        # Delegate rendering to base renderer with intercepted stream
+        # The base renderer will handle markdown formatting properly
+        result = self.base_renderer.render_streaming_response(interceptor)
 
-            # Delegate rendering to base renderer with intercepted stream
-            # The base renderer will handle markdown formatting properly
-            result = self.base_renderer.render_streaming_response(interceptor)
+        # Check if tool calls were detected (preserve state from interceptor)
+        detected_tool_calls = interceptor.tool_calls_detected
+        accumulated_content = interceptor.accumulated_content
 
-            # Check if tool calls were detected (preserve state from interceptor)
-            detected_tool_calls = interceptor.tool_calls_detected
-            accumulated_content = interceptor.accumulated_content
+        logger.info(
+            f"[DEBUG] ToolAwareRenderer: After base renderer, detected {len(detected_tool_calls) if detected_tool_calls else 0} tool calls"
+        )
 
-            logger.info(
-                f"[DEBUG] ToolAwareRenderer: After base renderer, detected {len(detected_tool_calls) if detected_tool_calls else 0} tool calls"
-            )
+        if detected_tool_calls:
+            # Process ALL tool calls before continuing conversation
+            all_tools_successful = True
+            tool_results = []
 
+            # First, add the assistant message with all tool calls to session
             if detected_tool_calls:
-                # Process ALL tool calls before continuing conversation
-                all_tools_successful = True
-                tool_results = []
+                message_with_content = Message(
+                    role="assistant", content=accumulated_content or ""
+                )
+                message_with_content.tool_calls = detected_tool_calls
 
-                # First, add the assistant message with all tool calls to session
-                if detected_tool_calls:
-                    message_with_content = Message(
-                        role="assistant", content=accumulated_content or ""
+                # Add single assistant message with all tool calls
+                self._add_tool_call_to_session(
+                    session, message_with_content, detected_tool_calls, model
+                )
+
+            # Process each tool call
+            for tool_call in detected_tool_calls:
+                tool_result = self._handle_tool_call(tool_call, tool_settings)
+
+                if tool_result:
+                    # Add tool response to session
+                    self._add_tool_response_to_session(
+                        session, tool_call.function.name, tool_result
                     )
-                    message_with_content.tool_calls = detected_tool_calls
 
-                    # Add single assistant message with all tool calls
-                    self._add_tool_call_to_session(
-                        session, message_with_content, detected_tool_calls, model
-                    )
-
-                # Process each tool call
-                for tool_call in detected_tool_calls:
-                    tool_result = self._handle_tool_call(tool_call, tool_settings)
-
-                    if tool_result:
-                        # Add tool response to session
-                        self._add_tool_response_to_session(
-                            session, tool_call.function.name, tool_result
+                    # Show result to user
+                    if self.confirmation_ui:
+                        self.confirmation_ui.show_tool_result(
+                            tool_call.function.name,
+                            tool_result.success
+                            if isinstance(tool_result, ToolExecutionResult)
+                            else True,
+                            tool_result.result
+                            if isinstance(tool_result, ToolExecutionResult)
+                            else str(tool_result),
+                            tool_result.error_message
+                            if isinstance(tool_result, ToolExecutionResult)
+                            else None,
                         )
 
-                        # Show result to user
-                        if self.confirmation_ui:
-                            self.confirmation_ui.show_tool_result(
-                                tool_call.function.name,
-                                tool_result.success
-                                if isinstance(tool_result, ToolExecutionResult)
-                                else True,
-                                tool_result.result
-                                if isinstance(tool_result, ToolExecutionResult)
-                                else str(tool_result),
-                                tool_result.error_message
-                                if isinstance(tool_result, ToolExecutionResult)
-                                else None,
-                            )
-
-                        tool_results.append(tool_result)
-                        if not (tool_result.success or tool_result.result):
-                            all_tools_successful = False
-                    else:
+                    tool_results.append(tool_result)
+                    if not (tool_result.success or tool_result.result):
                         all_tools_successful = False
-
-                # Continue conversation unless user denied any tool
-                should_continue = False
-                if tool_results:
-                    # Check if any tool was denied by user
-                    any_user_denied = any(
-                        not result.success
-                        and result.error_message == "Tool execution denied by user"
-                        for result in tool_results
-                    )
-                    # Continue if no user denials (allows LLM to handle technical errors)
-                    should_continue = not any_user_denied
-
-                if should_continue:
-                    logger.debug(
-                        f"Continuing conversation with {len(tool_results)} tool results"
-                    )
-                    print(f"\n🤖 Processing {len(tool_results)} tool results...\n")
-                    messages = session.get_messages_for_api()
-
-                    # Create continuation stream
-                    continuation_stream = client.chat_stream(
-                        model, messages, tools=available_tools
-                    )
-
-                    # Recursively handle continuation (might have more tool calls)
-                    continuation_result = self._render_with_tools(
-                        continuation_stream,
-                        tool_settings,
-                        session,
-                        model,
-                        client,
-                        available_tools,
-                    )
-
-                    return continuation_result
                 else:
-                    if tool_results:
-                        logger.debug(
-                            "Stopping conversation due to user denial or no results"
-                        )
+                    all_tools_successful = False
 
-            # Return the result from base renderer
-            return result if result else interceptor.final_chunk
+            # Continue conversation unless user denied any tool
+            should_continue = False
+            if tool_results:
+                # Check if any tool was denied by user
+                any_user_denied = any(
+                    not result.success
+                    and result.error_message == "Tool execution denied by user"
+                    for result in tool_results
+                )
+                # Continue if no user denials (allows LLM to handle technical errors)
+                should_continue = not any_user_denied
 
-        finally:
-            self.tool_call_depth -= 1
+            if should_continue:
+                logger.debug(
+                    f"Continuing conversation with {len(tool_results)} tool results"
+                )
+                print(f"\n🤖 Processing {len(tool_results)} tool results...\n")
+                messages = session.get_messages_for_api()
+
+                # Create continuation stream
+                continuation_stream = client.chat_stream(
+                    model, messages, tools=available_tools
+                )
+
+                # Recursively handle continuation (might have more tool calls)
+                continuation_result = self._render_with_tools(
+                    continuation_stream,
+                    tool_settings,
+                    session,
+                    model,
+                    client,
+                    available_tools,
+                )
+
+                return continuation_result
+            else:
+                if tool_results:
+                    logger.debug(
+                        "Stopping conversation due to user denial or no results"
+                    )
+
+        # Return the result from base renderer
+        return result if result else interceptor.final_chunk
 
     def _handle_tool_call(
         self, tool_call: Any, tool_settings: ToolSettings

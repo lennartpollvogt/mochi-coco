@@ -391,21 +391,6 @@ class TestToolAwareRenderer:
         # Should handle gracefully but still return a result from base renderer
         assert result is not None
 
-    def test_max_recursion_depth(self, tool_aware_renderer, tool_context):
-        """Test that maximum recursion depth is enforced."""
-        # Set depth to maximum
-        tool_aware_renderer.tool_call_depth = tool_aware_renderer.max_tool_call_depth
-
-        chunks = [MockChatResponse(MockMessage(content="test"), done=True)]
-
-        with patch("builtins.print") as mock_print:
-            result = tool_aware_renderer.render_streaming_response(
-                iter(chunks), tool_context
-            )
-
-            mock_print.assert_any_call("\n[Error: Maximum tool call depth exceeded]")
-            assert result is None
-
     def test_session_message_updates(self, tool_aware_renderer, tool_context):
         """Test that tool calls and responses are added to session."""
         mock_function = Mock()
