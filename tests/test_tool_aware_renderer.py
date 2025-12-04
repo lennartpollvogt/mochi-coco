@@ -5,14 +5,15 @@ This module tests the tool-aware rendering capabilities including tool call dete
 execution, confirmation, and continuation during streaming responses.
 """
 
-import pytest
-from unittest.mock import Mock, patch
-from typing import Dict, Any, List
 from dataclasses import dataclass
+from typing import Any, Dict, List
+from unittest.mock import Mock, patch
+
+import pytest
 
 from mochi_coco.rendering.tool_aware_renderer import ToolAwareRenderer
-from mochi_coco.tools.execution_service import ToolExecutionService, ToolExecutionResult
-from mochi_coco.tools.config import ToolSettings, ToolExecutionPolicy
+from mochi_coco.tools.config import ToolExecutionPolicy, ToolSettings
+from mochi_coco.tools.execution_service import ToolExecutionResult, ToolExecutionService
 from mochi_coco.ui.tool_confirmation_ui import ToolConfirmationUI
 
 

@@ -5,14 +5,16 @@ This module provides the ToolAwareRenderer class which wraps existing renderers
 to add tool call detection, execution, and continuation during streaming responses.
 """
 
-from typing import Iterator, Dict, List, Optional, Any, TYPE_CHECKING
-from ollama import ChatResponse, Message, Tool
-from ..tools.execution_service import ToolExecutionService, ToolExecutionResult
-from ..ui.tool_confirmation_ui import ToolConfirmationUI
-from ..tools.config import ToolSettings, ToolExecutionPolicy
 import logging
-from datetime import datetime
 from copy import deepcopy
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
+
+from ollama import ChatResponse, Message, Tool
+
+from ..tools.config import ToolExecutionPolicy, ToolSettings
+from ..tools.execution_service import ToolExecutionResult, ToolExecutionService
+from ..ui.tool_confirmation_ui import ToolConfirmationUI
 
 if TYPE_CHECKING:
     from ..chat.session import ChatSession
@@ -35,7 +37,6 @@ class ToolAwareRenderer:
         self.confirmation_ui = confirmation_ui or ToolConfirmationUI()
         self.tool_call_depth = 0  # Track recursive tool calls
         self.max_tool_call_depth = 5  # Prevent infinite recursion
-
     class StreamInterceptor:
         """
         Iterator wrapper that intercepts tool calls while passing content to base renderer.
