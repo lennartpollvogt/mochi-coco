@@ -1,17 +1,21 @@
+import re
 import sys
 from enum import Enum
-from typing import Iterator
-from rich.console import Console
-from .custom_markdown import CustomMarkdown
-from rich.text import Text
-from rich.live import Live
-import re
-from .themes import DEFAULT_THEME
+from typing import Iterator, Tuple
+
 from ollama import ChatResponse
+from rich.console import Console
+from rich.live import Live
+from rich.text import Text
+
+from .custom_markdown import CustomMarkdown
+from .interrupt_handler import InterruptHandler
+from .themes import DEFAULT_THEME
 
 
 class RenderingMode(Enum):
     """Rendering mode for assistant responses."""
+
     PLAIN = "plain"
     MARKDOWN = "markdown"
 
@@ -19,7 +23,9 @@ class RenderingMode(Enum):
 class MarkdownRenderer:
     """Handles rendering of assistant responses with optional markdown formatting."""
 
-    def __init__(self, mode: RenderingMode = RenderingMode.PLAIN, show_thinking: bool = False):
+    def __init__(
+        self, mode: RenderingMode = RenderingMode.PLAIN, show_thinking: bool = False
+    ):
         """
         Initialize the renderer.
 
@@ -44,36 +50,54 @@ class MarkdownRenderer:
                 thinking_content = match.group(1).strip()
 
                 # Convert each line to a blockquote line
-                lines = thinking_content.split('\n')
-                blockquote_lines = ['> 💭 **Thinking:**']
-                blockquote_lines.append('>')  # Empty line after header
+                lines = thinking_content.split("\n")
+                blockquote_lines = ["> 💭 **Thinking:**"]
+                blockquote_lines.append(">")  # Empty line after header
 
                 for line in lines:
                     if line.strip():
-                        blockquote_lines.append('> ' + line.strip())
+                        blockquote_lines.append("> " + line.strip())
                     else:
-                        blockquote_lines.append('>')  # Empty blockquote line
+                        blockquote_lines.append(">")  # Empty blockquote line
 
-                return '\n'.join(blockquote_lines) + '\n'
+                return "\n".join(blockquote_lines) + "\n"
 
             # Process both <think> and <thinking> variants
-            text = re.sub(r'<think>(.*?)</think>', format_thinking_block, text, flags=re.DOTALL | re.IGNORECASE)
-            text = re.sub(r'<thinking>(.*?)</thinking>', format_thinking_block, text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(
+                r"<think>(.*?)</think>",
+                format_thinking_block,
+                text,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
+            text = re.sub(
+                r"<thinking>(.*?)</thinking>",
+                format_thinking_block,
+                text,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
         else:
             # Remove thinking blocks (both <think> and <thinking> variants)
             # Use re.DOTALL to match across newlines
-            text = re.sub(r'<think>\s*.*?\s*</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
-            text = re.sub(r'<thinking>\s*.*?\s*</thinking>', '', text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(
+                r"<think>\s*.*?\s*</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+            )
+            text = re.sub(
+                r"<thinking>\s*.*?\s*</thinking>",
+                "",
+                text,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
 
         # Clean up any extra whitespace that might be left
-        text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)  # Multiple empty lines -> double newline
+        text = re.sub(
+            r"\n\s*\n\s*\n", "\n\n", text
+        )  # Multiple empty lines -> double newline
         text = text.strip()
 
         return text
 
     def render_streaming_response(
-        self,
-        text_chunks: Iterator[ChatResponse]
+        self, text_chunks: Iterator[ChatResponse]
     ) -> ChatResponse | None:
         """
         Render a streaming response with optional markdown formatting.
@@ -91,8 +115,8 @@ class MarkdownRenderer:
             # Plain mode: just stream normally
             for chunk in text_chunks:
                 if chunk:
-                    accumulated_text += chunk.message['content']
-                    print(chunk.message['content'], end='', flush=True)
+                    accumulated_text += chunk.message["content"]
+                    print(chunk.message["content"], end="", flush=True)
 
                 if chunk.done:
                     chunk.message.content = accumulated_text
@@ -103,11 +127,13 @@ class MarkdownRenderer:
                 return final_chunk
 
         # Markdown mode: use Live for replacement
-        with Live(console=self.console, refresh_per_second=60, auto_refresh=False) as live:
+        with Live(
+            console=self.console, refresh_per_second=60, auto_refresh=False
+        ) as live:
             # Stream and collect text
             for chunk in text_chunks:
                 if chunk:
-                    accumulated_text += chunk.message['content']
+                    accumulated_text += chunk.message["content"]
                     # Show plain text during streaming
                     live.update(Text(accumulated_text))
                     live.refresh()
@@ -178,3 +204,129 @@ class MarkdownRenderer:
     def is_markdown_enabled(self) -> bool:
         """Check if markdown rendering is enabled."""
         return self.mode == RenderingMode.MARKDOWN
+
+    def render_streaming_response_with_interrupt(
+        self, text_chunks: Iterator[ChatResponse]
+    ) -> Tuple[ChatResponse | None, bool]:
+        """
+        Render streaming response with ESC interruption support.
+
+        Returns:
+            Tuple of (final_chunk, was_interrupted)
+        """
+        interrupt_handler = InterruptHandler()
+        interrupt_handler.start_monitoring()
+
+        try:
+            accumulated_text = ""
+            final_chunk: ChatResponse | None = None
+
+            if self.mode == RenderingMode.PLAIN:
+                # Plain mode with interrupt checking
+                for chunk in text_chunks:
+                    # Check for interrupt
+                    if interrupt_handler.was_interrupted():
+                        print()  # Clean newline
+                        # Create partial chunk for interrupted response
+                        if accumulated_text:
+                            # Create a mock final chunk with accumulated content
+                            if chunk:
+                                chunk.message.content = accumulated_text
+                                return chunk, True
+                            else:
+                                # Create minimal mock chunk
+                                from ollama import Message
+
+                                mock_chunk = type(
+                                    "MockChunk",
+                                    (),
+                                    {
+                                        "message": Message(
+                                            content=accumulated_text, role="assistant"
+                                        ),
+                                        "done": True,
+                                    },
+                                )()
+                                return mock_chunk, True
+                        return None, True
+
+                    if chunk and chunk.message and chunk.message.content:
+                        accumulated_text += chunk.message.content
+                        print(chunk.message.content, end="", flush=True)
+                        # Signal that we received a chunk
+                        interrupt_handler.update_chunk_received()
+
+                    if chunk and chunk.done:
+                        chunk.message.content = accumulated_text
+                        final_chunk = chunk
+
+                print()  # Final newline
+                return final_chunk, False
+
+            # Markdown mode with Live and interrupt checking
+            with Live(
+                console=self.console, refresh_per_second=60, auto_refresh=False
+            ) as live:
+                for chunk in text_chunks:
+                    # Check for interrupt
+                    if interrupt_handler.was_interrupted():
+                        # Show accumulated text before interrupting
+                        if accumulated_text.strip():
+                            try:
+                                processed_text = self._preprocess_thinking_blocks(
+                                    accumulated_text
+                                )
+                                live.update(CustomMarkdown(processed_text))
+                                live.refresh()
+                            except Exception:
+                                live.update(Text(accumulated_text))
+                                live.refresh()
+                        # Create partial chunk
+                        if accumulated_text:
+                            if chunk:
+                                chunk.message.content = accumulated_text
+                                return chunk, True
+                            else:
+                                # Create minimal mock chunk
+                                from ollama import Message
+
+                                mock_chunk = type(
+                                    "MockChunk",
+                                    (),
+                                    {
+                                        "message": Message(
+                                            content=accumulated_text, role="assistant"
+                                        ),
+                                        "done": True,
+                                    },
+                                )()
+                                return mock_chunk, True
+                        return None, True
+
+                    if chunk and chunk.message and chunk.message.content:
+                        accumulated_text += chunk.message.content
+                        live.update(Text(accumulated_text))
+                        live.refresh()
+                        # Signal that we received a chunk
+                        interrupt_handler.update_chunk_received()
+
+                    if chunk and chunk.done:
+                        chunk.message.content = accumulated_text
+                        final_chunk = chunk
+
+                # Final markdown rendering
+                if accumulated_text.strip():
+                    try:
+                        processed_text = self._preprocess_thinking_blocks(
+                            accumulated_text
+                        )
+                        live.update(CustomMarkdown(processed_text))
+                        live.refresh()
+                    except Exception as e:
+                        live.update(Text(accumulated_text))
+                        live.refresh()
+
+            return final_chunk, False
+
+        finally:
+            interrupt_handler.stop_monitoring()

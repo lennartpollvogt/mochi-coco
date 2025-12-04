@@ -5,12 +5,13 @@ This module extracts session management logic from ChatController to improve
 separation of concerns and provide focused session operations.
 """
 
-from typing import Optional, NamedTuple, List, Mapping, Any, TYPE_CHECKING, Dict
 import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, NamedTuple, Optional
+
 from ..chat import ChatSession
-from ..services import SessionManager
 from ..ollama import OllamaClient
 from ..rendering.tool_aware_renderer import ToolAwareRenderer
+from ..services import SessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
 
 class SessionInitResult(NamedTuple):
     """Result of session initialization."""
+
     session: Optional[ChatSession]
     model: Optional[str]
     markdown_enabled: bool
@@ -29,6 +31,7 @@ class SessionInitResult(NamedTuple):
 
 class MessageProcessResult(NamedTuple):
     """Result of message processing."""
+
     success: bool
     final_chunk: Optional[Any] = None
     error_message: Optional[str] = None
@@ -54,21 +57,30 @@ class SessionController:
                 return SessionInitResult(None, None, False, False, False)
 
             # Setup session with system prompt if provided
-            session, model = self.session_manager.setup_session(session, model, system_prompt)
+            session, model = self.session_manager.setup_session(
+                session, model, system_prompt
+            )
 
             if session is None or model is None:
                 logger.error("Session or model is None after setup")
                 return SessionInitResult(None, None, False, False, False)
 
-            return SessionInitResult(session, model, markdown_enabled, show_thinking, True)
+            return SessionInitResult(
+                session, model, markdown_enabled, show_thinking, True
+            )
 
         except Exception as e:
             logger.error(f"Session initialization failed: {e}", exc_info=True)
             return SessionInitResult(None, None, False, False, False)
 
-    def process_user_message(self, session: ChatSession, model: str,
-                           user_input: str, renderer,
-                           tool_context: Optional[Dict[str, Any]] = None) -> MessageProcessResult:
+    def process_user_message(
+        self,
+        session: ChatSession,
+        model: str,
+        user_input: str,
+        renderer,
+        tool_context: Optional[Dict[str, Any]] = None,
+    ) -> MessageProcessResult:
         """
         Process a regular user message and get LLM response.
 
@@ -87,43 +99,54 @@ class SessionController:
             messages: List[Mapping[str, Any]] = session.get_messages_for_api()
 
             # Check if tools are enabled
-            if tool_context and tool_context.get('tools_enabled'):
+            if tool_context and tool_context.get("tools_enabled"):
                 # Stream with tool support
-                tools = tool_context.get('tools', [])
-                text_stream = self.client.chat_stream(model=model, messages=messages, tools=tools)
+                tools = tool_context.get("tools", [])
+                text_stream = self.client.chat_stream(
+                    model=model, messages=messages, tools=tools
+                )
 
                 # Create tool-aware renderer if needed
                 if not isinstance(renderer, ToolAwareRenderer):
-                    tool_execution_service = tool_context.get('tool_execution_service')
+                    tool_execution_service = tool_context.get("tool_execution_service")
                     renderer = ToolAwareRenderer(renderer, tool_execution_service)
 
                 # Add required context for tool handling
-                tool_context.update({
-                    'session': session,
-                    'model': model,
-                    'client': self.client,
-                    'available_tools': tools
-                })
+                tool_context.update(
+                    {
+                        "session": session,
+                        "model": model,
+                        "client": self.client,
+                        "available_tools": tools,
+                    }
+                )
 
-                final_chunk = renderer.render_streaming_response(text_stream, tool_context)
+                final_chunk = renderer.render_streaming_response(
+                    text_stream, tool_context
+                )
+                was_interrupted = (
+                    False  # Tool rendering doesn't support interruption yet
+                )
             else:
-                # Regular streaming without tools
+                # Regular streaming with interruption support
                 text_stream = self.client.chat_stream(model=model, messages=messages)
-                final_chunk = renderer.render_streaming_response(text_stream)
+                final_chunk, was_interrupted = (
+                    renderer.render_streaming_response_with_interrupt(text_stream)
+                )
 
-            if final_chunk:
-                # Only add non-tool messages (tool messages are added by renderer)
-                # If no tools are enabled, always add the message
-                # If tools are enabled, only add if message doesn't have tool_calls
-                if not tool_context or not tool_context.get('tools_enabled'):
+            # Add message to session if we have content (interrupted or complete)
+            if final_chunk and final_chunk.message.content.strip():
+                if not tool_context or not tool_context.get("tools_enabled"):
                     # No tools enabled, always add message
                     session.add_message(chunk=final_chunk)
-                elif not (hasattr(final_chunk.message, 'tool_calls') and final_chunk.message.tool_calls):
+                elif not (
+                    hasattr(final_chunk.message, "tool_calls")
+                    and final_chunk.message.tool_calls
+                ):
                     # Tools enabled but this message has no tool calls, add it
                     session.add_message(chunk=final_chunk)
-                return MessageProcessResult(True, final_chunk)
-            else:
-                return MessageProcessResult(False, None, "No response received")
+
+            return MessageProcessResult(True, final_chunk)
 
         except Exception as e:
             return MessageProcessResult(False, None, str(e))
