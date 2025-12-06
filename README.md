@@ -27,6 +27,7 @@ mochi-coco
 ## Features
 
 - 🚀 **Streaming responses** - Real-time chat with immediate feedback
+- ⚡ **Stream interruption** - Press ESC during streaming to interrupt and save partial responses
 - 💾 **Session persistence** - Your conversations are automatically saved in the terminal's directory and resumable
 - 🎨 **Rich markdown rendering** - Beautiful formatting with syntax highlighting and toggle rendering mid session
 - 🔄 **Model switching** - Change models mid-conversation
