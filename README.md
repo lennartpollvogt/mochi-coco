@@ -37,6 +37,7 @@ mochi-coco
 - 🎛️ **Interactive menus** - Easy-to-use command interface with clear instructions
 - ⚡ **Background summarization** - Automatic conversation summaries
 - 📝 **System Prompts** - Drop `*.md` or `*.txt` files into the `system_prompts` folder in the root directory of the terminal to use as system prompts.
+- **Tool support** - Let the LLM use tools to you've created by placing them in the `tools` folder in the root directory of the terminal.
 
 ## Commands
 
