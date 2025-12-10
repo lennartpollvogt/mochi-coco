@@ -2,15 +2,14 @@
 Chat interface styling module using Rich for enhanced visual presentation.
 """
 
+# Import with TYPE_CHECKING to avoid circular imports
+from typing import TYPE_CHECKING, Optional
+
+from rich.box import ROUNDED
 from rich.console import Console
 from rich.panel import Panel
-from rich.box import ROUNDED
 from rich.style import Style
 from rich.text import Text
-from typing import Optional
-
-# Import with TYPE_CHECKING to avoid circular imports
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..tools.config import ToolSettings
@@ -194,6 +193,7 @@ class ChatInterface:
         # Add commands section
         info_text.append("\n💡 Available Commands:\n", style="bold bright_green")
         info_text.append("• /menu - Open the main menu\n", style="white")
+        info_text.append("• /status - Show session information\n", style="white")
         info_text.append("• /edit - Edit a previous message\n", style="white")
         info_text.append("• /exit or /quit - Exit the application", style="white")
 

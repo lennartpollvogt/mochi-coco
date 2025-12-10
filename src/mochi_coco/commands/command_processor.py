@@ -95,6 +95,10 @@ class CommandProcessor:
         if cmd == "/menu":
             return self._handle_menu_command(session)
 
+        # Status command
+        if cmd == "/status":
+            return self._handle_status_command(session)
+
         # Edit command
         if cmd == "/edit":
             return self._handle_edit_command(session)
@@ -762,3 +766,47 @@ __time__ = ['get_current_time']
             else:
                 typer.secho(f"Invalid option: {choice}", fg=typer.colors.RED)
                 continue
+
+    def _handle_status_command(self, session: "ChatSession") -> CommandResult:
+        """Handle the /status command by displaying current session information."""
+        if self.session_setup_helper is None:
+            # Fallback: create a basic ChatInterface for display
+            from ..ui import ChatInterface
+
+            chat_interface = ChatInterface()
+
+            # Get renderer settings
+            markdown_enabled = self.renderer_manager.is_markdown_enabled()
+            show_thinking = self.renderer_manager.is_thinking_enabled()
+
+            # Display session info
+            summary_model = session.metadata.summary_model
+            tool_settings = session.get_tool_settings()
+
+            chat_interface.print_session_info(
+                session_id=session.session_id,
+                model=session.model,
+                markdown=markdown_enabled,
+                thinking=show_thinking,
+                summary_model=summary_model,
+                tool_settings=tool_settings,
+            )
+        else:
+            # Use the session setup helper's display method
+            from ..services.user_preference_service import UserPreferences
+
+            # Get current renderer settings
+            markdown_enabled = self.renderer_manager.is_markdown_enabled()
+            show_thinking = self.renderer_manager.is_thinking_enabled()
+
+            # Create preferences object for display
+            preferences = UserPreferences(
+                markdown_enabled=markdown_enabled, show_thinking=show_thinking
+            )
+
+            # Display using session setup helper
+            self.session_setup_helper._display_session_info(
+                session, session.model, preferences
+            )
+
+        return CommandResult(should_continue=False)
