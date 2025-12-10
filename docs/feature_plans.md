@@ -31,6 +31,11 @@
 - [x] when starting mochi-coco show version
 - [x] make sure after editing a message and starting from there, that the 'Assistant' Panel is correctly rendered (it's missing the borders)
 - [x] add possibility to stop stream/generation from ollama server
+- [ ] set context window by user
+- [ ] command `mochi-coco --new` to create a new chat session directly from start
+- [ ] command `mochi-coco --1` to open last chat session directly from start
+- [ ] add chat session summary to session tile
+- [ ] command `/status` within chat to see the chat status showing: session id, context used vs context window, llms used --> like when a chat is starting (just showing this information)
 - [ ] autocomplete with file names when user inserts @ to add files to message context
   - needs: search for files in the directory of the terminal
   - needs: activate autocomplete for file names when user types @ (see nested completer: https://python-prompt-toolkit.readthedocs.io/en/3.0.52/pages/asking_for_input.html#nested-completion)
