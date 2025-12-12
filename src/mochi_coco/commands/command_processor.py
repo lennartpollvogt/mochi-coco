@@ -782,6 +782,7 @@ __time__ = ['get_current_time']
             # Display session info
             summary_model = session.metadata.summary_model
             tool_settings = session.get_tool_settings()
+            session_summary = session.metadata.summary if session.metadata else None
 
             chat_interface.print_session_info(
                 session_id=session.session_id,
@@ -790,6 +791,7 @@ __time__ = ['get_current_time']
                 thinking=show_thinking,
                 summary_model=summary_model,
                 tool_settings=tool_settings,
+                session_summary=session_summary,
             )
         else:
             # Use the session setup helper's display method
@@ -804,7 +806,7 @@ __time__ = ['get_current_time']
                 markdown_enabled=markdown_enabled, show_thinking=show_thinking
             )
 
-            # Display using session setup helper
+            # Display using session setup helper (which will include summary via UI orchestrator)
             self.session_setup_helper._display_session_info(
                 session, session.model, preferences
             )

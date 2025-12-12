@@ -713,3 +713,98 @@ class TestCommandProcessingFlow:
             assert call_args[1]["model"] == sample_session.model
             assert "markdown" in call_args[1]
             assert "thinking" in call_args[1]
+            assert "session_summary" in call_args[1]
+
+    def test_status_command_with_session_summary(
+        self, command_processor, temp_sessions_dir
+    ):
+        """
+        Test status command displays session summary when available.
+
+        Tests integration of:
+        - Session summary extraction from metadata
+        - Summary display in session info panel
+        - Proper truncation of long summaries
+        """
+        # Create session with summary
+        session = ChatSession("test-model", sessions_dir=temp_sessions_dir)
+        session.add_user_message("What is machine learning?")
+
+        # Add mock summary to metadata
+        session.metadata.summary = {
+            "summary": "This conversation covers the basics of machine learning, including supervised and unsupervised learning approaches, common algorithms, and practical applications in various industries.",
+            "topics": ["machine learning", "AI", "algorithms"],
+        }
+        session.save_session()
+
+        with patch(
+            "mochi_coco.ui.chat_interface.ChatInterface.print_session_info"
+        ) as mock_print_info:
+            result = command_processor.process_command("/status", session, "test-model")
+
+            # Verify result
+            assert isinstance(result, CommandResult)
+            assert result.should_continue is False
+
+            # Verify session info was called with summary
+            mock_print_info.assert_called_once()
+            call_args = mock_print_info.call_args
+
+            # Check that session_summary was passed
+            assert "session_summary" in call_args[1]
+            assert call_args[1]["session_summary"] == session.metadata.summary
+
+    def test_status_command_with_full_summary_and_topics(
+        self, command_processor, temp_sessions_dir
+    ):
+        """
+        Test that full summary and topics are displayed without truncation.
+        """
+        # Create session with complete summary including topics
+        session = ChatSession("test-model", sessions_dir=temp_sessions_dir)
+        session.add_user_message("Tell me about quantum physics")
+
+        full_summary_text = "This conversation covers quantum physics fundamentals, including wave-particle duality, quantum entanglement, and practical applications in quantum computing."
+        topics_list = [
+            "quantum physics",
+            "wave-particle duality",
+            "quantum entanglement",
+            "quantum computing",
+        ]
+
+        session.metadata.summary = {
+            "summary": full_summary_text,
+            "topics": topics_list,
+        }
+        session.save_session()
+
+        # Test the actual UI rendering with real ChatInterface
+        from mochi_coco.ui.chat_interface import ChatInterface
+
+        chat_interface = ChatInterface()
+
+        # Capture the rendered output
+        with patch.object(chat_interface.console, "print") as mock_console_print:
+            chat_interface.print_session_info(
+                session_id=session.session_id,
+                model=session.model,
+                markdown=True,
+                thinking=False,
+                session_summary=session.metadata.summary,
+            )
+
+            # Verify console.print was called
+            mock_console_print.assert_called_once()
+
+            # Get the rendered panel content
+            panel_arg = mock_console_print.call_args[0][0]
+            panel_text = str(panel_arg.renderable)
+
+            # Verify full summary is displayed (no truncation)
+            assert "Summary:" in panel_text
+            assert full_summary_text in panel_text
+
+            # Verify all topics are displayed as bullet points
+            assert "Topics:" in panel_text
+            for topic in topics_list:
+                assert f"• {topic}" in panel_text

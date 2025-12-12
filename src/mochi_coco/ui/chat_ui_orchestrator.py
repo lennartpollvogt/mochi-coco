@@ -6,9 +6,11 @@ separation of concerns and testability.
 """
 
 from typing import TYPE_CHECKING
+
 from rich.console import Console
-from .chat_interface import ChatInterface
+
 from ..user_prompt import get_user_input
+from .chat_interface import ChatInterface
 
 if TYPE_CHECKING:
     from ..chat import ChatSession
@@ -33,6 +35,7 @@ class ChatUIOrchestrator:
         # Extract additional session metadata
         summary_model = session.metadata.summary_model
         tool_settings = session.get_tool_settings()
+        session_summary = session.metadata.summary if session.metadata else None
 
         self.chat_interface.print_session_info(
             session_id=session.session_id,
@@ -41,6 +44,7 @@ class ChatUIOrchestrator:
             thinking=show_thinking,
             summary_model=summary_model,
             tool_settings=tool_settings,
+            session_summary=session_summary,
         )
 
     def display_chat_history_if_needed(

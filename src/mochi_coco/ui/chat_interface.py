@@ -135,6 +135,7 @@ class ChatInterface:
         thinking: bool,
         summary_model: Optional[str] = None,
         tool_settings: Optional["ToolSettings"] = None,
+        session_summary: Optional[dict] = None,
     ) -> None:
         """
         Print session information with integrated commands in a styled panel.
@@ -146,6 +147,7 @@ class ChatInterface:
             thinking: Whether thinking blocks are enabled
             summary_model: The summary model being used (if configured)
             tool_settings: The tool settings for this session (if configured)
+            session_summary: The session summary dictionary (if available)
         """
         # Session info
         info_text = Text()
@@ -189,6 +191,25 @@ class ChatInterface:
         info_text.append(
             f"Thinking Blocks: {'Enabled' if thinking else 'Disabled'}\n", style="cyan"
         )
+
+        # Session summary
+        if session_summary and isinstance(session_summary, dict):
+            summary_text = session_summary.get("summary", "")
+            topics = session_summary.get("topics", [])
+
+            if summary_text:
+                info_text.append("Summary: ", style="bold green")
+                info_text.append(f"{summary_text}\n", style="green")
+
+                # Display topics if available
+                if topics:
+                    info_text.append("Topics:\n", style="bold green")
+                    for topic in topics:
+                        info_text.append(f"  • {topic}\n", style="green")
+            else:
+                info_text.append("Summary: Not available\n", style="dim")
+        else:
+            info_text.append("Summary: Not available\n", style="dim")
 
         # Add commands section
         info_text.append("\n💡 Available Commands:\n", style="bold bright_green")
