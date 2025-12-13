@@ -5,7 +5,7 @@ This module extracts UI orchestration logic from ChatController to improve
 separation of concerns and testability.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from rich.console import Console
 
@@ -14,6 +14,7 @@ from .chat_interface import ChatInterface
 
 if TYPE_CHECKING:
     from ..chat import ChatSession
+    from ..services import ContextWindowService
     from ..ui import ModelSelector
 
 
@@ -30,8 +31,28 @@ class ChatUIOrchestrator:
         model: str,
         markdown_enabled: bool,
         show_thinking: bool,
+        context_window_service: Optional["ContextWindowService"] = None,
     ) -> None:
-        """Display session information and setup UI."""
+        """Display session information and setup UI with on-demand context calculation."""
+        # Calculate context window info ON-DEMAND only at session start
+        context_info = None
+        if context_window_service:
+            try:
+                context_info = context_window_service.calculate_context_usage_on_demand(
+                    session,
+                    model,  # Use current model, not historical models
+                )
+            except Exception as e:
+                from ..services import ContextWindowInfo
+
+                context_info = ContextWindowInfo(
+                    current_usage=0,
+                    max_context=0,
+                    percentage=0.0,
+                    has_valid_data=False,
+                    error_message=f"Calculation failed: {str(e)}",
+                )
+
         # Extract additional session metadata
         summary_model = session.metadata.summary_model
         tool_settings = session.get_tool_settings()
@@ -45,6 +66,7 @@ class ChatUIOrchestrator:
             summary_model=summary_model,
             tool_settings=tool_settings,
             session_summary=session_summary,
+            context_info=context_info,
         )
 
     def display_chat_history_if_needed(

@@ -13,7 +13,7 @@ from ..utils import re_render_chat_history
 
 if TYPE_CHECKING:
     from ..chat import ChatSession
-    from ..services import RendererManager, SessionSetupHelper
+    from ..services import ContextWindowService, RendererManager, SessionSetupHelper
     from ..ui import ModelSelector
 
 
@@ -41,10 +41,12 @@ class CommandProcessor:
         model_selector: "ModelSelector",
         renderer_manager: "RendererManager",
         session_setup_helper: Optional["SessionSetupHelper"] = None,
+        context_window_service: Optional["ContextWindowService"] = None,
     ):
         self.model_selector = model_selector
         self.renderer_manager = renderer_manager
         self.session_setup_helper = session_setup_helper
+        self.context_window_service = context_window_service
 
         # Initialize system prompt services
         from ..services import SystemPromptService
@@ -769,6 +771,22 @@ __time__ = ['get_current_time']
 
     def _handle_status_command(self, session: "ChatSession") -> CommandResult:
         """Handle the /status command by displaying current session information."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Debug session model information
+        logger.debug(f"Status command: session.model = '{session.model}'")
+        logger.debug(
+            f"Status command: session.metadata.model = '{session.metadata.model if session.metadata else 'None'}'"
+        )
+
+        # Get current model - use metadata.model as fallback if session.model is empty
+        current_model = session.model
+        if not current_model and session.metadata:
+            current_model = session.metadata.model
+            logger.debug(f"Using metadata model as fallback: '{current_model}'")
+
         if self.session_setup_helper is None:
             # Fallback: create a basic ChatInterface for display
             from ..ui import ChatInterface
@@ -779,6 +797,26 @@ __time__ = ['get_current_time']
             markdown_enabled = self.renderer_manager.is_markdown_enabled()
             show_thinking = self.renderer_manager.is_thinking_enabled()
 
+            # Calculate context info ON-DEMAND only when /status is typed
+            context_info = None
+            if self.context_window_service:
+                try:
+                    context_info = (
+                        self.context_window_service.calculate_context_usage_on_demand(
+                            session, current_model
+                        )
+                    )
+                except Exception as e:
+                    from ..services import ContextWindowInfo
+
+                    context_info = ContextWindowInfo(
+                        current_usage=0,
+                        max_context=0,
+                        percentage=0.0,
+                        has_valid_data=False,
+                        error_message="Unable to calculate",
+                    )
+
             # Display session info
             summary_model = session.metadata.summary_model
             tool_settings = session.get_tool_settings()
@@ -786,12 +824,13 @@ __time__ = ['get_current_time']
 
             chat_interface.print_session_info(
                 session_id=session.session_id,
-                model=session.model,
+                model=current_model,
                 markdown=markdown_enabled,
                 thinking=show_thinking,
                 summary_model=summary_model,
                 tool_settings=tool_settings,
                 session_summary=session_summary,
+                context_info=context_info,
             )
         else:
             # Use the session setup helper's display method

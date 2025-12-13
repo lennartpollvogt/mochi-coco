@@ -12,13 +12,13 @@ startup, menu commands, and session switching.
 """
 
 import logging
-from typing import Optional, TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
     from ..chat import ChatSession
-    from ..ui import ChatUIOrchestrator
-    from ..services import BackgroundServiceManager
+    from ..services import BackgroundServiceManager, ContextWindowService
     from ..services.user_preference_service import UserPreferences
+    from ..ui import ChatUIOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -31,25 +31,32 @@ class SessionSetupHelper:
     or loaded, ensuring consistent behavior across different session creation flows.
     """
 
-    def __init__(self,
-                 ui_orchestrator: "ChatUIOrchestrator",
-                 background_service_manager: "BackgroundServiceManager"):
+    def __init__(
+        self,
+        ui_orchestrator: "ChatUIOrchestrator",
+        background_service_manager: "BackgroundServiceManager",
+        context_window_service: Optional["ContextWindowService"] = None,
+    ):
         """
         Initialize the session setup helper.
 
         Args:
             ui_orchestrator: UI orchestrator for displaying session info
             background_service_manager: Manager for background services
+            context_window_service: Service for calculating context window usage
         """
         self.ui_orchestrator = ui_orchestrator
         self.background_service_manager = background_service_manager
+        self.context_window_service = context_window_service
 
-    def setup_session(self,
-                     session: "ChatSession",
-                     model: str,
-                     preferences: Optional["UserPreferences"] = None,
-                     show_session_info: bool = True,
-                     summary_callback: Optional[Callable[[str], None]] = None) -> bool:
+    def setup_session(
+        self,
+        session: "ChatSession",
+        model: str,
+        preferences: Optional["UserPreferences"] = None,
+        show_session_info: bool = True,
+        summary_callback: Optional[Callable[[str], None]] = None,
+    ) -> bool:
         """
         Perform complete session setup including summary model selection and UI display.
 
@@ -63,7 +70,9 @@ class SessionSetupHelper:
         Returns:
             True if setup was successful, False if user cancelled or error occurred
         """
-        logger.debug(f"Starting session setup for session {session.session_id} with model {model}")
+        logger.debug(
+            f"Starting session setup for session {session.session_id} with model {model}"
+        )
 
         try:
             # Step 1: Handle summary model selection before displaying session info
@@ -78,7 +87,9 @@ class SessionSetupHelper:
             # Step 3: Start background services (this should happen after UI display)
             self._start_background_services(session, model, summary_callback)
 
-            logger.info(f"Session setup completed successfully for {session.session_id}")
+            logger.info(
+                f"Session setup completed successfully for {session.session_id}"
+            )
             return True
 
         except Exception as e:
@@ -98,29 +109,35 @@ class SessionSetupHelper:
             True if setup successful or not needed, False if user cancelled
         """
         if not self.background_service_manager.summary_model_manager:
-            logger.debug("No summary model manager available, skipping summary model setup")
+            logger.debug(
+                "No summary model manager available, skipping summary model setup"
+            )
             return True
 
         summary_manager = self.background_service_manager.summary_model_manager
 
         # First, validate any existing stored summary model
-        if (session.metadata and
-            session.metadata.summary_model):
-
+        if session.metadata and session.metadata.summary_model:
             stored_model = session.metadata.summary_model
 
             # Check if the stored summary model is still available (installed)
             is_available = summary_manager.is_summary_model_available(session)
 
             # Check if the stored summary model is supported for summaries
-            is_supported = summary_manager.is_model_supported_for_summaries(stored_model)
+            is_supported = summary_manager.is_model_supported_for_summaries(
+                stored_model
+            )
 
             if not is_available:
-                logger.warning(f"Stored summary model {stored_model} is no longer available")
+                logger.warning(
+                    f"Stored summary model {stored_model} is no longer available"
+                )
                 # Reset the summary model so user will be prompted to select a new one
                 summary_manager.reset_summary_model(session)
             elif not is_supported:
-                logger.warning(f"Stored summary model {stored_model} is no longer supported for summaries")
+                logger.warning(
+                    f"Stored summary model {stored_model} is no longer supported for summaries"
+                )
                 # Reset the summary model so user will be prompted to select a new one
                 summary_manager.reset_summary_model(session)
 
@@ -138,16 +155,20 @@ class SessionSetupHelper:
                 logger.info("Summary model selection cancelled")
                 return False
 
-            logger.info(f"Summary model '{selected_model}' selected for session {session.session_id}")
+            logger.info(
+                f"Summary model '{selected_model}' selected for session {session.session_id}"
+            )
         else:
             logger.debug("Summary model selection not needed")
 
         return True
 
-    def _display_session_info(self,
-                             session: "ChatSession",
-                             model: str,
-                             preferences: Optional["UserPreferences"] = None) -> None:
+    def _display_session_info(
+        self,
+        session: "ChatSession",
+        model: str,
+        preferences: Optional["UserPreferences"] = None,
+    ) -> None:
         """
         Display session information panel.
 
@@ -162,10 +183,15 @@ class SessionSetupHelper:
 
         logger.debug("Displaying session information")
         self.ui_orchestrator.display_session_setup(
-            session, model, markdown_enabled, show_thinking
+            session, model, markdown_enabled, show_thinking, self.context_window_service
         )
 
-    def _start_background_services(self, session: "ChatSession", model: str, summary_callback: Optional[Callable[[str], None]] = None) -> None:
+    def _start_background_services(
+        self,
+        session: "ChatSession",
+        model: str,
+        summary_callback: Optional[Callable[[str], None]] = None,
+    ) -> None:
         """
         Start background services for the session.
 
@@ -182,6 +208,7 @@ class SessionSetupHelper:
             # Provide a default callback if none specified
             def default_summary_callback(summary: str) -> None:
                 logger.debug(f"Summary updated: {summary[:50]}...")
+
             actual_callback = default_summary_callback
 
         self.background_service_manager.start_summarization(
@@ -190,13 +217,15 @@ class SessionSetupHelper:
 
         logger.debug("Background services started successfully")
 
-    def handle_session_switch(self,
-                             old_session: Optional["ChatSession"],
-                             new_session: "ChatSession",
-                             new_model: str,
-                             preferences: Optional["UserPreferences"] = None,
-                             display_history: bool = False,
-                             summary_callback: Optional[Callable[[str], None]] = None) -> bool:
+    def handle_session_switch(
+        self,
+        old_session: Optional["ChatSession"],
+        new_session: "ChatSession",
+        new_model: str,
+        preferences: Optional["UserPreferences"] = None,
+        display_history: bool = False,
+        summary_callback: Optional[Callable[[str], None]] = None,
+    ) -> bool:
         """
         Handle switching from one session to another.
 
@@ -214,7 +243,9 @@ class SessionSetupHelper:
         Returns:
             True if switch was successful, False otherwise
         """
-        logger.debug(f"Handling session switch from {old_session.session_id if old_session else 'None'} to {new_session.session_id}")
+        logger.debug(
+            f"Handling session switch from {old_session.session_id if old_session else 'None'} to {new_session.session_id}"
+        )
 
         # Stop any existing background services
         if old_session:
@@ -222,18 +253,26 @@ class SessionSetupHelper:
             self.background_service_manager.stop_all_services()
 
         # Perform standard session setup
-        success = self.setup_session(new_session, new_model, preferences, show_session_info=True, summary_callback=summary_callback)
+        success = self.setup_session(
+            new_session,
+            new_model,
+            preferences,
+            show_session_info=True,
+            summary_callback=summary_callback,
+        )
 
         if success and display_history and new_session.messages:
             logger.debug("Chat history display will be handled by command processor")
 
         return success
 
-    def setup_existing_session(self,
-                              session: "ChatSession",
-                              model: str,
-                              preferences: Optional["UserPreferences"] = None,
-                              summary_callback: Optional[Callable[[str], None]] = None) -> bool:
+    def setup_existing_session(
+        self,
+        session: "ChatSession",
+        model: str,
+        preferences: Optional["UserPreferences"] = None,
+        summary_callback: Optional[Callable[[str], None]] = None,
+    ) -> bool:
         """
         Set up an existing session that was loaded from storage.
 
@@ -255,4 +294,10 @@ class SessionSetupHelper:
         # which is called by setup_session, so we don't need to duplicate it here
 
         # Perform standard setup
-        return self.setup_session(session, model, preferences, show_session_info=True, summary_callback=summary_callback)
+        return self.setup_session(
+            session,
+            model,
+            preferences,
+            show_session_info=True,
+            summary_callback=summary_callback,
+        )

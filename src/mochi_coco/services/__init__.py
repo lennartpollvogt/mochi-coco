@@ -2,15 +2,16 @@
 Service classes for the mochi-coco chat application.
 """
 
-from .session_manager import SessionManager
-from .renderer_manager import RendererManager
-from .summarization_service import SummarizationService
-from .system_prompt_service import SystemPromptService
 from .background_service_manager import BackgroundServiceManager
-from .user_preference_service import UserPreferenceService
+from .context_window_service import ContextWindowInfo, ContextWindowService
+from .renderer_manager import RendererManager
 from .session_creation_service import SessionCreationService
-from .summary_model_manager import SummaryModelManager
+from .session_manager import SessionManager
 from .session_setup_helper import SessionSetupHelper
+from .summarization_service import SummarizationService
+from .summary_model_manager import SummaryModelManager
+from .system_prompt_service import SystemPromptService
+from .user_preference_service import UserPreferenceService
 
 __all__ = [
     "SessionManager",
@@ -21,5 +22,7 @@ __all__ = [
     "UserPreferenceService",
     "SessionCreationService",
     "SummaryModelManager",
-    "SessionSetupHelper"
+    "SessionSetupHelper",
+    "ContextWindowService",
+    "ContextWindowInfo",
 ]

@@ -12,6 +12,7 @@ from rich.style import Style
 from rich.text import Text
 
 if TYPE_CHECKING:
+    from ..services import ContextWindowInfo
     from ..tools.config import ToolSettings
 
 
@@ -136,6 +137,7 @@ class ChatInterface:
         summary_model: Optional[str] = None,
         tool_settings: Optional["ToolSettings"] = None,
         session_summary: Optional[dict] = None,
+        context_info: Optional["ContextWindowInfo"] = None,
     ) -> None:
         """
         Print session information with integrated commands in a styled panel.
@@ -148,6 +150,7 @@ class ChatInterface:
             summary_model: The summary model being used (if configured)
             tool_settings: The tool settings for this session (if configured)
             session_summary: The session summary dictionary (if available)
+            context_info: The context window usage information (if available)
         """
         # Session info
         info_text = Text()
@@ -159,6 +162,20 @@ class ChatInterface:
             info_text.append(f"Summary Model: {summary_model}\n", style="magenta")
         else:
             info_text.append("Summary Model: Not configured\n", style="dim")
+
+        # Context window info
+        if context_info and context_info.has_valid_data:
+            percentage = f"({context_info.percentage:.1f}%)"
+            info_text.append(
+                f"Context Window: {context_info.current_usage:,} / {context_info.max_context:,} {percentage}\n",
+                style="cyan",
+            )
+        elif context_info and context_info.error_message:
+            info_text.append(
+                f"Context Window: {context_info.error_message}\n", style="dim"
+            )
+        else:
+            info_text.append("Context Window: Not available\n", style="dim")
 
         # Tools info
         if tool_settings and tool_settings.is_enabled():

@@ -1,11 +1,12 @@
 import json
 import uuid
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Any, Mapping, Tuple, Dict
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from ollama import ChatResponse
+
 from ..tools.config import ToolSettings
 
 
@@ -290,6 +291,9 @@ class ChatSession:
 
             # Migrate legacy sessions
             self.metadata.migrate_from_legacy()
+
+            # Update session model from metadata
+            self.model = self.metadata.model
 
             # Load messages - handle UserMessage, SessionMessage, and SystemMessage types
             messages_data = session_data.get("messages", [])

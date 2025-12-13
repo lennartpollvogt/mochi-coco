@@ -5,24 +5,32 @@ This refactored version uses specialized controllers and orchestrators to handle
 different concerns, improving maintainability and testability.
 """
 
-from typing import Optional, Dict, Any
 import asyncio
 import logging
+from typing import Any, Dict, Optional
 
-from .ollama import OllamaClient, AsyncOllamaClient, AsyncInstructorOllamaClient
-from .ui import ModelSelector, ChatUIOrchestrator
-from .rendering import MarkdownRenderer, RenderingMode
 from .commands import CommandProcessor
+from .controllers import CommandResultHandler, SessionController
+from .ollama import AsyncInstructorOllamaClient, AsyncOllamaClient, OllamaClient
+from .rendering import MarkdownRenderer, RenderingMode
 from .services import (
-    SessionManager, RendererManager, BackgroundServiceManager,
-    SystemPromptService, UserPreferenceService, SessionCreationService,
-    SummaryModelManager, SessionSetupHelper
+    BackgroundServiceManager,
+    ContextWindowService,
+    RendererManager,
+    SessionCreationService,
+    SessionManager,
+    SessionSetupHelper,
+    SummaryModelManager,
+    SystemPromptService,
+    UserPreferenceService,
 )
 from .services.session_creation_types import (
-    SessionCreationContext, SessionCreationMode, SessionCreationOptions
+    SessionCreationContext,
+    SessionCreationMode,
+    SessionCreationOptions,
 )
-from .controllers import SessionController, CommandResultHandler
-from .tools import ToolDiscoveryService, ToolSchemaService, ToolExecutionService
+from .tools import ToolDiscoveryService, ToolExecutionService, ToolSchemaService
+from .ui import ChatUIOrchestrator, ModelSelector
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +38,11 @@ logger = logging.getLogger(__name__)
 class ChatController:
     """Main application orchestrator - coordinates between specialized controllers."""
 
-    def __init__(self, host: Optional[str] = None,
-                 event_loop: Optional[asyncio.AbstractEventLoop] = None):
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        event_loop: Optional[asyncio.AbstractEventLoop] = None,
+    ):
         # Initialize clients
         self.client = OllamaClient(host=host)
         self.async_client = AsyncOllamaClient(host=host)
@@ -53,7 +64,7 @@ class ChatController:
         self.session_creation_service = SessionCreationService(
             self.model_selector,
             self.user_preference_service,
-            self.system_prompt_service
+            self.system_prompt_service,
         )
 
         # Note: CommandProcessor needs to be initialized after SessionSetupHelper
@@ -66,7 +77,12 @@ class ChatController:
         self.command_result_handler = CommandResultHandler(self.ui_orchestrator)
 
         # Initialize summary model manager
-        self.summary_model_manager = SummaryModelManager(self.model_selector, self.ui_orchestrator)
+        self.summary_model_manager = SummaryModelManager(
+            self.model_selector, self.ui_orchestrator
+        )
+
+        # Initialize context window service
+        self.context_window_service = ContextWindowService(self.client)
 
         self.background_service_manager = BackgroundServiceManager(
             event_loop, self.instructor_client, self.summary_model_manager
@@ -74,12 +90,17 @@ class ChatController:
 
         # Initialize session setup helper
         self.session_setup_helper = SessionSetupHelper(
-            self.ui_orchestrator, self.background_service_manager
+            self.ui_orchestrator,
+            self.background_service_manager,
+            self.context_window_service,
         )
 
         # Initialize command processor with session setup helper
         self.command_processor = CommandProcessor(
-            self.model_selector, self.renderer_manager, self.session_setup_helper
+            self.model_selector,
+            self.renderer_manager,
+            self.session_setup_helper,
+            self.context_window_service,
         )
 
         # Initialize tool services
@@ -96,20 +117,28 @@ class ChatController:
                 mode=SessionCreationMode.AUTO_DETECT,
                 allow_system_prompt_selection=True,
                 collect_preferences=True,
-                show_welcome_message=True
+                show_welcome_message=True,
             )
 
             result = self.session_creation_service.create_session(options)
             if not result.success:
-                self.ui_orchestrator.display_error(result.error_message or "Failed to create session")
+                self.ui_orchestrator.display_error(
+                    result.error_message or "Failed to create session"
+                )
                 return
 
             # Ensure we have valid session and model (should be guaranteed when success=True)
             if result.session is None or result.model is None:
-                self.ui_orchestrator.display_error("Session creation succeeded but returned invalid data")
+                self.ui_orchestrator.display_error(
+                    "Session creation succeeded but returned invalid data"
+                )
                 return
 
-            session, model, preferences = result.session, result.model, result.preferences
+            session, model, preferences = (
+                result.session,
+                result.model,
+                result.preferences,
+            )
 
             # Store for test compatibility
             self.session = session
@@ -118,21 +147,28 @@ class ChatController:
             # Configure renderer with collected preferences
             if preferences:
                 self.renderer_manager.configure_renderer(
-                    preferences.markdown_enabled,
-                    preferences.show_thinking
+                    preferences.markdown_enabled, preferences.show_thinking
                 )
 
             # Handle session setup using the centralized helper
             setup_success = self.session_setup_helper.setup_session(
-                session, model, preferences, show_session_info=True, summary_callback=self._on_summary_updated
+                session,
+                model,
+                preferences,
+                show_session_info=True,
+                summary_callback=self._on_summary_updated,
             )
 
             if not setup_success:
-                self.ui_orchestrator.display_error("Session setup was cancelled or failed")
+                self.ui_orchestrator.display_error(
+                    "Session setup was cancelled or failed"
+                )
                 return
 
             # Display chat history if needed
-            self.ui_orchestrator.display_chat_history_if_needed(session, self.model_selector)
+            self.ui_orchestrator.display_chat_history_if_needed(
+                session, self.model_selector
+            )
 
             # Run main chat loop
             self._run_chat_loop(session, model)
@@ -153,14 +189,16 @@ class ChatController:
                 break
 
             # Process commands
-            if user_input.strip().startswith('/'):
+            if user_input.strip().startswith("/"):
                 # Ensure current session and model are not None before processing commands
                 if current_session is None or current_model is None:
                     self.ui_orchestrator.display_error("Invalid session state")
                     break
 
                 if self.command_processor is None:
-                    self.ui_orchestrator.display_error("Command processor not initialized")
+                    self.ui_orchestrator.display_error(
+                        "Command processor not initialized"
+                    )
                     break
 
                 result = self.command_processor.process_command(
@@ -208,9 +246,9 @@ class ChatController:
 
         # Handle result
         if not message_result.success:
-            self.ui_orchestrator.display_error(message_result.error_message or "Failed to process message")
-
-
+            self.ui_orchestrator.display_error(
+                message_result.error_message or "Failed to process message"
+            )
 
     def _prepare_tool_context(self, session) -> Optional[Dict[str, Any]]:
         """Prepare tool context for the session if tools are enabled."""
@@ -241,7 +279,9 @@ class ChatController:
                 if tool_name in functions:
                     active_tools.append(functions[tool_name])
                 else:
-                    logger.warning(f"Tool '{tool_name}' not found in available functions")
+                    logger.warning(
+                        f"Tool '{tool_name}' not found in available functions"
+                    )
 
             if not active_tools:
                 logger.warning("No valid tool functions found")
@@ -253,12 +293,12 @@ class ChatController:
 
             # Create tool context
             return {
-                'tools_enabled': True,
-                'tools': active_tools,
-                'tool_execution_service': self.tool_execution_service,
-                'tool_settings': tool_settings,
-                'session': session,
-                'available_functions': functions
+                "tools_enabled": True,
+                "tools": active_tools,
+                "tool_execution_service": self.tool_execution_service,
+                "tool_settings": tool_settings,
+                "session": session,
+                "available_functions": functions,
             }
 
         except Exception as e:
