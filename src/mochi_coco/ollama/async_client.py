@@ -1,12 +1,22 @@
-from typing import AsyncIterator, List, Optional, Sequence, Mapping, Any, Union, Callable
-from dataclasses import dataclass
-from pydantic import BaseModel
 import logging
+from dataclasses import dataclass
+from typing import (
+    Any,
+    AsyncIterator,
+    Callable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Union,
+)
 
-from ollama import AsyncClient, ListResponse, ChatResponse, Message, ShowResponse, Tool
+from ollama import AsyncClient, ChatResponse, ListResponse, Message, ShowResponse, Tool
 from ollama_instructor import OllamaInstructorAsync
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ChatMessage:
@@ -24,6 +34,7 @@ class ModelInfo:
     quantization_level: Optional[str] = None
     capabilities: Optional[List[str]] = None
     context_length: Optional[int] = None
+
 
 class AsyncOllamaClient:
     def __init__(self, host: Optional[str] = None):
@@ -43,18 +54,18 @@ class AsyncOllamaClient:
                 # Get detailed model information including capabilities
                 try:
                     model_details = await self.show_model_details(model.model)
-                    capabilities = model_details.model_dump().get('capabilities', [])
+                    capabilities = model_details.model_dump().get("capabilities", [])
 
                     # Only include models that support completion
-                    if 'completion' not in capabilities:
+                    if "completion" not in capabilities:
                         continue
 
                     # Extract context length from modelinfo
                     context_length = None
-                    model_info_dict = model_details.model_dump().get('modelinfo', {})
+                    model_info_dict = model_details.model_dump().get("modelinfo", {})
                     family = model.details.family if model.details else None
-                    if family and f'{family}.context_length' in model_info_dict:
-                        context_length = model_info_dict[f'{family}.context_length']
+                    if family and f"{family}.context_length" in model_info_dict:
+                        context_length = model_info_dict[f"{family}.context_length"]
 
                 except Exception:
                     # If we can't get model details, skip this model
@@ -67,8 +78,12 @@ class AsyncOllamaClient:
                     size_mb=size_mb,
                     format=model.details.format if model.details else None,
                     family=model.details.family if model.details else None,
-                    parameter_size=model.details.parameter_size if model.details else None,
-                    quantization_level=model.details.quantization_level if model.details else None,
+                    parameter_size=model.details.parameter_size
+                    if model.details
+                    else None,
+                    quantization_level=model.details.quantization_level
+                    if model.details
+                    else None,
                     capabilities=capabilities,
                     context_length=context_length,
                 )
@@ -81,16 +96,19 @@ class AsyncOllamaClient:
     async def show_model_details(self, model_name: str) -> ShowResponse:
         """Get model details with method 'show' asynchronously."""
         try:
-            model_details = await self.client.show(
-                model=model_name
-            )
+            model_details = await self.client.show(model=model_name)
             return model_details
         except Exception as e:
             raise Exception(f"Failed to show model details: {e}")
 
-    async def chat_stream(self, model: str, messages: Sequence[Mapping[str, Any] | Message],
-                          tools: Optional[Sequence[Union[Tool, Callable]]] = None,
-                          think: Optional[bool] = None) -> AsyncIterator[ChatResponse]:
+    async def chat_stream(
+        self,
+        model: str,
+        messages: Sequence[Mapping[str, Any] | Message],
+        tools: Optional[Sequence[Union[Tool, Callable]]] = None,
+        think: Optional[bool] = None,
+        context_window: Optional[int] = None,
+    ) -> AsyncIterator[ChatResponse]:
         """
         Async stream chat responses with optional tool support.
 
@@ -99,36 +117,47 @@ class AsyncOllamaClient:
             messages: Sequence of chat messages
             tools: Optional list of Tool objects or callable functions
             think: Enable thinking mode for supported models
+            context_window: Optional context window size limit
 
         Yields:
             ChatResponse chunks during streaming
         """
         try:
-            kwargs = {
-                "model": model,
-                "messages": messages,
-                "stream": True
-            }
+            kwargs = {"model": model, "messages": messages, "stream": True}
 
             if tools is not None:
                 kwargs["tools"] = tools
             if think is not None:
                 kwargs["think"] = think
 
+            # Add context window limit via options parameter
+            if context_window is not None:
+                kwargs["options"] = kwargs.get("options", {})
+                kwargs["options"]["num_ctx"] = context_window
+
             response_stream = await self.client.chat(**kwargs)
 
             async for chunk in response_stream:
                 if chunk.message and chunk.message.content:
                     yield chunk
-                elif hasattr(chunk, 'done') and chunk.done and hasattr(chunk, 'eval_count'):
+                elif (
+                    hasattr(chunk, "done")
+                    and chunk.done
+                    and hasattr(chunk, "eval_count")
+                ):
                     yield chunk
         except Exception as e:
             logger.error(f"Async chat failed: {e}")
             raise
 
-    async def chat_single(self, model: str, messages: Sequence[Mapping[str, Any] | Message],
-                          tools: Optional[Sequence[Union[Tool, Callable]]] = None,
-                          think: Optional[bool] = None) -> ChatResponse:
+    async def chat_single(
+        self,
+        model: str,
+        messages: Sequence[Mapping[str, Any] | Message],
+        tools: Optional[Sequence[Union[Tool, Callable]]] = None,
+        think: Optional[bool] = None,
+        context_window: Optional[int] = None,
+    ) -> ChatResponse:
         """
         Get a single (non-streaming) chat response from the model asynchronously.
 
@@ -137,6 +166,7 @@ class AsyncOllamaClient:
             messages: Sequence of chat messages
             tools: Optional list of Tool objects or callable functions
             think: Enable thinking mode for supported models
+            context_window: Optional context window size limit
 
         Returns:
             Complete ChatResponse
@@ -146,7 +176,7 @@ class AsyncOllamaClient:
                 "model": model,
                 "messages": messages,
                 "stream": False,
-                "format": None
+                "format": None,
             }
 
             if tools is not None:
@@ -154,15 +184,25 @@ class AsyncOllamaClient:
             if think is not None:
                 kwargs["think"] = think
 
+            # Add context window limit via options parameter
+            if context_window is not None:
+                kwargs["options"] = kwargs.get("options", {})
+                kwargs["options"]["num_ctx"] = context_window
+
             response = await self.client.chat(**kwargs)
             return response
         except Exception as e:
             logger.error(f"Async chat failed: {e}")
             raise
 
-    async def chat(self, model: str, messages: Sequence[Mapping[str, Any] | Message],
-                   tools: Optional[Sequence[Union[Tool, Callable]]] = None,
-                   think: Optional[bool] = None) -> ChatResponse:
+    async def chat(
+        self,
+        model: str,
+        messages: Sequence[Mapping[str, Any] | Message],
+        tools: Optional[Sequence[Union[Tool, Callable]]] = None,
+        think: Optional[bool] = None,
+        context_window: Optional[int] = None,
+    ) -> ChatResponse:
         """
         Async non-streaming chat with optional tool support.
 
@@ -171,21 +211,23 @@ class AsyncOllamaClient:
             messages: Sequence of chat messages
             tools: Optional list of Tool objects or callable functions
             think: Enable thinking mode for supported models
+            context_window: Optional context window size limit
 
         Returns:
             Complete ChatResponse
         """
         try:
-            kwargs = {
-                "model": model,
-                "messages": messages,
-                "stream": False
-            }
+            kwargs = {"model": model, "messages": messages, "stream": False}
 
             if tools is not None:
                 kwargs["tools"] = tools
             if think is not None:
                 kwargs["think"] = think
+
+            # Add context window limit via options parameter
+            if context_window is not None:
+                kwargs["options"] = kwargs.get("options", {})
+                kwargs["options"]["num_ctx"] = context_window
 
             return await self.client.chat(**kwargs)
 
@@ -193,26 +235,36 @@ class AsyncOllamaClient:
             logger.error(f"Async chat failed: {e}")
             raise
 
+
 class AsyncInstructorOllamaClient:
     def __init__(self, host: Optional[str] = None):
-        self.client = OllamaInstructorAsync(host=host, log_level="DEBUG") if host else OllamaInstructorAsync()
+        self.client = (
+            OllamaInstructorAsync(host=host, log_level="DEBUG")
+            if host
+            else OllamaInstructorAsync()
+        )
 
-    async def structured_response(self, model: str, messages: Sequence[Mapping[str, Any] | Message], format: type[BaseModel]) -> ChatResponse:
+    async def structured_response(
+        self,
+        model: str,
+        messages: Sequence[Mapping[str, Any] | Message],
+        format: type[BaseModel],
+    ) -> ChatResponse:
         """
         Get a structured response from the model asynchronously.
         """
         system_prompt = {
             "role": "system",
-            "content": f"Make sure to answer in a json format. Here is the json schema: {str(format.model_json_schema())}"
+            "content": f"Make sure to answer in a json format. Here is the json schema: {str(format.model_json_schema())}",
         }
         messages = [system_prompt] + list(messages)
-        #print(messages)
+        # print(messages)
         try:
             response = await self.client.chat_completion(
-                model=model, #"llama3.2:latest",
+                model=model,  # "llama3.2:latest",
                 messages=messages,
                 format=format,
-                options={"num_ctx": 131072}
+                options={"num_ctx": 131072},
             )
             return response
         except Exception as e:

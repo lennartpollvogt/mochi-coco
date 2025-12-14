@@ -6,12 +6,14 @@ separation of concerns and provide focused session operations.
 """
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, NamedTuple, Optional
 
 from ..chat import ChatSession
 from ..ollama import OllamaClient
 from ..rendering.tool_aware_renderer import ToolAwareRenderer
-from ..services import SessionManager
+from ..services import ContextWindowService, SessionManager
+from ..services.context_window_service import ContextDecisionReason
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +42,15 @@ class MessageProcessResult(NamedTuple):
 class SessionController:
     """Handles session-specific operations and message processing."""
 
-    def __init__(self, session_manager: SessionManager, client: OllamaClient):
+    def __init__(
+        self,
+        session_manager: SessionManager,
+        client: OllamaClient,
+        context_window_service: Optional[ContextWindowService] = None,
+    ):
         self.session_manager = session_manager
         self.client = client
+        self.context_window_service = context_window_service
 
     def initialize_session(self) -> SessionInitResult:
         """Initialize a new or existing session."""
@@ -98,12 +106,81 @@ class SessionController:
             # Get messages for API
             messages: List[Mapping[str, Any]] = session.get_messages_for_api()
 
+            # Calculate optimal context window for this request
+            context_window = None
+            if self.context_window_service:
+                try:
+                    context_decision = (
+                        self.context_window_service.calculate_optimal_context_window(
+                            session, model
+                        )
+                    )
+                    context_window = context_decision.new_context_window
+
+                    # Log context window decision for debugging
+                    if context_decision.should_adjust and context_decision.reason in [
+                        ContextDecisionReason.USAGE_THRESHOLD,
+                        ContextDecisionReason.INITIAL_SETUP,
+                    ]:
+                        logger.info(
+                            f"Context window increased to {context_window} tokens - {context_decision.reason.value}"
+                        )
+                    elif logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(
+                            f"Using context window: {context_window} tokens - {context_decision.reason.value}"
+                        )
+
+                    # Ensure session metadata has context_window_config initialized
+                    if session.metadata:
+                        if (
+                            not hasattr(session.metadata, "context_window_config")
+                            or session.metadata.context_window_config is None
+                        ):
+                            session.metadata.context_window_config = {
+                                "dynamic_enabled": True,
+                                "current_window": context_window,
+                                "last_adjustment": None,
+                                "adjustment_history": [],
+                                "manual_override": False,
+                            }
+
+                    # Update session metadata with context window decision
+                    if session.metadata and session.metadata.context_window_config:
+                        session.metadata.context_window_config["current_window"] = (
+                            context_window
+                        )
+                        session.metadata.context_window_config["last_adjustment"] = (
+                            context_decision.reason.value
+                        )
+                        # Add to adjustment history (keep last 10)
+                        history = session.metadata.context_window_config.get(
+                            "adjustment_history", []
+                        )
+                        history.append(
+                            {
+                                "timestamp": datetime.now().isoformat(),
+                                "window_size": context_window,
+                                "reason": context_decision.reason.value,
+                            }
+                        )
+                        session.metadata.context_window_config["adjustment_history"] = (
+                            history[-10:]
+                        )
+
+                except Exception as e:
+                    logger.warning(f"Failed to calculate context window: {e}")
+                    # Fall back to no context window limit
+                    context_window = None
+
             # Check if tools are enabled
             if tool_context and tool_context.get("tools_enabled"):
                 # Stream with tool support
                 tools = tool_context.get("tools", [])
                 text_stream = self.client.chat_stream(
-                    model=model, messages=messages, tools=tools
+                    model=model,
+                    messages=messages,
+                    tools=tools,
+                    context_window=context_window,
                 )
 
                 # Create tool-aware renderer if needed
@@ -118,6 +195,7 @@ class SessionController:
                         "model": model,
                         "client": self.client,
                         "available_tools": tools,
+                        "context_window": context_window,
                     }
                 )
 
@@ -129,7 +207,9 @@ class SessionController:
                 )
             else:
                 # Regular streaming with interruption support
-                text_stream = self.client.chat_stream(model=model, messages=messages)
+                text_stream = self.client.chat_stream(
+                    model=model, messages=messages, context_window=context_window
+                )
                 final_chunk, was_interrupted = (
                     renderer.render_streaming_response_with_interrupt(text_stream)
                 )

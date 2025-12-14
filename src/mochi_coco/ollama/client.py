@@ -1,14 +1,16 @@
-from typing import Iterator, List, Optional, Sequence, Mapping, Any, Union, Callable
 from dataclasses import dataclass
+from typing import Any, Callable, Iterator, List, Mapping, Optional, Sequence, Union
 
 from ollama import (
-    Client,
-    list as ollama_list,
-    ListResponse,
     ChatResponse,
+    Client,
+    ListResponse,
     Message,
     ShowResponse,
     Tool,
+)
+from ollama import (
+    list as ollama_list,
 )
 
 
@@ -100,6 +102,7 @@ class OllamaClient:
         messages: Sequence[Mapping[str, Any] | Message],
         tools: Optional[Sequence[Union[Tool, Callable]]] = None,
         think: Optional[bool] = None,
+        context_window: Optional[int] = None,
     ) -> Iterator[ChatResponse]:
         """
         Stream chat responses from the model with optional tool support.
@@ -109,6 +112,7 @@ class OllamaClient:
             messages: Sequence of chat messages
             tools: Optional list of Tool objects or callable functions
             think: Enable thinking mode for supported models
+            context_window: Optional context window size limit
 
         Yields:
             ChatResponse chunks during streaming
@@ -122,6 +126,11 @@ class OllamaClient:
                 kwargs["tools"] = tools
             if think is not None:
                 kwargs["think"] = think
+
+            # Add context window limit via options parameter
+            if context_window is not None:
+                kwargs["options"] = kwargs.get("options", {})
+                kwargs["options"]["num_ctx"] = context_window
 
             response_stream: Iterator[ChatResponse] = self.client.chat(**kwargs)
 
@@ -152,6 +161,7 @@ class OllamaClient:
         messages: Sequence[Mapping[str, Any] | Message],
         tools: Optional[Sequence[Union[Tool, Callable]]] = None,
         think: Optional[bool] = None,
+        context_window: Optional[int] = None,
     ) -> ChatResponse:
         """
         Non-streaming chat with optional tool support.
@@ -161,6 +171,7 @@ class OllamaClient:
             messages: Sequence of chat messages
             tools: Optional list of Tool objects or callable functions
             think: Enable thinking mode for supported models
+            context_window: Optional context window size limit
 
         Returns:
             Complete ChatResponse
@@ -173,7 +184,76 @@ class OllamaClient:
             if think is not None:
                 kwargs["think"] = think
 
+            # Add context window limit via options parameter
+            if context_window is not None:
+                kwargs["options"] = kwargs.get("options", {})
+                kwargs["options"]["num_ctx"] = context_window
+
             return self.client.chat(**kwargs)
 
         except Exception as e:
             raise Exception(f"Chat failed: {e}")
+
+    def extract_context_usage(
+        self, chat_response: ChatResponse
+    ) -> tuple[Optional[int], Optional[int]]:
+        """
+        Extract context usage information from a chat response.
+
+        Args:
+            chat_response: ChatResponse object from Ollama
+
+        Returns:
+            Tuple of (eval_count, prompt_eval_count) or (None, None) if unavailable
+        """
+        try:
+            eval_count = getattr(chat_response, "eval_count", None)
+            prompt_eval_count = getattr(chat_response, "prompt_eval_count", None)
+
+            # Validate that counts are positive integers
+            if (
+                isinstance(eval_count, int)
+                and eval_count > 0
+                and isinstance(prompt_eval_count, int)
+                and prompt_eval_count > 0
+            ):
+                return eval_count, prompt_eval_count
+
+            return None, None
+        except Exception:
+            return None, None
+
+    def get_optimal_context_window(
+        self, model_name: str, current_usage: int = 0
+    ) -> Optional[int]:
+        """
+        Get optimal context window size for a model based on its capabilities.
+
+        Args:
+            model_name: Name of the model
+            current_usage: Current token usage to consider
+
+        Returns:
+            Optimal context window size or None if model not found
+        """
+        try:
+            models = self.list_models()
+
+            for model in models:
+                if model.name == model_name:
+                    if model.context_length:
+                        # Use 90% of model's maximum as safe limit
+                        safe_limit = int(model.context_length * 0.9)
+
+                        # If we have current usage, ensure we have growth buffer
+                        if current_usage > 0:
+                            min_needed = int(current_usage * 1.5)  # 50% buffer
+                            return max(min_needed, min(safe_limit, 8192))
+
+                        # Default to reasonable size for new conversations
+                        return min(safe_limit, 8192)
+                    break
+
+            return None
+        except Exception:
+            return None

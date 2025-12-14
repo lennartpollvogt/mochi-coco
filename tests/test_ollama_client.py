@@ -5,10 +5,11 @@ Tests cover model listing, model details, streaming chat functionality,
 and robust error handling for external API integration.
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
-from mochi_coco.ollama.client import OllamaClient, ModelInfo
+import pytest
+
+from mochi_coco.ollama.client import ModelInfo, OllamaClient
 
 
 class TestOllamaClient:
@@ -61,7 +62,7 @@ class TestOllamaClient:
 
     def test_client_initialization_default_host(self):
         """Test client initialization with default host."""
-        with patch('mochi_coco.ollama.client.Client') as mock_client_class:
+        with patch("mochi_coco.ollama.client.Client") as mock_client_class:
             # Create OllamaClient instance within the patched context
             OllamaClient()
 
@@ -72,14 +73,14 @@ class TestOllamaClient:
         """Test client initialization with custom host."""
         custom_host = "http://localhost:8080"
 
-        with patch('mochi_coco.ollama.client.Client') as mock_client_class:
+        with patch("mochi_coco.ollama.client.Client") as mock_client_class:
             # Create OllamaClient instance with custom host within the patched context
             OllamaClient(host=custom_host)
 
             # Should create Client with host parameter
             mock_client_class.assert_called_once_with(host=custom_host)
 
-    @patch('mochi_coco.ollama.client.ollama_list')
+    @patch("mochi_coco.ollama.client.ollama_list")
     def test_list_models_success(self, mock_list, client, mock_ollama_list_response):
         """Test successful model listing and ModelInfo creation."""
         mock_list.return_value = mock_ollama_list_response
@@ -89,13 +90,13 @@ class TestOllamaClient:
             mock_response = Mock()
             if model_name == "llama3.2:latest":
                 mock_response.model_dump.return_value = {
-                    'capabilities': ['completion', 'tools'],
-                    'modelinfo': {'llama.context_length': 131072}
+                    "capabilities": ["completion", "tools"],
+                    "modelinfo": {"llama.context_length": 131072},
                 }
             elif model_name == "phi3:mini":
                 mock_response.model_dump.return_value = {
-                    'capabilities': ['completion'],
-                    'modelinfo': {}
+                    "capabilities": ["completion"],
+                    "modelinfo": {},
                 }
             return mock_response
 
@@ -114,7 +115,7 @@ class TestOllamaClient:
         assert model1.family == "llama"
         assert model1.parameter_size == "3B"
         assert model1.quantization_level == "Q4_0"
-        assert model1.capabilities == ['completion', 'tools']
+        assert model1.capabilities == ["completion", "tools"]
         assert model1.context_length == 131072
 
         # Test second model with missing details
@@ -125,10 +126,10 @@ class TestOllamaClient:
         assert model2.family is None
         assert model2.parameter_size is None
         assert model2.quantization_level is None
-        assert model2.capabilities == ['completion']
+        assert model2.capabilities == ["completion"]
         assert model2.context_length is None
 
-    @patch('mochi_coco.ollama.client.ollama_list')
+    @patch("mochi_coco.ollama.client.ollama_list")
     def test_list_models_empty_response(self, mock_list, client):
         """Test handling of empty model list."""
         mock_response = Mock()
@@ -139,7 +140,7 @@ class TestOllamaClient:
 
         assert models == []
 
-    @patch('mochi_coco.ollama.client.ollama_list')
+    @patch("mochi_coco.ollama.client.ollama_list")
     def test_list_models_zero_size_handling(self, mock_list, client):
         """Test handling of models with zero or None size."""
         mock_response = Mock()
@@ -154,8 +155,8 @@ class TestOllamaClient:
         def mock_show_details(model_name):
             mock_response = Mock()
             mock_response.model_dump.return_value = {
-                'capabilities': ['completion'],
-                'modelinfo': {}
+                "capabilities": ["completion"],
+                "modelinfo": {},
             }
             return mock_response
 
@@ -165,9 +166,9 @@ class TestOllamaClient:
 
         assert len(models) == 1
         assert models[0].size_mb == 0
-        assert models[0].capabilities == ['completion']
+        assert models[0].capabilities == ["completion"]
 
-    @patch('mochi_coco.ollama.client.ollama_list')
+    @patch("mochi_coco.ollama.client.ollama_list")
     def test_list_models_filters_non_completion_models(self, mock_list, client):
         """Test that models without completion capability are filtered out."""
         mock_response = Mock()
@@ -194,13 +195,13 @@ class TestOllamaClient:
             mock_response = Mock()
             if model_name == "embed-model":
                 mock_response.model_dump.return_value = {
-                    'capabilities': ['embedding'],  # No completion capability
-                    'modelinfo': {}
+                    "capabilities": ["embedding"],  # No completion capability
+                    "modelinfo": {},
                 }
             elif model_name == "completion-model":
                 mock_response.model_dump.return_value = {
-                    'capabilities': ['completion'],
-                    'modelinfo': {'llama.context_length': 4096}
+                    "capabilities": ["completion"],
+                    "modelinfo": {"llama.context_length": 4096},
                 }
             return mock_response
 
@@ -211,9 +212,9 @@ class TestOllamaClient:
         # Only the completion model should be included
         assert len(models) == 1
         assert models[0].name == "completion-model"
-        assert models[0].capabilities == ['completion']
+        assert models[0].capabilities == ["completion"]
 
-    @patch('mochi_coco.ollama.client.ollama_list')
+    @patch("mochi_coco.ollama.client.ollama_list")
     def test_list_models_show_details_failure(self, mock_list, client):
         """Test that models are skipped when show_model_details fails."""
         mock_response = Mock()
@@ -239,8 +240,8 @@ class TestOllamaClient:
             if model_name == "working-model":
                 mock_response = Mock()
                 mock_response.model_dump.return_value = {
-                    'capabilities': ['completion'],
-                    'modelinfo': {'llama.context_length': 4096}
+                    "capabilities": ["completion"],
+                    "modelinfo": {"llama.context_length": 4096},
                 }
                 return mock_response
             elif model_name == "broken-model":
@@ -254,7 +255,7 @@ class TestOllamaClient:
         assert len(models) == 1
         assert models[0].name == "working-model"
 
-    @patch('mochi_coco.ollama.client.ollama_list')
+    @patch("mochi_coco.ollama.client.ollama_list")
     def test_list_models_api_error(self, mock_list, client):
         """Test handling of API errors during model listing."""
         mock_list.side_effect = ConnectionError("Failed to connect to Ollama")
@@ -265,7 +266,7 @@ class TestOllamaClient:
         assert "Failed to list models" in str(exc_info.value)
         assert "Failed to connect to Ollama" in str(exc_info.value)
 
-    @patch('mochi_coco.ollama.client.ollama_list')
+    @patch("mochi_coco.ollama.client.ollama_list")
     def test_list_models_generic_error(self, mock_list, client):
         """Test handling of generic errors during model listing."""
         mock_list.side_effect = Exception("Unexpected error")
@@ -277,7 +278,7 @@ class TestOllamaClient:
 
     def test_show_model_details_success(self, client, mock_show_response):
         """Test successful model details retrieval."""
-        with patch.object(client.client, 'show', return_value=mock_show_response):
+        with patch.object(client.client, "show", return_value=mock_show_response):
             details = client.show_model_details("test-model")
 
             assert details == mock_show_response
@@ -285,7 +286,9 @@ class TestOllamaClient:
 
     def test_show_model_details_model_not_found(self, client):
         """Test handling of model not found error."""
-        with patch.object(client.client, 'show', side_effect=Exception("Model not found")):
+        with patch.object(
+            client.client, "show", side_effect=Exception("Model not found")
+        ):
             with pytest.raises(Exception) as exc_info:
                 client.show_model_details("nonexistent-model")
 
@@ -294,7 +297,9 @@ class TestOllamaClient:
 
     def test_show_model_details_connection_error(self, client):
         """Test handling of connection errors during model details retrieval."""
-        with patch.object(client.client, 'show', side_effect=ConnectionError("Connection refused")):
+        with patch.object(
+            client.client, "show", side_effect=ConnectionError("Connection refused")
+        ):
             with pytest.raises(Exception) as exc_info:
                 client.show_model_details("test-model")
 
@@ -303,6 +308,7 @@ class TestOllamaClient:
 
     def test_chat_stream_success(self, client):
         """Test successful streaming chat response."""
+
         # Create mock streaming response
         def mock_chat_generator():
             # First chunk with content
@@ -326,7 +332,7 @@ class TestOllamaClient:
             final_chunk.prompt_eval_count = 25
             yield final_chunk
 
-        with patch.object(client.client, 'chat', return_value=mock_chat_generator()):
+        with patch.object(client.client, "chat", return_value=mock_chat_generator()):
             messages = [{"role": "user", "content": "Hello"}]
 
             chunks = list(client.chat_stream("test-model", messages))
@@ -340,17 +346,16 @@ class TestOllamaClient:
 
             # Verify client.chat was called with correct parameters
             client.client.chat.assert_called_once_with(
-                model="test-model",
-                messages=messages,
-                stream=True
+                model="test-model", messages=messages, stream=True
             )
 
     def test_chat_stream_empty_response(self, client):
         """Test handling of empty streaming response."""
+
         def empty_generator():
             return iter([])
 
-        with patch.object(client.client, 'chat', return_value=empty_generator()):
+        with patch.object(client.client, "chat", return_value=empty_generator()):
             messages = [{"role": "user", "content": "Hello"}]
 
             chunks = list(client.chat_stream("test-model", messages))
@@ -359,13 +364,14 @@ class TestOllamaClient:
 
     def test_chat_stream_content_only_chunks(self, client):
         """Test streaming response with only content chunks (no final metadata)."""
+
         def content_only_generator():
             chunk = Mock()
             chunk.message = Mock()
             chunk.message.content = "Response"
             yield chunk
 
-        with patch.object(client.client, 'chat', return_value=content_only_generator()):
+        with patch.object(client.client, "chat", return_value=content_only_generator()):
             messages = [{"role": "user", "content": "Hello"}]
 
             chunks = list(client.chat_stream("test-model", messages))
@@ -375,7 +381,9 @@ class TestOllamaClient:
 
     def test_chat_stream_api_error(self, client):
         """Test handling of API errors during streaming."""
-        with patch.object(client.client, 'chat', side_effect=ConnectionError("Network error")):
+        with patch.object(
+            client.client, "chat", side_effect=ConnectionError("Network error")
+        ):
             messages = [{"role": "user", "content": "Hello"}]
 
             with pytest.raises(Exception) as exc_info:
@@ -386,7 +394,9 @@ class TestOllamaClient:
 
     def test_chat_stream_generic_error(self, client):
         """Test handling of generic errors during streaming."""
-        with patch.object(client.client, 'chat', side_effect=Exception("Unexpected error")):
+        with patch.object(
+            client.client, "chat", side_effect=Exception("Unexpected error")
+        ):
             messages = [{"role": "user", "content": "Hello"}]
 
             with pytest.raises(Exception) as exc_info:
@@ -396,13 +406,16 @@ class TestOllamaClient:
 
     def test_chat_stream_with_different_message_types(self, client):
         """Test chat streaming with different message input types."""
+
         def mock_chat_generator():
             chunk = Mock()
             chunk.message = Mock()
             chunk.message.content = "Response"
             yield chunk
 
-        with patch.object(client.client, 'chat', return_value=mock_chat_generator()) as mock_chat:
+        with patch.object(
+            client.client, "chat", return_value=mock_chat_generator()
+        ) as mock_chat:
             # Test with dict messages
             dict_messages = [{"role": "user", "content": "Hello"}]
             list(client.chat_stream("test-model", dict_messages))
@@ -417,6 +430,7 @@ class TestOllamaClient:
 
     def test_chat_stream_chunk_without_content(self, client):
         """Test handling of chunks without content."""
+
         def mock_chat_generator():
             # Chunk with no content
             chunk1 = Mock()
@@ -435,7 +449,7 @@ class TestOllamaClient:
             chunk3.message.content = "Hello"
             yield chunk3
 
-        with patch.object(client.client, 'chat', return_value=mock_chat_generator()):
+        with patch.object(client.client, "chat", return_value=mock_chat_generator()):
             messages = [{"role": "user", "content": "Hello"}]
 
             chunks = list(client.chat_stream("test-model", messages))
@@ -463,7 +477,7 @@ class TestOllamaClient:
             format="gguf",
             family="llama",
             parameter_size="7B",
-            quantization_level="Q4_0"
+            quantization_level="Q4_0",
         )
 
         assert full_model.name == "full-model"
@@ -477,19 +491,181 @@ class TestOllamaClient:
         original_error = "Original detailed error message"
 
         # Test list_models error preservation
-        with patch('mochi_coco.ollama.client.ollama_list', side_effect=Exception(original_error)):
+        with patch(
+            "mochi_coco.ollama.client.ollama_list",
+            side_effect=Exception(original_error),
+        ):
             with pytest.raises(Exception) as exc_info:
                 client.list_models()
             assert original_error in str(exc_info.value)
 
         # Test show_model_details error preservation
-        with patch.object(client.client, 'show', side_effect=Exception(original_error)):
+        with patch.object(client.client, "show", side_effect=Exception(original_error)):
             with pytest.raises(Exception) as exc_info:
                 client.show_model_details("test-model")
             assert original_error in str(exc_info.value)
 
         # Test chat_stream error preservation
-        with patch.object(client.client, 'chat', side_effect=Exception(original_error)):
+        with patch.object(client.client, "chat", side_effect=Exception(original_error)):
             with pytest.raises(Exception) as exc_info:
                 list(client.chat_stream("test-model", []))
             assert original_error in str(exc_info.value)
+
+    def test_chat_stream_with_context_window(self, client):
+        """Test chat streaming with context window parameter."""
+
+        def mock_chat_generator():
+            chunk = Mock()
+            chunk.message = Mock()
+            chunk.message.content = "Response"
+            yield chunk
+
+        with patch.object(
+            client.client, "chat", return_value=mock_chat_generator()
+        ) as mock_chat:
+            messages = [{"role": "user", "content": "Hello"}]
+
+            # Test with context window parameter
+            list(client.chat_stream("test-model", messages, context_window=4096))
+
+            # Verify client.chat was called with options containing num_ctx
+            mock_chat.assert_called_once_with(
+                model="test-model",
+                messages=messages,
+                stream=True,
+                options={"num_ctx": 4096},
+            )
+
+    def test_chat_with_context_window(self, client):
+        """Test non-streaming chat with context window parameter."""
+        mock_response = Mock()
+        mock_response.message = Mock()
+        mock_response.message.content = "Response"
+
+        with patch.object(
+            client.client, "chat", return_value=mock_response
+        ) as mock_chat:
+            messages = [{"role": "user", "content": "Hello"}]
+
+            # Test with context window parameter
+            response = client.chat("test-model", messages, context_window=8192)
+
+            # Verify client.chat was called with options containing num_ctx
+            mock_chat.assert_called_once_with(
+                model="test-model",
+                messages=messages,
+                stream=False,
+                options={"num_ctx": 8192},
+            )
+            assert response == mock_response
+
+    def test_context_window_with_existing_options(self, client):
+        """Test that context window parameter merges with existing options."""
+
+        def mock_chat_generator():
+            chunk = Mock()
+            chunk.message = Mock()
+            chunk.message.content = "Response"
+            yield chunk
+
+        with patch.object(
+            client.client, "chat", return_value=mock_chat_generator()
+        ) as mock_chat:
+            messages = [{"role": "user", "content": "Hello"}]
+
+            # Mock the chat method to check kwargs
+            original_chat = client.client.chat
+
+            def capture_kwargs(**kwargs):
+                # Store the kwargs for inspection
+                capture_kwargs.last_kwargs = kwargs
+                return mock_chat_generator()
+
+            client.client.chat = capture_kwargs
+
+            # Test with context window parameter
+            list(client.chat_stream("test-model", messages, context_window=2048))
+
+            # Check that options were properly set
+            assert "options" in capture_kwargs.last_kwargs
+            assert capture_kwargs.last_kwargs["options"]["num_ctx"] == 2048
+
+    def test_extract_context_usage_success(self, client):
+        """Test successful context usage extraction from chat response."""
+        mock_response = Mock()
+        mock_response.eval_count = 100
+        mock_response.prompt_eval_count = 50
+
+        eval_count, prompt_eval_count = client.extract_context_usage(mock_response)
+
+        assert eval_count == 100
+        assert prompt_eval_count == 50
+
+    def test_extract_context_usage_missing_data(self, client):
+        """Test context usage extraction with missing data."""
+        mock_response = Mock()
+        # No eval_count or prompt_eval_count attributes
+
+        eval_count, prompt_eval_count = client.extract_context_usage(mock_response)
+
+        assert eval_count is None
+        assert prompt_eval_count is None
+
+    def test_extract_context_usage_invalid_data(self, client):
+        """Test context usage extraction with invalid data types."""
+        mock_response = Mock()
+        mock_response.eval_count = "invalid"  # String instead of int
+        mock_response.prompt_eval_count = -5  # Negative number
+
+        eval_count, prompt_eval_count = client.extract_context_usage(mock_response)
+
+        assert eval_count is None
+        assert prompt_eval_count is None
+
+    def test_get_optimal_context_window_with_usage(self, client):
+        """Test optimal context window calculation with current usage."""
+        # Mock list_models to return a model with context length
+        mock_model = Mock()
+        mock_model.name = "test-model"
+        mock_model.context_length = 32768
+
+        with patch.object(client, "list_models", return_value=[mock_model]):
+            optimal = client.get_optimal_context_window(
+                "test-model", current_usage=2000
+            )
+
+            # Should return at least 1.5 * current_usage (3000) but limited by safety
+            assert optimal is not None
+            assert optimal >= 3000  # At least 1.5 * current_usage
+            assert optimal <= int(32768 * 0.9)  # Within safety limit
+
+    def test_get_optimal_context_window_new_conversation(self, client):
+        """Test optimal context window calculation for new conversation."""
+        mock_model = Mock()
+        mock_model.name = "test-model"
+        mock_model.context_length = 16384
+
+        with patch.object(client, "list_models", return_value=[mock_model]):
+            optimal = client.get_optimal_context_window("test-model", current_usage=0)
+
+            # Should return default size capped by model limits
+            assert optimal is not None
+            assert optimal <= min(int(16384 * 0.9), 8192)
+
+    def test_get_optimal_context_window_model_not_found(self, client):
+        """Test optimal context window calculation when model not found."""
+        with patch.object(client, "list_models", return_value=[]):
+            optimal = client.get_optimal_context_window("nonexistent-model")
+
+            assert optimal is None
+
+    def test_get_optimal_context_window_no_context_length(self, client):
+        """Test optimal context window calculation when model has no context length."""
+        mock_model = Mock()
+        mock_model.name = "test-model"
+        mock_model.context_length = None
+
+        with patch.object(client, "list_models", return_value=[mock_model]):
+            optimal = client.get_optimal_context_window("test-model")
+
+            assert optimal is None

@@ -58,6 +58,17 @@ class ChatUIOrchestrator:
         tool_settings = session.get_tool_settings()
         session_summary = session.metadata.summary if session.metadata else None
 
+        # Get current context window from session metadata
+        current_context_window = None
+        if (
+            session.metadata
+            and session.metadata.context_window_config
+            and session.metadata.context_window_config.get("current_window")
+        ):
+            current_context_window = session.metadata.context_window_config[
+                "current_window"
+            ]
+
         self.chat_interface.print_session_info(
             session_id=session.session_id,
             model=model,
@@ -67,6 +78,7 @@ class ChatUIOrchestrator:
             tool_settings=tool_settings,
             session_summary=session_summary,
             context_info=context_info,
+            current_context_window=current_context_window,
         )
 
     def display_chat_history_if_needed(

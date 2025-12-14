@@ -67,22 +67,26 @@ class ChatController:
             self.system_prompt_service,
         )
 
+        # Initialize context window service first (needed by other components)
+        self.context_window_service = ContextWindowService(self.client)
+
         # Note: CommandProcessor needs to be initialized after SessionSetupHelper
         # We'll initialize it later after all dependencies are ready
         self.command_processor = None
 
         # Initialize specialized controllers and orchestrators
         self.ui_orchestrator = ChatUIOrchestrator()
-        self.session_controller = SessionController(self.session_manager, self.client)
-        self.command_result_handler = CommandResultHandler(self.ui_orchestrator)
+        self.session_controller = SessionController(
+            self.session_manager, self.client, self.context_window_service
+        )
+        self.command_result_handler = CommandResultHandler(
+            self.ui_orchestrator, self.context_window_service
+        )
 
         # Initialize summary model manager
         self.summary_model_manager = SummaryModelManager(
             self.model_selector, self.ui_orchestrator
         )
-
-        # Initialize context window service
-        self.context_window_service = ContextWindowService(self.client)
 
         self.background_service_manager = BackgroundServiceManager(
             event_loop, self.instructor_client, self.summary_model_manager

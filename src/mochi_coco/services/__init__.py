@@ -3,7 +3,13 @@ Service classes for the mochi-coco chat application.
 """
 
 from .background_service_manager import BackgroundServiceManager
-from .context_window_service import ContextWindowInfo, ContextWindowService
+from .context_window_service import (
+    ContextDecisionReason,
+    ContextWindowDecision,
+    ContextWindowInfo,
+    ContextWindowService,
+    DynamicContextWindowService,
+)
 from .renderer_manager import RendererManager
 from .session_creation_service import SessionCreationService
 from .session_manager import SessionManager
@@ -24,5 +30,8 @@ __all__ = [
     "SummaryModelManager",
     "SessionSetupHelper",
     "ContextWindowService",
+    "DynamicContextWindowService",
     "ContextWindowInfo",
+    "ContextWindowDecision",
+    "ContextDecisionReason",
 ]

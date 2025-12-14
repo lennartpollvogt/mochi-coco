@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 import typer
 
 from ..rendering import RenderingMode
+from ..services.context_window_service import ContextDecisionReason
 from ..utils import re_render_chat_history
 
 if TYPE_CHECKING:
@@ -468,8 +469,62 @@ class CommandProcessor:
             # Import client from model_selector
             client = self.model_selector.client
 
+            # Calculate optimal context window for this request
+            context_window = None
+            if self.context_window_service:
+                try:
+                    context_decision = (
+                        self.context_window_service.calculate_optimal_context_window(
+                            session, current_model
+                        )
+                    )
+                    context_window = context_decision.new_context_window
+
+                    # Log context window decision for debugging
+                    if context_decision.should_adjust and context_decision.reason in [
+                        ContextDecisionReason.USAGE_THRESHOLD,
+                        ContextDecisionReason.INITIAL_SETUP,
+                    ]:
+                        typer.secho(
+                            f"Context window increased to {context_window} tokens - {context_decision.reason.value}",
+                            fg=typer.colors.CYAN,
+                        )
+
+                    # Ensure session metadata has context_window_config initialized
+                    if session.metadata:
+                        if (
+                            not hasattr(session.metadata, "context_window_config")
+                            or session.metadata.context_window_config is None
+                        ):
+                            session.metadata.context_window_config = {
+                                "dynamic_enabled": True,
+                                "current_window": context_window,
+                                "last_adjustment": None,
+                                "adjustment_history": [],
+                                "manual_override": False,
+                            }
+
+                    # Update session metadata with context window decision
+                    if session.metadata and session.metadata.context_window_config:
+                        session.metadata.context_window_config["current_window"] = (
+                            context_window
+                        )
+                        session.metadata.context_window_config["last_adjustment"] = (
+                            context_decision.reason.value
+                        )
+
+                except Exception as e:
+                    typer.secho(
+                        f"Warning: Failed to calculate context window: {e}",
+                        fg=typer.colors.YELLOW,
+                    )
+                    # Fall back to no context window limit
+                    context_window = None
+
             # Use renderer for streaming response
-            text_stream = client.chat_stream(current_model, messages)
+            text_stream = client.chat_stream(
+                current_model, messages, context_window=context_window
+            )
             final_chunk = self.renderer_manager.renderer.render_streaming_response(
                 text_stream
             )
@@ -822,6 +877,17 @@ __time__ = ['get_current_time']
             tool_settings = session.get_tool_settings()
             session_summary = session.metadata.summary if session.metadata else None
 
+            # Get current context window from session metadata
+            current_context_window = None
+            if (
+                session.metadata
+                and session.metadata.context_window_config
+                and session.metadata.context_window_config.get("current_window")
+            ):
+                current_context_window = session.metadata.context_window_config[
+                    "current_window"
+                ]
+
             chat_interface.print_session_info(
                 session_id=session.session_id,
                 model=current_model,
@@ -831,6 +897,7 @@ __time__ = ['get_current_time']
                 tool_settings=tool_settings,
                 session_summary=session_summary,
                 context_info=context_info,
+                current_context_window=current_context_window,
             )
         else:
             # Use the session setup helper's display method

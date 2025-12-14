@@ -138,6 +138,7 @@ class ChatInterface:
         tool_settings: Optional["ToolSettings"] = None,
         session_summary: Optional[dict] = None,
         context_info: Optional["ContextWindowInfo"] = None,
+        current_context_window: Optional[int] = None,
     ) -> None:
         """
         Print session information with integrated commands in a styled panel.
@@ -151,6 +152,7 @@ class ChatInterface:
             tool_settings: The tool settings for this session (if configured)
             session_summary: The session summary dictionary (if available)
             context_info: The context window usage information (if available)
+            current_context_window: The current context window size (if available)
         """
         # Session info
         info_text = Text()
@@ -176,6 +178,19 @@ class ChatInterface:
             )
         else:
             info_text.append("Context Window: Not available\n", style="dim")
+
+        # Display dynamic context window information
+        if current_context_window:
+            if current_context_window > 4096:
+                status_text = "auto-increased"
+                style = "yellow"
+            else:
+                status_text = "auto-managed"
+                style = "green"
+            info_text.append(
+                f"Request Context: {current_context_window:,} tokens ({status_text})\n",
+                style=style,
+            )
 
         # Tools info
         if tool_settings and tool_settings.is_enabled():

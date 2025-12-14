@@ -2,18 +2,19 @@
 Menu display utilities using Rich for consistent and beautiful formatting.
 """
 
-from typing import List, Optional
 import json
-from rich.console import Console, Group
-from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
-from rich.box import ROUNDED, HEAVY
-from rich.align import Align
-from rich.syntax import Syntax
+from typing import List, Optional
 
-from ..ollama import OllamaClient, ModelInfo
+from rich.align import Align
+from rich.box import HEAVY, ROUNDED
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.table import Table
+from rich.text import Text
+
 from ..chat import ChatSession
+from ..ollama import ModelInfo, OllamaClient
 from ..rendering import MarkdownRenderer
 from ..services.system_prompt_service import SystemPromptInfo
 
@@ -96,17 +97,6 @@ class MenuDisplay:
         options_text.append("\n💡 Options:\n", style="bold bright_yellow")
         options_text.append(f"• 🔢 Select model (1-{model_count})\n", style="white")
         options_text.append("• 👋 Type 'q' to quit\n", style="white")
-
-        # Add attention notice
-        options_text.append("\n⚠️ ATTENTION: ", style="bold bright_red")
-        options_text.append(
-            "Max. Cxt. is only supported context length not set.\n", style="yellow"
-        )
-        options_text.append("💡 ", style="bright_blue")
-        options_text.append(
-            "Open Ollama application to set default context length!",
-            style="bright_blue",
-        )
 
         # Combine table, options, and attention message
         from rich.console import Group

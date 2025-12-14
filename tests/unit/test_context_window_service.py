@@ -16,7 +16,7 @@ from mochi_coco.services.context_window_service import (
 )
 
 
-class TestContextWindowService:
+class TestDynamicContextWindowService:
     """Test suite for ContextWindowService functionality."""
 
     @pytest.fixture
@@ -394,3 +394,257 @@ class TestContextWindowService:
 
         # Should use the most recent message (100 + 75 = 175)
         assert result.current_usage == 175
+
+
+class TestDynamicContextWindowFeatures:
+    """Test suite for new dynamic context window features."""
+
+    @pytest.fixture
+    def dynamic_service(self, mock_ollama_client):
+        """Create DynamicContextWindowService for testing."""
+        from mochi_coco.services.context_window_service import (
+            DynamicContextWindowService,
+        )
+
+        return DynamicContextWindowService(mock_ollama_client)
+
+    @pytest.fixture
+    def mock_session_with_context_config(self):
+        """Create a mock session with dynamic context window configuration."""
+        session = Mock()
+        session.session_id = "test-session"
+        session.metadata = Mock()
+        session.metadata.context_window_config = {
+            "dynamic_enabled": True,
+            "current_window": 8192,
+            "last_adjustment": "2024-01-01T00:00:00",
+            "adjustment_history": [],
+            "manual_override": False,
+        }
+        session.messages = []
+        return session
+
+    def test_calculate_optimal_context_window_initial_setup(
+        self, dynamic_service, mock_ollama_client
+    ):
+        """Test optimal context window calculation for initial setup."""
+        # Setup mock
+        mock_model = Mock()
+        mock_model.name = "test-model"
+        mock_model.context_length = 32768
+        mock_ollama_client.list_models.return_value = [mock_model]
+
+        session = Mock()
+        session.session_id = "test"
+        session.messages = []
+
+        # Execute
+        decision = dynamic_service.calculate_optimal_context_window(
+            session, "test-model"
+        )
+
+        # Should recommend conservative default for new session
+        assert decision.should_adjust is True
+        assert decision.new_context_window == 8192  # Conservative default
+        assert decision.reason.value == "initial_setup"
+        assert "conservative" in decision.explanation.lower()
+
+    def test_calculate_optimal_context_window_high_usage(
+        self, dynamic_service, mock_ollama_client
+    ):
+        """Test context window expansion for high usage."""
+        # Setup mock with high usage
+        mock_model = Mock()
+        mock_model.name = "test-model"
+        mock_model.context_length = 32768
+        mock_ollama_client.list_models.return_value = [mock_model]
+
+        session = Mock()
+        session.session_id = "test"
+        session.metadata = Mock()
+        session.metadata.context_window_config = {
+            "dynamic_enabled": True,
+            "current_window": 4096,
+            "last_adjustment": None,
+            "adjustment_history": [],
+            "manual_override": False,
+        }
+
+        # Mock message with high usage (95% of 4096, above MAX_USAGE_THRESHOLD of 90%)
+        high_usage_message = Mock()
+        high_usage_message.role = "assistant"
+        high_usage_message.tool_calls = None
+        high_usage_message.eval_count = 2200
+        high_usage_message.prompt_eval_count = 1691  # Total: 3891 (95% of 4096)
+        session.messages = [high_usage_message]
+
+        # Execute
+        decision = dynamic_service.calculate_optimal_context_window(
+            session, "test-model"
+        )
+
+        # Should recommend expansion
+        assert decision.should_adjust is True
+        assert decision.new_context_window > 4096
+        # With Phase 6 improvements, the reason may vary based on threshold logic
+        assert decision.reason.value in ["usage_threshold", "performance_optimization"]
+        # The percentage should be calculated against the current window (4096), so 3891/4096 = ~95%
+        assert decision.current_percentage >= 90.0
+
+    def test_calculate_optimal_context_window_low_usage(
+        self, dynamic_service, mock_ollama_client
+    ):
+        """Test context window optimization for low usage."""
+        # Setup mock with low usage
+        mock_model = Mock()
+        mock_model.name = "test-model"
+        mock_model.context_length = 32768
+        mock_ollama_client.list_models.return_value = [mock_model]
+
+        session = Mock()
+        session.session_id = "test"
+        session.metadata = Mock()
+        session.metadata.context_window_config = {"current_window": 16384}
+
+        # Mock message with very low usage (10% of 16384, below 15% MIN_USAGE_THRESHOLD)
+        low_usage_message = Mock()
+        low_usage_message.role = "assistant"
+        low_usage_message.tool_calls = None
+        low_usage_message.eval_count = 1000
+        low_usage_message.prompt_eval_count = 638  # Total: 1638 (10% of 16384)
+        session.messages = [low_usage_message]
+
+        # Execute
+        decision = dynamic_service.calculate_optimal_context_window(
+            session, "test-model"
+        )
+
+        # Should recommend optimization (reduction)
+        assert decision.should_adjust is True
+        assert decision.new_context_window < 16384
+        assert decision.reason.value == "performance_optimization"
+        assert decision.current_percentage <= 15.0
+
+    def test_reset_context_window_for_model_change(
+        self, dynamic_service, mock_ollama_client
+    ):
+        """Test context window reset when model changes."""
+        # Setup mock for new model
+        mock_model = Mock()
+        mock_model.name = "new-model"
+        mock_model.context_length = 16384
+        mock_ollama_client.list_models.return_value = [mock_model]
+
+        session = Mock()
+        session.session_id = "test"
+
+        # Mock current usage
+        usage_message = Mock()
+        usage_message.role = "assistant"
+        usage_message.tool_calls = None
+        usage_message.eval_count = 1500
+        usage_message.prompt_eval_count = 1000  # Total: 2500
+        session.messages = [usage_message]
+
+        # Execute
+        decision = dynamic_service.reset_context_window_for_model_change(
+            session, "old-model", "new-model"
+        )
+
+        # Should recommend conservative reset
+        assert decision.should_adjust is True
+        assert decision.new_context_window is not None
+        assert decision.new_context_window >= 2048  # At least minimum
+        assert decision.new_context_window <= int(16384 * 0.9)  # Within safety buffer
+        assert decision.reason.value == "model_change"
+        assert "new-model" in decision.explanation
+
+    def test_context_usage_with_dynamic_metadata(
+        self, dynamic_service, mock_ollama_client, mock_session_with_context_config
+    ):
+        """Test context usage calculation includes dynamic metadata."""
+        # Setup mock
+        mock_model = Mock()
+        mock_model.name = "test-model"
+        mock_model.context_length = 16384
+        mock_ollama_client.list_models.return_value = [mock_model]
+
+        # Add usage message
+        usage_message = Mock()
+        usage_message.role = "assistant"
+        usage_message.tool_calls = None
+        usage_message.eval_count = 1000
+        usage_message.prompt_eval_count = 500
+        mock_session_with_context_config.messages = [usage_message]
+
+        # Execute
+        result = dynamic_service.calculate_context_usage_on_demand(
+            mock_session_with_context_config, "test-model"
+        )
+
+        # Should include dynamic metadata
+        assert result.has_valid_data is True
+        assert result.is_dynamic is True
+        assert result.optimal_context is not None
+        assert result.last_adjustment == "2024-01-01T00:00:00"
+
+    def test_make_context_decision_optimal_usage(self, dynamic_service):
+        """Test context decision for optimal usage range."""
+        session = Mock()
+
+        # Test moderate usage (50% - in optimal range)
+        decision = dynamic_service._make_context_decision(
+            current_usage=2048,
+            current_percentage=50.0,
+            max_context=16384,
+            current_context_window=4096,
+            session=session,
+        )
+
+        # Should not adjust
+        assert decision.should_adjust is False
+        assert decision.new_context_window == 4096
+        assert "optimal" in decision.explanation.lower()
+
+    def test_calculate_optimal_context_window_no_model(
+        self, dynamic_service, mock_ollama_client
+    ):
+        """Test optimal context calculation when model not found."""
+        # Setup mock with no models
+        mock_ollama_client.list_models.return_value = []
+
+        session = Mock()
+        session.session_id = "test"
+        session.messages = []
+
+        # Execute
+        decision = dynamic_service.calculate_optimal_context_window(
+            session, "nonexistent-model"
+        )
+
+        # With Phase 6 graceful degradation, should use fallback
+        assert decision.should_adjust is True
+        assert decision.new_context_window == dynamic_service.DEFAULT_FALLBACK_CONTEXT
+        assert "fallback" in decision.explanation.lower()
+
+    def test_context_window_safety_limits(self, dynamic_service):
+        """Test that context window recommendations respect safety limits."""
+        # Test minimum context enforcement
+        result = dynamic_service._calculate_optimal_context_window(
+            current_usage=100,  # Very low usage
+            max_context=32768,
+            session=Mock(),
+        )
+
+        # Should enforce minimum
+        assert result >= dynamic_service.MIN_CONTEXT_WINDOW
+
+    def test_backward_compatibility_alias(self):
+        """Test that ContextWindowService is aliased to DynamicContextWindowService."""
+        from mochi_coco.services.context_window_service import (
+            ContextWindowService,
+            DynamicContextWindowService,
+        )
+
+        # Should be the same class
+        assert ContextWindowService is DynamicContextWindowService

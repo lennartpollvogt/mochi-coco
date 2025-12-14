@@ -31,10 +31,10 @@
 - [x] when starting mochi-coco show version
 - [x] make sure after editing a message and starting from there, that the 'Assistant' Panel is correctly rendered (it's missing the borders)
 - [x] add possibility to stop stream/generation from ollama server
-- [ ] set context window by user and show in status
+- [x] set context window by user and show in status
 - [ ] command `mochi-coco --new` to create a new chat session directly from start
 - [ ] command `mochi-coco --1` to open last chat session directly from start
-- [ ] add chat session summary to session tile
+- [x] add chat session summary to session tile
 - [x] command `/status` within chat to see the chat status showing: session id, context used vs context window, llms used --> like when a chat is starting (just showing this information)
 - [ ] autocomplete with file names when user inserts @ to add files to message context
   - needs: search for files in the directory of the terminal
@@ -45,6 +45,7 @@
 - [ ] toogle to exclude thinking block in chat history from new requests (will reduce tokens)
 - [ ] autocomplete for commands during chat sessions
 - [ ] add possibility to go into "agent mode" to have a more agent like behavior of the LLM and not stopping the requests to the ollama server when the LLM is responding in text instead of tools.
+  - [ ] experiment with using the summary LLM decide after each normal response if the LLM should proceed or stop.
 
 # Issues
 

@@ -152,7 +152,13 @@ class ToolAwareRenderer:
 
         # Use tool-aware rendering
         return self._render_with_tools(
-            text_chunks, tool_settings, session, model, client, available_tools
+            text_chunks,
+            tool_settings,
+            session,
+            model,
+            client,
+            available_tools,
+            tool_context,
         )
 
     def _render_with_tools(
@@ -163,6 +169,7 @@ class ToolAwareRenderer:
         model: str,
         client: "OllamaClient",
         available_tools: List[Tool],
+        tool_context: Optional[Dict] = None,
     ) -> Optional[ChatResponse]:
         """
         Render streaming response with tool call handling using delegation pattern.
@@ -252,9 +259,15 @@ class ToolAwareRenderer:
                 print(f"\n🤖 Processing {len(tool_results)} tool results...\n")
                 messages = session.get_messages_for_api()
 
-                # Create continuation stream
+                # Create continuation stream with context window if available
+                context_window = (
+                    tool_context.get("context_window") if tool_context else None
+                )
                 continuation_stream = client.chat_stream(
-                    model, messages, tools=available_tools
+                    model,
+                    messages,
+                    tools=available_tools,
+                    context_window=context_window,
                 )
 
                 # Recursively handle continuation (might have more tool calls)
@@ -265,6 +278,7 @@ class ToolAwareRenderer:
                     model,
                     client,
                     available_tools,
+                    tool_context,
                 )
 
                 return continuation_result

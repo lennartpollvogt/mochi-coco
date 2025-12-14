@@ -1,14 +1,15 @@
-import pytest
-from unittest.mock import Mock, patch
-from pathlib import Path
 import json
+from pathlib import Path
+from unittest.mock import Mock, patch
 
+import pytest
+
+from mochi_coco.chat.session import ChatSession
+from mochi_coco.commands.command_processor import CommandProcessor
+from mochi_coco.tools.config import ToolExecutionPolicy, ToolSettings
 from mochi_coco.tools.discovery_service import ToolDiscoveryService
 from mochi_coco.tools.execution_service import ToolExecutionService
 from mochi_coco.tools.schema_service import ToolSchemaService
-from mochi_coco.tools.config import ToolSettings, ToolExecutionPolicy
-from mochi_coco.chat.session import ChatSession
-from mochi_coco.commands.command_processor import CommandProcessor
 
 
 @pytest.mark.integration
@@ -596,7 +597,7 @@ __updated__ = ['new_amazing_tool']
 
         # Verify migration occurred
         assert hasattr(session.metadata, "format_version")
-        assert session.metadata.format_version == "1.1"
+        assert session.metadata.format_version == "1.2"
         assert hasattr(session.metadata, "tool_settings")
         assert session.metadata.tool_settings is None  # Default for migrated sessions
 

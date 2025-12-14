@@ -86,9 +86,22 @@ class SessionMetadata:
     summary: Optional[Dict[str, Any]] = None
     summary_model: Optional[str] = None
     # Add version for backward compatibility
-    format_version: str = "1.1"
+    format_version: str = "1.2"
     # Add tools settings
     tool_settings: Optional[ToolSettings] = None
+    # Add dynamic context window configuration
+    context_window_config: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self):
+        """Initialize context_window_config if not already set."""
+        if self.context_window_config is None:
+            self.context_window_config = {
+                "dynamic_enabled": True,
+                "current_window": None,  # Will be set based on model
+                "last_adjustment": None,
+                "adjustment_history": [],
+                "manual_override": False,
+            }
 
     def migrate_from_legacy(self):
         """Migrate from older session format."""
@@ -101,6 +114,22 @@ class SessionMetadata:
             if not hasattr(self, "tool_settings"):
                 self.tool_settings = None
             self.format_version = "1.1"
+
+        # Migrate from 1.1 to 1.2 (add dynamic context window support)
+        if self.format_version == "1.1":
+            if (
+                not hasattr(self, "context_window_config")
+                or self.context_window_config is None
+            ):
+                # Initialize with default configuration
+                self.context_window_config = {
+                    "dynamic_enabled": True,
+                    "current_window": None,  # Will be set based on model
+                    "last_adjustment": None,
+                    "adjustment_history": [],
+                    "manual_override": False,
+                }
+            self.format_version = "1.2"
 
         # Handle legacy dict-based tool_settings regardless of version
         if hasattr(self, "tool_settings") and isinstance(self.tool_settings, dict):
@@ -287,6 +316,7 @@ class ChatSession:
                 summary_model=metadata_dict.get("summary_model"),
                 format_version=metadata_dict.get("format_version", "1.1"),
                 tool_settings=metadata_dict.get("tool_settings"),
+                context_window_config=metadata_dict.get("context_window_config"),
             )
 
             # Migrate legacy sessions
