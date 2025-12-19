@@ -33,7 +33,7 @@
 - [x] add possibility to stop stream/generation from ollama server
 - [x] set context window by user and show in status
 - [ ] add host url to "Chat Session" panel
-- [ ] command `mochi-coco --chat 1` to open last chat session directly from start
+- [x] command `mochi-coco --chat 1` to open last chat session directly from start
 - [x] add chat session summary to session tile
 - [x] command `/status` within chat to see the chat status showing: session id, context used vs context window, llms used --> like when a chat is starting (just showing this information)
 - [ ] autocomplete with file names when user inserts @ to add files to message context
