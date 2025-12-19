@@ -1,11 +1,12 @@
 import asyncio
-from typing import List, Optional, Callable, Mapping, Any, Dict
-import logging
-from pydantic import BaseModel, Field
 import json
+import logging
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
+from pydantic import BaseModel, Field
+
+from ..chat.session import ChatSession, SessionMessage, SystemMessage, UserMessage
 from ..ollama import AsyncInstructorOllamaClient
-from ..chat.session import ChatSession, SessionMessage, UserMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
 
@@ -234,7 +235,8 @@ class SummarizationService:
                 {
                     "role": "user",
                     "content": (
-                        "You are a observer that creates concise summaries of conversations in a structured format. "
+                        "You are an observer that creates concise summaries of conversations in a structured format. "
+                        "Your summary should help understanding the conversation and provide important information."
                         f"Here is the current conversation:\n```\n{self._format_conversation(messages)}\n```\n\n"
                         "Make sure you provide the correct json format by adhering to the provided schema."
                         f"As you will overwrite the current summary, consider it in your response. Current summary: \n```\n{current_summary}\n```"

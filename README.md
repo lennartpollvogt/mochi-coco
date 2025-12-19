@@ -24,6 +24,8 @@ pip install mochi-coco
 mochi-coco
 ```
 
+4. Or directly open a specific chat session: `mochi-coco --chat 1`
+
 ## Features
 
 - 🚀 **Streaming responses** - Real-time chat with immediate feedback
@@ -39,7 +41,7 @@ mochi-coco
 - 📝 **System Prompts** - Drop `*.md` or `*.txt` files into the `system_prompts` folder in the root directory of the terminal to use as system prompts.
 - **Tool support** - Let the LLM use tools to you've created by placing them in the `tools` folder in the root directory of the terminal.
 
-## Commands
+## Session Commands
 
 While chatting, you can use these commands:
 

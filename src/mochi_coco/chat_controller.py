@@ -112,17 +112,20 @@ class ChatController:
         self.tool_schema_service = ToolSchemaService()
         self.tool_execution_service = None  # Will be initialized when tools are loaded
 
-    def run(self) -> None:
+    def run(self, target_session_number: Optional[int] = None) -> None:
         """Run the main chat application with standardized session creation."""
         try:
             # Use standardized session creation
-            options = SessionCreationOptions(
-                context=SessionCreationContext.APPLICATION_STARTUP,
-                mode=SessionCreationMode.AUTO_DETECT,
-                allow_system_prompt_selection=True,
-                collect_preferences=True,
-                show_welcome_message=True,
-            )
+            if target_session_number is not None:
+                options = self._create_direct_session_options(target_session_number)
+            else:
+                options = SessionCreationOptions(
+                    context=SessionCreationContext.APPLICATION_STARTUP,
+                    mode=SessionCreationMode.AUTO_DETECT,
+                    allow_system_prompt_selection=True,
+                    collect_preferences=True,
+                    show_welcome_message=True,
+                )
 
             result = self.session_creation_service.create_session(options)
             if not result.success:
@@ -308,6 +311,39 @@ class ChatController:
         except Exception as e:
             logger.error(f"Error preparing tool context: {e}", exc_info=True)
             return None
+
+    def _create_direct_session_options(
+        self, session_number: int
+    ) -> SessionCreationOptions:
+        """Create session options for direct session loading."""
+        from .chat import ChatSession
+
+        sessions = ChatSession.list_sessions()
+
+        # Validate session number (1-based)
+        if 1 <= session_number <= len(sessions):
+            target_session = sessions[session_number - 1]
+            # Return options to load this specific session
+            return SessionCreationOptions(
+                context=SessionCreationContext.DIRECT_SESSION_LOAD,
+                mode=SessionCreationMode.LOAD_EXISTING,
+                allow_system_prompt_selection=False,  # Don't need system prompt for existing session
+                collect_preferences=True,
+                show_welcome_message=True,
+                target_session=target_session,
+            )
+        else:
+            # Fall back to normal menu behavior for invalid numbers
+            logger.info(
+                f"Invalid session number {session_number}, falling back to session menu"
+            )
+            return SessionCreationOptions(
+                context=SessionCreationContext.APPLICATION_STARTUP,
+                mode=SessionCreationMode.AUTO_DETECT,
+                allow_system_prompt_selection=True,
+                collect_preferences=True,
+                show_welcome_message=True,
+            )
 
     def _on_summary_updated(self, summary: str) -> None:
         """Callback for summary updates."""

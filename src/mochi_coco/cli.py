@@ -1,11 +1,9 @@
-from typing import Optional
-import typer
 import asyncio
+from typing import Optional
 
+import typer
 
 from .chat_controller import ChatController
-
-
 
 app = typer.Typer()
 
@@ -15,10 +13,14 @@ def chat(
     host: Optional[str] = typer.Option(
         None, "--host", help="Ollama host (e.g. http://localhost:11434)"
     ),
+    chat_session: Optional[int] = typer.Option(
+        None, "--chat", help="Open specific chat session by number (1-based)"
+    ),
 ):
     """
     Chat with an LLM via Ollama using streaming responses.
     """
+
     async def run_with_background_tasks():
         """Run the chat controller with support for background async tasks."""
         # Get the current event loop
@@ -29,9 +31,10 @@ def chat(
 
         # Run the synchronous chat in a separate thread to allow async background tasks
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             # Submit the sync chat controller to run in a thread
-            chat_future = executor.submit(controller.run)
+            chat_future = executor.submit(controller.run, chat_session)
 
             # Wait for the chat to complete
             try:

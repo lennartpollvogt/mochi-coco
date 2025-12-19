@@ -5,9 +5,12 @@ This service provides a single entry point for session creation across all conte
 (startup, menu, session switching, etc.) with consistent behavior and user experience.
 """
 
-from typing import Optional, List
 import logging
 
+# Import with TYPE_CHECKING to avoid circular imports
+from typing import TYPE_CHECKING, List, Optional
+
+from ..ui.session_creation_ui import SessionCreationUI
 from .session_creation_types import (
     SessionCreationContext,
     SessionCreationMode,
@@ -15,12 +18,8 @@ from .session_creation_types import (
     SessionCreationResult,
     UserPreferences,
 )
-from .user_preference_service import UserPreferenceService
 from .system_prompt_service import SystemPromptService
-from ..ui.session_creation_ui import SessionCreationUI
-
-# Import with TYPE_CHECKING to avoid circular imports
-from typing import TYPE_CHECKING
+from .user_preference_service import UserPreferenceService
 
 if TYPE_CHECKING:
     from ..chat import ChatSession
@@ -53,6 +52,13 @@ class SessionCreationService:
             logger.info(
                 f"Starting session creation - Context: {options.context}, Mode: {options.mode}"
             )
+
+            # Handle direct session loading first
+            if options.target_session is not None:
+                logger.info(
+                    f"Direct session loading requested for session: {options.target_session.session_id}"
+                )
+                return self._load_specific_session(options.target_session, options)
 
             # Show welcome message if requested
             if options.show_welcome_message:

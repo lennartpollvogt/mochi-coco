@@ -174,6 +174,10 @@ class SessionCreationUI:
             #    f"Session ready! Using {model} (ID: {session.session_id})"
             # )
             pass
+        elif context == SessionCreationContext.DIRECT_SESSION_LOAD:
+            self.chat_interface.print_success_message(
+                f"Loaded session {session.session_id} with {model}"
+            )
         else:
             self.chat_interface.print_success_message(
                 f"Switched to session {session.session_id} with {model}"
