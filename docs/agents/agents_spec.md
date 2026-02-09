@@ -187,6 +187,8 @@ Ephemeral planning and execution prompts are loaded from `docs/agents/agent_prom
 The loop should stop when:
 - The agent returns an answer without tool calls.
 
+When the loop ends, the `agent` tool returns **all agent messages starting from the last LLM instruction** up to the **final agent response**.
+
 ---
 
 ## 13. Summary
