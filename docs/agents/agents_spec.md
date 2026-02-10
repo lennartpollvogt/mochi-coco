@@ -57,18 +57,26 @@ The agent tool rules follow the existing tools feature:
 - Docstrings required
 - Exported in `__all__`
 
+Tool groups are not supported for agents.
+
 ---
 
 ## 5. Discovery & Exposure
 
 ### 5.1 Discovery
+Discovery only runs if `./agents` exists (no auto-creation).
+
 An agent is considered valid if:
 - `SKILL.md` exists and parses successfully
 - `<agent_name>.py` exists
 - `__init__.py` exists and exports at least one tool
 
+Tool groups are not supported for agents (only `__all__` tools are discovered).
+
 ### 5.2 Exposure
 Agents are enabled/disabled via a `/agents` menu and stored in session metadata.
+The `/agents` menu is only available if `./agents` exists.
+Agent selection is independent from the tools feature.
 The **agent tool** is exposed to the main LLM only if **at least one valid agent is enabled**.
 Only enabled agents are visible to the LLM and accepted by the `agent` tool.
 
@@ -187,7 +195,9 @@ Ephemeral planning and execution prompts are loaded from `docs/agents/agent_prom
 The loop should stop when:
 - The agent returns an answer without tool calls.
 
-When the loop ends, the `agent` tool returns **all agent messages starting from the last LLM instruction** up to the **final agent response**.
+When the loop ends, the `agent` tool returns plain text that begins with `Session ID: <id>`.
+It includes **all agent messages starting from the last LLM instruction**, plus **all tool calls and tool responses** from that point through the final response.
+Agent sessions are not listed in the UI.
 
 ---
 

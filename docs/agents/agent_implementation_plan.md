@@ -11,6 +11,11 @@ This plan outlines the ordered, step-by-step implementation for the new agent fe
 - **Use ephemeral prompts** for planning/execution (loaded from existing docs) and **do not persist them** to agent chat history.
 - **Expose a single dynamic `agent` tool** only when at least one enabled agent exists.
 - **Maintain confirmation policy** consistent with current tool execution rules.
+- **Agent feature is independent of tools** (selection via `/agents`, not tied to `/tools`).
+- **Only discover agents if `./agents` exists** (no auto-creation).
+- **Do not support agent tool groups** (only `__all__` tools).
+- **Agent session files are not listed in the UI** (only returned via tool output).
+- **Agent tool output is plain text** and must start with `Session ID: XXXXXXX`.
 
 ---
 
@@ -37,7 +42,7 @@ This plan outlines the ordered, step-by-step implementation for the new agent fe
      - description
      - model (optional)
      - system prompt
-     - tool functions + tool groups
+     - tool functions (no groups)
      - validity flags and error info
 
 4. `src/mochi_coco/agents/prompt_loader.py` (optional)
@@ -48,6 +53,7 @@ This plan outlines the ordered, step-by-step implementation for the new agent fe
 **Notes:**
 - Structure it similar to `tools/discovery_service.py`.
 - Use standard logging with consistent patterns.
+- Only attempt discovery if `./agents` exists (do not create it).
 
 ---
 
@@ -77,13 +83,14 @@ This plan outlines the ordered, step-by-step implementation for the new agent fe
 
 **Changes:**
 - Add new command handler `_handle_agents_command`.
-- Add to dynamic command map, adjacent to tools.
+- Add `/agents` to the dynamic command map and menu (only when `./agents` exists).
 - Implement interaction flow similar to `/tools`:
   - Discover valid agents (via new discovery service).
   - Display list with descriptions.
   - Allow selection of multiple agents.
   - Persist selection in `session.metadata.agent_settings`.
 - Invalidate tool schema cache after selection changes.
+- Keep this independent of `/tools` (agent selection does not require tools enabled).
 
 **Notes:**
 - Reuse UI patterns from `ToolSelectionUI` or create `AgentSelectionUI` if needed.
@@ -109,6 +116,7 @@ This plan outlines the ordered, step-by-step implementation for the new agent fe
 
 **Notes:**
 - If schema conversion needs dynamic input, add a hook or wrapper in `ToolSchemaService` to accept a docstring override or a unique cache key hash.
+- The `agent` tool should be exposed based on enabled agents, not on `/tools` settings.
 
 ---
 
@@ -149,8 +157,8 @@ This plan outlines the ordered, step-by-step implementation for the new agent fe
    - Stop when assistant returns **no tool calls**.
 
 3. **Return output:**
-   - Aggregate messages from **the last instruction** through final assistant response.
-   - Return as `agent` tool output.
+   - Aggregate messages from **the last instruction** through final assistant response, including any tool calls and tool responses in that range.
+   - Return as plain text, prefixed with `Session ID: XXXXXXX` on the first line.
 
 **Notes:**
 - Use the **same context window calculation** as regular sessions.
@@ -218,6 +226,8 @@ This plan outlines the ordered, step-by-step implementation for the new agent fe
   - Add `/agents` and integrate menu display.
 - `tool_aware_renderer.py`
   - Route `agent` tool calls to agent execution service.
+- UI
+  - Do not list agent sessions in the standard sessions menu.
 
 ---
 

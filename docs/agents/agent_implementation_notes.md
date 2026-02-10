@@ -44,15 +44,19 @@ This document provides **technical guidance** for implementing the agent feature
 ## 3. Key Integration Points
 
 ### 3.1 `/agents` menu
-- Add a new menu similar to `/tools`.
+- Add a `/agents` command in the menu (mirrors `/tools` selection flow).
+- Only show/enable this menu if `./agents` exists.
 - Store enabled agents in session metadata.
+- Agent selection is **independent** from the tools feature (no tools toggle required).
 - When the enabled agent list changes, **invalidate tool schema cache**.
 
 ### 3.2 Agent discovery service
 - Add an `AgentDiscoveryService` that:
-  - Scans `./agents/*/`
+  - Only runs if `./agents` exists
+  - Scans `./agents/*/` for agent subfolders
   - Parses `SKILL.md` for `model`, `description`, and prompt
   - Loads tools from `<agent_name>.py` + `__init__.py`
+  - Does **not** support tool groups for agents (no `__group__` handling)
 
 ### 3.3 Dynamic `agent` tool docstring
 - Build the docstring at schema conversion time.
@@ -69,7 +73,9 @@ This document provides **technical guidance** for implementing the agent feature
 
 ### 4.2 Loop stop condition
 - Stop when the agent returns a response **without tool calls**.
-- When the loop ends, return **all agent messages starting from the last LLM instruction** up to the **final agent response** as the `agent` tool output.
+- When the loop ends, return **plain text** that begins with `Session ID: <id>`.
+- The output must include **all agent messages starting from the last LLM instruction**, plus **all tool calls and tool responses** from that point through the final response.
+- Agent sessions are **not** listed in the UI session list.
 
 ---
 
