@@ -1,5 +1,5 @@
 ---
-model: qwen3-coder:latest
+model: gpt-oss:20b
 description: An agent specialized in creating new agents for the mochi-coco system, following specifications and best practices.
 ---
 

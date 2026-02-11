@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Literal
 
 
 def read_file(file_path: str, max_lines: int | None = None) -> str:
@@ -85,7 +84,7 @@ def write_file(file_path: str, text: str) -> str:
 
 
 def insert_replace_text(
-    mode: Literal["insert", "replace"],
+    mode: str,
     file_path: str,
     start_line: int,
     end_line: int | None,
@@ -95,7 +94,7 @@ def insert_replace_text(
     Insert or replace text within a file at the specified lines.
 
     Args:
-        mode (Literal["insert", "replace"]): The mode of operation.
+        mode (str): The mode of operation. Must be either "insert" or "replace".
         file_path (str): The path to the file to be modified.
         start_line (int): The line number where the insertation or replacement should start.
         end_line (int | None): The line number where the insertation or replacement should end. In case of mode "insert" the end_line is ignored.
@@ -189,15 +188,13 @@ def list_dir(directory_path: str = ".") -> str:
         return f"Error listing directory '{directory_path}': {str(e)}"
 
 
-def delete_rename_file(
-    file_path: str, mode: Literal["delete", "rename"], new_name: str | None = None
-) -> str:
+def delete_rename_file(file_path: str, mode: str, new_name: str | None = None) -> str:
     """
     Delete or rename a file from the filesystem based on the specified mode.
 
     Args:
         file_path (str): The path to the file to be deleted or renamed.
-        mode (Literal["delete", "rename"]): The operation mode - either "delete" or "rename".
+        mode (str): The operation mode. Must be either "delete" or "rename".
         new_name (str | None): The new name/path for the file. Required when mode is "rename".
 
     Returns:

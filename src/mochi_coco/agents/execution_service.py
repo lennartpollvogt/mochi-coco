@@ -321,6 +321,12 @@ class AgentExecutionService:
         """
         messages = session.get_messages_for_api()
         messages.append({"role": "user", "content": ephemeral_user_message})
+
+        logger.debug(
+            f"Built {len(messages)} messages for API request. Last 3 messages: "
+            f"{[{k: v[:100] if k == 'content' and isinstance(v, str) else v for k, v in msg.items()} for msg in messages[-3:]]}"
+        )
+
         return messages
 
     def get_agent_tools_as_ollama(
@@ -567,6 +573,12 @@ class AgentExecutionService:
                 session, self.get_planning_prompt()
             )
 
+            logger.debug(
+                f"Agent '{agent_name}': Calling chat_stream for planning - "
+                f"model: {model}, messages: {len(planning_messages)}, "
+                f"context_window: {context_window}, tools: None"
+            )
+
             # Request without tools
             planning_stream = self.client.chat_stream(
                 model=model,
@@ -577,10 +589,16 @@ class AgentExecutionService:
             # Collect planning response
             planning_content = ""
             final_planning_chunk = None
+            chunk_count = 0
             for chunk in planning_stream:
+                chunk_count += 1
                 if chunk.message and chunk.message.content:
                     planning_content += chunk.message.content
                 final_planning_chunk = chunk
+
+            logger.info(
+                f"Agent '{agent_name}': Planning phase collected {len(planning_content)} chars from {chunk_count} chunks"
+            )
 
             # Save planning response to session
             if final_planning_chunk and planning_content.strip():
@@ -589,7 +607,11 @@ class AgentExecutionService:
                     f"Agent '{agent_name}': Planning response saved ({len(planning_content)} chars)"
                 )
             else:
-                logger.warning(f"Agent '{agent_name}': Empty planning response")
+                logger.warning(
+                    f"Agent '{agent_name}': Empty planning response - "
+                    f"final_chunk: {final_planning_chunk is not None}, "
+                    f"content: '{planning_content}'"
+                )
 
         except Exception as e:
             logger.error(
@@ -618,6 +640,20 @@ class AgentExecutionService:
                     session, self.get_execution_prompt()
                 )
 
+                logger.debug(
+                    f"Agent '{agent_name}': Calling chat_stream for execution iter {iteration} - "
+                    f"model: {model}, messages: {len(execution_messages)}, "
+                    f"context_window: {context_window}, tools: {len(agent_tools) if agent_tools else 0}"
+                )
+
+                if agent_tools:
+                    import json
+
+                    logger.debug(
+                        f"Agent '{agent_name}': Tool schema (first 2 tools): "
+                        f"{json.dumps([t if isinstance(t, dict) else str(t) for t in agent_tools[:2]], indent=2)}"
+                    )
+
                 # Request with tools
                 execution_stream = self.client.chat_stream(
                     model=model,
@@ -630,8 +666,10 @@ class AgentExecutionService:
                 execution_content = ""
                 tool_calls = []
                 final_execution_chunk = None
+                exec_chunk_count = 0
 
                 for chunk in execution_stream:
+                    exec_chunk_count += 1
                     if chunk.message:
                         if chunk.message.content:
                             execution_content += chunk.message.content
@@ -657,6 +695,10 @@ class AgentExecutionService:
                                     tool_calls.append(tc)
                     final_execution_chunk = chunk
 
+                logger.info(
+                    f"Agent '{agent_name}': Execution iter {iteration} collected {len(execution_content)} chars from {exec_chunk_count} chunks"
+                )
+
                 # Check if agent made tool calls
                 has_tool_calls = False
                 if final_execution_chunk and hasattr(
@@ -665,6 +707,12 @@ class AgentExecutionService:
                     if final_execution_chunk.message.tool_calls:
                         has_tool_calls = True
                         tool_calls = final_execution_chunk.message.tool_calls
+
+                logger.debug(
+                    f"Agent '{agent_name}': Execution iter {iteration} - "
+                    f"has_tool_calls: {has_tool_calls}, "
+                    f"execution_content: '{execution_content[:100]}...' ({len(execution_content)} chars total)"
+                )
 
                 if has_tool_calls and final_execution_chunk:
                     logger.info(
@@ -726,13 +774,25 @@ class AgentExecutionService:
                 else:
                     # No tool calls - agent has finished
                     logger.info(
-                        f"Agent '{agent_name}': Completed (no tool calls in iteration {iteration})"
+                        f"Agent '{agent_name}': Completed (no tool calls in iteration {iteration}) - "
+                        f"final_chunk exists: {final_execution_chunk is not None}, "
+                        f"content length: {len(execution_content)}, "
+                        f"content: '{execution_content[:200]}...'"
                     )
 
                     # Save final assistant message
                     if final_execution_chunk and execution_content.strip():
+                        logger.info(
+                            f"Agent '{agent_name}': Saving final assistant message with {len(execution_content)} chars"
+                        )
                         self.add_assistant_message(
                             session, final_execution_chunk, model
+                        )
+                    else:
+                        logger.warning(
+                            f"Agent '{agent_name}': Not saving assistant message - "
+                            f"final_chunk: {final_execution_chunk is not None}, "
+                            f"execution_content: '{execution_content}'"
                         )
 
                     # Exit loop

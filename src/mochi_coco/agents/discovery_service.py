@@ -64,8 +64,12 @@ class AgentDiscoveryService:
             if not agent_dir.is_dir():
                 continue
             agent_name = agent_dir.name
-            # Skip special directories
-            if agent_name.startswith("_") or agent_name.startswith("."):
+            # Skip special directories and agent_chats storage
+            if (
+                agent_name.startswith("_")
+                or agent_name.startswith(".")
+                or agent_name == "agent_chats"
+            ):
                 continue
             definition = self._discover_agent(agent_name, agent_dir)
             if definition:
