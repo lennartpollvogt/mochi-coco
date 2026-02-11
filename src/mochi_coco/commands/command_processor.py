@@ -572,6 +572,12 @@ class CommandProcessor:
             command_map["/tools"] = "_handle_tools_command"
             next_num += 1
 
+        # Agents command
+        if self._are_agents_available():
+            command_map[f"/{next_num}"] = "_handle_agents_command"
+            command_map["/agents"] = "_handle_agents_command"
+            next_num += 1
+
         # System prompt command
         if self._are_system_prompts_available():
             command_map[f"/{next_num}"] = "_handle_system_prompt_command"
@@ -584,6 +590,11 @@ class CommandProcessor:
         """Check if tools directory exists and has tools."""
         tools_dir = Path("./tools")
         return tools_dir.exists() and (tools_dir / "__init__.py").exists()
+
+    def _are_agents_available(self) -> bool:
+        """Check if agents directory exists."""
+        agents_dir = Path("./agents")
+        return agents_dir.exists()
 
     def _are_system_prompts_available(self) -> bool:
         """Check if system prompts are available."""
@@ -727,6 +738,99 @@ class CommandProcessor:
 
             return CommandResult()
 
+    def _handle_agents_command(
+        self, session: "ChatSession", args: str = ""
+    ) -> CommandResult:
+        """Handle agent selection command."""
+        from ..agents.config import AgentSettings
+        from ..agents.discovery_service import AgentDiscoveryService
+        from ..tools.schema_service import ToolSchemaService
+        from ..ui.agent_selection_ui import AgentSelectionUI
+
+        if not self._are_agents_available():
+            typer.secho(
+                "\n❌ No agents directory found. Create ./agents/<agent_name>/\n",
+                fg=typer.colors.RED,
+            )
+            return CommandResult()
+
+        discovery = AgentDiscoveryService()
+        schema_service = ToolSchemaService()
+        ui = AgentSelectionUI()
+
+        # Handle reload argument
+        if args.strip().lower() == "reload":
+            definitions = discovery.reload_agents()
+            typer.secho("✅ Agents reloaded", fg=typer.colors.GREEN)
+        else:
+            definitions = discovery.discover_agents()
+
+        valid_agents = {
+            name: definition
+            for name, definition in definitions.items()
+            if definition.valid
+        }
+
+        if not valid_agents:
+            typer.secho(
+                "\n❌ No valid agents found. Create agents in ./agents/<agent_name>/\n",
+                fg=typer.colors.RED,
+            )
+            return CommandResult()
+
+        descriptions = {
+            name: (definition.description or f"Agent {name}")
+            for name, definition in valid_agents.items()
+        }
+
+        agent_settings = session.get_agent_settings() or AgentSettings()
+        current_selection = list(agent_settings.enabled_agents)
+
+        while True:
+            ui.display_agent_selection_menu(descriptions, current_selection)
+
+            result = ui.get_agent_selection(len(valid_agents))
+            if result is None:
+                typer.secho("Agent selection cancelled.", fg=typer.colors.YELLOW)
+                return CommandResult()
+
+            selected_indices, special = result
+
+            if special == "reload":
+                definitions = discovery.reload_agents()
+                valid_agents = {
+                    name: definition
+                    for name, definition in definitions.items()
+                    if definition.valid
+                }
+                descriptions = {
+                    name: (definition.description or f"Agent {name}")
+                    for name, definition in valid_agents.items()
+                }
+                typer.secho("✅ Agents reloaded", fg=typer.colors.GREEN)
+                continue
+            elif special == "keep":
+                typer.secho("✅ Keeping current selection", fg=typer.colors.GREEN)
+                return CommandResult()
+
+            if selected_indices:
+                agent_names = list(valid_agents.keys())
+                selected_agents = [agent_names[i] for i in selected_indices]
+                agent_settings.enabled_agents = selected_agents
+                typer.secho(
+                    f"\n✅ Selected agents: {', '.join(selected_agents)}\n",
+                    fg=typer.colors.GREEN,
+                )
+            else:
+                agent_settings.enabled_agents = []
+                typer.secho("\n✅ Agent selection cleared\n", fg=typer.colors.GREEN)
+
+            session.metadata.agent_settings = agent_settings
+            session.save_session()
+            schema_service.clear_cache()
+
+            return CommandResult()
+
     def _create_example_tools_file(self):
         """Create an example tools file."""
         tools_dir = Path("./tools")
@@ -781,13 +885,17 @@ __time__ = ['get_current_time']
             # Check if features are available
             has_system_prompts = self._are_system_prompts_available()
             has_tools = self._are_tools_available()
+            has_agents = self._are_agents_available()
             tool_settings = session.get_tool_settings()
+            agent_settings = session.get_agent_settings()
 
             # Display the enhanced menu
             self.model_selector.menu_display.display_command_menu(
                 has_system_prompts=has_system_prompts,
                 has_tools=has_tools,
+                has_agents=has_agents,
                 tool_settings=tool_settings,
+                agent_settings=agent_settings,
             )
 
             # Get user selection

@@ -258,47 +258,64 @@ class ChatController:
             )
 
     def _prepare_tool_context(self, session) -> Optional[Dict[str, Any]]:
-        """Prepare tool context for the session if tools are enabled."""
-        # Check if session has tools enabled
-        if not session.has_tools_enabled():
-            return None
+        """Prepare tool context for the session if tools and/or agents are enabled."""
+        has_tools = session.has_tools_enabled()
+        has_agents = session.has_agents_enabled()
 
-        tool_settings = session.get_tool_settings()
-        if not tool_settings:
+        # Nothing to do when neither tools nor agents are active
+        if not has_tools and not has_agents:
             return None
 
         try:
-            # Discover available tools
-            functions, groups = self.tool_discovery_service.discover_tools()
-            if not functions and not groups:
-                logger.warning("No tools found despite session having tool settings")
-                return None
-
-            # Get active tools based on session settings
-            active_tool_names = tool_settings.get_active_tools(functions, groups)
-            if not active_tool_names:
-                logger.warning("No active tools found for session")
-                return None
-
-            # Filter to get actual function objects for active tools
             active_tools = []
-            for tool_name in active_tool_names:
-                if tool_name in functions:
-                    active_tools.append(functions[tool_name])
-                else:
-                    logger.warning(
-                        f"Tool '{tool_name}' not found in available functions"
-                    )
+            functions: Dict[str, Any] = {}
+            tool_settings = None
 
+            # ── Regular tools ────────────────────────────────────────
+            if has_tools:
+                tool_settings = session.get_tool_settings()
+                if tool_settings:
+                    discovered_functions, groups = (
+                        self.tool_discovery_service.discover_tools()
+                    )
+                    if discovered_functions or groups:
+                        active_tool_names = tool_settings.get_active_tools(
+                            discovered_functions, groups
+                        )
+                        for tool_name in active_tool_names:
+                            if tool_name in discovered_functions:
+                                active_tools.append(discovered_functions[tool_name])
+                                functions[tool_name] = discovered_functions[tool_name]
+                            else:
+                                logger.warning(
+                                    f"Tool '{tool_name}' not found in available functions"
+                                )
+
+            # ── Agent tool injection ─────────────────────────────────
+            if has_agents:
+                agent_tool_func = self._build_agent_tool(session)
+                if agent_tool_func is not None:
+                    active_tools.append(agent_tool_func)
+                    functions["agent"] = agent_tool_func
+
+            # If we ended up with nothing usable, bail out
             if not active_tools:
-                logger.warning("No valid tool functions found")
+                logger.debug("No active tools or agent tool to expose")
                 return None
+
+            # Ensure we have a ToolSettings (needed by the tool pipeline)
+            if tool_settings is None:
+                from .tools.config import ToolSettings as _TS
+
+                tool_settings = _TS()
 
             # Initialize tool execution service if needed
             if self.tool_execution_service is None:
                 self.tool_execution_service = ToolExecutionService(functions)
+            else:
+                # Make sure the execution service knows about the agent function
+                self.tool_execution_service.available_functions.update(functions)
 
-            # Create tool context
             return {
                 "tools_enabled": True,
                 "tools": active_tools,
@@ -306,10 +323,35 @@ class ChatController:
                 "tool_settings": tool_settings,
                 "session": session,
                 "available_functions": functions,
+                "context_window_service": self.context_window_service,
             }
 
         except Exception as e:
             logger.error(f"Error preparing tool context: {e}", exc_info=True)
+            return None
+
+    def _build_agent_tool(self, session) -> Optional[Any]:
+        """
+        Build the dynamic ``agent`` tool function for the current session.
+
+        Returns the callable if at least one valid agent is enabled,
+        otherwise ``None``.
+        """
+        from .agents.agent_tool import build_agent_tool_for_session
+        from .agents.discovery_service import AgentDiscoveryService
+
+        agent_settings = session.get_agent_settings()
+        if not agent_settings or not agent_settings.enabled_agents:
+            return None
+
+        try:
+            discovery = AgentDiscoveryService()
+            all_definitions = discovery.discover_agents()
+            return build_agent_tool_for_session(
+                agent_settings.enabled_agents, all_definitions
+            )
+        except Exception as e:
+            logger.error(f"Error building agent tool: {e}", exc_info=True)
             return None
 
     def _create_direct_session_options(

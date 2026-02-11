@@ -196,6 +196,7 @@ class SessionController:
                         "client": self.client,
                         "available_tools": tools,
                         "context_window": context_window,
+                        "context_window_service": self.context_window_service,
                     }
                 )
 

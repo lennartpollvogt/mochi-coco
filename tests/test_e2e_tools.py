@@ -597,9 +597,11 @@ __updated__ = ['new_amazing_tool']
 
         # Verify migration occurred
         assert hasattr(session.metadata, "format_version")
-        assert session.metadata.format_version == "1.2"
+        assert session.metadata.format_version == "1.3"
         assert hasattr(session.metadata, "tool_settings")
         assert session.metadata.tool_settings is None  # Default for migrated sessions
+        assert hasattr(session.metadata, "agent_settings")
+        assert session.metadata.agent_settings is None  # Default for migrated sessions
 
     def test_concurrent_tool_execution(self, complete_tools_setup):
         """Test that tool execution works correctly with multiple requests."""

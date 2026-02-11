@@ -211,7 +211,9 @@ class ToolAwareRenderer:
 
             # Process each tool call
             for tool_call in detected_tool_calls:
-                tool_result = self._handle_tool_call(tool_call, tool_settings)
+                tool_result = self._handle_tool_call(
+                    tool_call, tool_settings, tool_context
+                )
 
                 if tool_result:
                     # Add tool response to session
@@ -292,10 +294,16 @@ class ToolAwareRenderer:
         return result if result else interceptor.final_chunk
 
     def _handle_tool_call(
-        self, tool_call: Any, tool_settings: ToolSettings
+        self,
+        tool_call: Any,
+        tool_settings: ToolSettings,
+        tool_context: Optional[Dict] = None,
     ) -> Optional[ToolExecutionResult]:
         """
         Handle a single tool call with confirmation based on policy.
+
+        Routes agent tool calls to AgentExecutionService, all other tools
+        to ToolExecutionService.
 
         Returns:
             ToolExecutionResult or None if execution was denied
@@ -312,6 +320,11 @@ class ToolAwareRenderer:
         tool_name = tool_call.function.name
         arguments = tool_call.function.arguments if tool_call.function.arguments else {}
 
+        # ── Route agent tool calls to AgentExecutionService ──
+        if tool_name == "agent":
+            return self._handle_agent_tool_call(tool_call, arguments, tool_context)
+
+        # ── Handle regular tools ──
         # Create confirmation callback
         def confirm_callback(name: str, args: Dict) -> bool:
             if tool_settings.execution_policy == ToolExecutionPolicy.NEVER_CONFIRM:
@@ -329,6 +342,127 @@ class ToolAwareRenderer:
         )
 
         return result
+
+    def _handle_agent_tool_call(
+        self, tool_call: Any, arguments: Dict, tool_context: Optional[Dict] = None
+    ) -> ToolExecutionResult:
+        """
+        Handle an agent tool call by routing to AgentExecutionService.
+
+        Args:
+            tool_call: The tool call object from the LLM
+            arguments: Parsed arguments dictionary
+            tool_context: Tool context with session, model, etc.
+
+        Returns:
+            ToolExecutionResult with the agent's output
+        """
+        import time
+
+        from ..agents.execution_service import AgentExecutionService
+
+        start_time = time.time()
+        tool_name = "agent"
+
+        try:
+            # Extract required arguments
+            agent_name = arguments.get("agent", "")
+            instruction = arguments.get("instruction", "")
+            session_id = arguments.get("session_id", "")
+
+            if not agent_name:
+                return ToolExecutionResult(
+                    success=False,
+                    result=None,
+                    error_message="Agent tool call missing required 'agent' parameter",
+                    execution_time=time.time() - start_time,
+                    tool_name=tool_name,
+                )
+
+            if not instruction:
+                return ToolExecutionResult(
+                    success=False,
+                    result=None,
+                    error_message="Agent tool call missing required 'instruction' parameter",
+                    execution_time=time.time() - start_time,
+                    tool_name=tool_name,
+                )
+
+            # Get required context
+            if not tool_context:
+                return ToolExecutionResult(
+                    success=False,
+                    result=None,
+                    error_message="Agent tool call missing tool context",
+                    execution_time=time.time() - start_time,
+                    tool_name=tool_name,
+                )
+
+            session = tool_context.get("session")
+            model = tool_context.get("model")
+            client = tool_context.get("client")
+            context_window_service = tool_context.get("context_window_service")
+
+            if not session or not model or not client:
+                return ToolExecutionResult(
+                    success=False,
+                    result=None,
+                    error_message="Agent tool call missing required context (session, model, or client)",
+                    execution_time=time.time() - start_time,
+                    tool_name=tool_name,
+                )
+
+            # Get enabled agents from session
+            agent_settings = session.get_agent_settings()
+            enabled_agent_names = (
+                agent_settings.enabled_agents if agent_settings else []
+            )
+
+            # Create confirmation callback
+            def confirm_callback(name: str, args: Dict) -> bool:
+                # Use the same confirmation UI as regular tools
+                return self.confirmation_ui.confirm_tool_execution(name, args)
+
+            # Initialize agent execution service
+            from ..tools.config import ToolSettings as _ToolSettings
+
+            tool_settings = session.get_tool_settings() or _ToolSettings()
+
+            agent_service = AgentExecutionService(
+                client=client,
+                tool_settings=tool_settings,
+                context_window_service=context_window_service,
+            )
+
+            # Execute the agent
+            logger.info(
+                f"Routing agent tool call: agent={agent_name}, instruction_length={len(instruction)}"
+            )
+            result_text = agent_service.execute_agent(
+                agent_name=agent_name,
+                instruction=instruction,
+                session_id=session_id,
+                enabled_agent_names=enabled_agent_names,
+                session_model=model,
+                confirm_callback=confirm_callback,
+            )
+
+            return ToolExecutionResult(
+                success=True,
+                result=result_text,
+                execution_time=time.time() - start_time,
+                tool_name=tool_name,
+            )
+
+        except Exception as e:
+            logger.error(f"Agent tool execution failed: {e}", exc_info=True)
+            return ToolExecutionResult(
+                success=False,
+                result=None,
+                error_message=f"Agent execution failed: {str(e)}",
+                execution_time=time.time() - start_time,
+                tool_name=tool_name,
+            )
 
     def _add_tool_call_to_session(
         self, session: "ChatSession", message: Message, tool_calls: Any, model: str

@@ -529,7 +529,9 @@ class MenuDisplay:
         self,
         has_system_prompts: bool = False,
         has_tools: bool = False,
+        has_agents: bool = False,
         tool_settings=None,
+        agent_settings=None,
     ) -> None:
         """Enhanced command menu with dynamic tool options."""
 
@@ -576,6 +578,16 @@ class MenuDisplay:
                     (str(next_num), "📂 Enable Tools", "Select tools to use")
                 )
                 next_num += 1
+
+        if has_agents:
+            if agent_settings and agent_settings.is_enabled():
+                status = f"{len(agent_settings.enabled_agents)} agent(s) selected"
+                commands.append((str(next_num), "🤖 Change Agents", status))
+            else:
+                commands.append(
+                    (str(next_num), "🤖 Select Agents", "No agents selected")
+                )
+            next_num += 1
 
         if has_system_prompts:
             commands.append(

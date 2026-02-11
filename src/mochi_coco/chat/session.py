@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from ollama import ChatResponse
 
+from ..agents.config import AgentSettings
 from ..tools.config import ToolSettings
 
 
@@ -86,9 +87,11 @@ class SessionMetadata:
     summary: Optional[Dict[str, Any]] = None
     summary_model: Optional[str] = None
     # Add version for backward compatibility
-    format_version: str = "1.2"
+    format_version: str = "1.3"
     # Add tools settings
     tool_settings: Optional[ToolSettings] = None
+    # Add agent settings
+    agent_settings: Optional[AgentSettings] = None
     # Add dynamic context window configuration
     context_window_config: Optional[Dict[str, Any]] = None
 
@@ -131,9 +134,19 @@ class SessionMetadata:
                 }
             self.format_version = "1.2"
 
+        # Migrate from 1.2 to 1.3 (add agent settings)
+        if self.format_version == "1.2":
+            if not hasattr(self, "agent_settings"):
+                self.agent_settings = None
+            self.format_version = "1.3"
+
         # Handle legacy dict-based tool_settings regardless of version
         if hasattr(self, "tool_settings") and isinstance(self.tool_settings, dict):
             self.tool_settings = ToolSettings.from_dict(self.tool_settings)
+
+        # Handle legacy dict-based agent_settings regardless of version
+        if hasattr(self, "agent_settings") and isinstance(self.agent_settings, dict):
+            self.agent_settings = AgentSettings.from_dict(self.agent_settings)
 
 
 class ChatSession:
@@ -282,6 +295,8 @@ class ChatSession:
         metadata_dict = asdict(self.metadata)
         if self.metadata.tool_settings:
             metadata_dict["tool_settings"] = self.metadata.tool_settings.to_dict()
+        if self.metadata.agent_settings:
+            metadata_dict["agent_settings"] = self.metadata.agent_settings.to_dict()
 
         session_data = {
             "metadata": metadata_dict,
@@ -314,8 +329,9 @@ class ChatSession:
                 message_count=metadata_dict.get("message_count", 0),
                 summary=metadata_dict.get("summary"),
                 summary_model=metadata_dict.get("summary_model"),
-                format_version=metadata_dict.get("format_version", "1.1"),
+                format_version=metadata_dict.get("format_version", "1.3"),
                 tool_settings=metadata_dict.get("tool_settings"),
+                agent_settings=metadata_dict.get("agent_settings"),
                 context_window_config=metadata_dict.get("context_window_config"),
             )
 
@@ -487,4 +503,18 @@ class ChatSession:
         """Get tool settings for this session."""
         if hasattr(self.metadata, "tool_settings"):
             return self.metadata.tool_settings  # Already a ToolSettings object or None
+        return None
+
+    def has_agents_enabled(self) -> bool:
+        """Check if session has agents enabled."""
+        if hasattr(self.metadata, "agent_settings") and self.metadata.agent_settings:
+            return self.metadata.agent_settings.is_enabled()
+        return False
+
+    def get_agent_settings(self) -> Optional[AgentSettings]:
+        """Get agent settings for this session."""
+        if hasattr(self.metadata, "agent_settings"):
+            return (
+                self.metadata.agent_settings
+            )  # Already an AgentSettings object or None
         return None
