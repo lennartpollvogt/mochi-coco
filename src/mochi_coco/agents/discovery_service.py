@@ -64,6 +64,9 @@ class AgentDiscoveryService:
             if not agent_dir.is_dir():
                 continue
             agent_name = agent_dir.name
+            # Skip special directories
+            if agent_name.startswith("_") or agent_name.startswith("."):
+                continue
             definition = self._discover_agent(agent_name, agent_dir)
             if definition:
                 self._cached_definitions[agent_name] = definition
@@ -225,9 +228,9 @@ class AgentDiscoveryService:
     ) -> Dict[str, Callable]:
         """Load tool callables from the agent's __init__.py."""
         try:
-            sys.path.insert(0, str(agent_dir.parent))
+            # Load the __init__.py directly using a unique module name
             module = self._load_module(
-                module_name=f"agents.{agent_name}",
+                module_name=f"_mochi_agent_{agent_name}",
                 module_path=agent_dir / "__init__.py",
             )
             if not module:
@@ -250,9 +253,6 @@ class AgentDiscoveryService:
         except Exception as e:
             logger.error("Failed to load agent '%s' tools: %s", agent_name, e)
             return {}
-        finally:
-            if str(agent_dir.parent) in sys.path:
-                sys.path.remove(str(agent_dir.parent))
 
     def _load_module(self, module_name: str, module_path: Path) -> Optional[object]:
         """Load a module from a file path."""
