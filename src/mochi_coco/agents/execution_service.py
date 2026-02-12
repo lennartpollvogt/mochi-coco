@@ -186,6 +186,7 @@ class AgentExecutionService:
         session: ChatSession,
         response: ChatResponse,
         model: str,
+        content: str | None = None,
     ) -> None:
         """
         Persist an agent (assistant) response to the session.
@@ -198,10 +199,17 @@ class AgentExecutionService:
             session: The agent chat session.
             response: The ``ChatResponse`` from Ollama.
             model: Model name that produced the response.
+            content: Optional content to use instead of response.message.content.
+                When streaming, the final chunk may have empty content, so pass
+                the accumulated content here.
         """
+        # Use provided content if available, otherwise fall back to response content
+        final_content = (
+            content if content is not None else (response.message.content or "")
+        )
         message = SessionMessage(
             role="assistant",
-            content=response.message.content or "",
+            content=final_content,
             model=model,
             eval_count=getattr(response, "eval_count", None),
             prompt_eval_count=getattr(response, "prompt_eval_count", None),
@@ -602,7 +610,9 @@ class AgentExecutionService:
 
             # Save planning response to session
             if final_planning_chunk and planning_content.strip():
-                self.add_assistant_message(session, final_planning_chunk, model)
+                self.add_assistant_message(
+                    session, final_planning_chunk, model, content=planning_content
+                )
                 logger.debug(
                     f"Agent '{agent_name}': Planning response saved ({len(planning_content)} chars)"
                 )
@@ -786,7 +796,10 @@ class AgentExecutionService:
                             f"Agent '{agent_name}': Saving final assistant message with {len(execution_content)} chars"
                         )
                         self.add_assistant_message(
-                            session, final_execution_chunk, model
+                            session,
+                            final_execution_chunk,
+                            model,
+                            content=execution_content,
                         )
                     else:
                         logger.warning(
