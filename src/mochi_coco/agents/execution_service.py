@@ -635,14 +635,13 @@ class AgentExecutionService:
         # ── Phase 2: Execution (tools allowed, loop on tool calls) ──
         logger.info(f"Agent '{agent_name}': Starting execution phase")
         agent_tools = self.get_agent_tools_as_ollama(agent_def)
-        max_iterations = 10  # Safety limit to prevent infinite loops
         iteration = 0
 
         try:
-            while iteration < max_iterations:
+            while True:
                 iteration += 1
                 logger.debug(
-                    f"Agent '{agent_name}': Execution iteration {iteration}/{max_iterations}"
+                    f"Agent '{agent_name}': Execution iteration {iteration}"
                 )
 
                 # Build messages with ephemeral execution prompt
@@ -810,20 +809,6 @@ class AgentExecutionService:
 
                     # Exit loop
                     break
-
-            # Check if we hit iteration limit
-            if iteration >= max_iterations:
-                logger.warning(
-                    f"Agent '{agent_name}': Reached max iterations ({max_iterations})"
-                )
-                # Add a note to the session
-                error_result = ToolExecutionResult(
-                    success=False,
-                    result=None,
-                    error_message=f"Agent execution stopped: maximum iteration limit ({max_iterations}) reached",
-                    tool_name="system",
-                )
-                self.add_tool_response(session, "system", error_result)
 
         except Exception as e:
             logger.error(
