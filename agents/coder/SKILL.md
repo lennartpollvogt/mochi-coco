@@ -1,5 +1,4 @@
 ---
-model: gpt-oss:20b
 description: A coding agent with file system operations, code editing, and shell command execution capabilities.
 ---
 
